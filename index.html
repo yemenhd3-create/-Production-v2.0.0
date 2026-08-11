@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="description" content="مولد إعلانات الملابس — مجاني، مفتوح المصدر، ويعمل محليًا بدون إنترنت.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
+<title>مولد إعلانات الملابس</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">◈</span><div><strong>مولد إعلانات الملابس</strong><small>مجاني • مفتوح المصدر • Offline First</small></div></div>
+  <div class="status"><span id="onlineDot"></span><span id="onlineText">متصل</span></div>
+</header>
+
+<main class="shell">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">الأساس يعمل بدون AI</span>
+      <h1>حوّل صورة الملابس إلى إعلان جاهز.</h1>
+      <p>ارفع الصورة، أدخل البيانات، واختر القالب. الذكاء الاصطناعي اختياري لتحسين العرض وكتابة النص فقط.</p>
+    </div>
+    <div class="hero-actions">
+      <button class="secondary" id="installBtn" hidden>تثبيت التطبيق</button>
+      <button class="secondary" id="resetBtn">إعادة ضبط</button>
+    </div>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="create">إنشاء إعلان</button>
+    <button class="tab" data-tab="settings">إعدادات المركز</button>
+    <button class="tab" data-tab="ai">الذكاء الاصطناعي</button>
+    <button class="tab" data-tab="access">تفعيل البرنامج</button>
+    <button class="tab" data-tab="developer">المطور</button>
+  </nav>
+
+  <section id="create" class="tab-panel active">
+    <div class="grid two">
+      <article class="card">
+        <div class="card-title"><span>1</span><div><h2>صورة المنتج</h2><p>المعالجة الأساسية محلية.</p></div></div>
+        <label class="dropzone" id="dropzone">
+          <input id="imageInput" type="file" accept="image/*">
+          <div id="dropContent"><b>اضغط لرفع الصورة</b><small>أو اسحب الصورة هنا</small></div>
+          <img id="sourcePreview" alt="" hidden>
+        </label>
+        <div class="inline">
+          <label class="check"><input id="removeBg" type="checkbox" checked> معالجة الخلفية محليًا</label>
+          <select id="backgroundMode"><option value="soft">خلفية ناعمة</option><option value="white">أبيض</option><option value="dark">داكنة</option><option value="beige">بيج</option></select>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-title"><span>2</span><div><h2>بيانات الإعلان</h2><p>هذه البيانات يرسمها التطبيق، وليس AI.</p></div></div>
+        <div class="form-grid">
+          <label>اسم المنتج<input id="productName" placeholder="مثال: قميص صيفي"></label>
+          <label>السعر<input id="price" inputmode="decimal" placeholder="250"></label>
+          <label>السعر قبل الخصم<input id="oldPrice" inputmode="decimal" placeholder="300"></label>
+          <label>الكمية<input id="quantity" placeholder="متوفر"></label>
+          <label>المقاس<input id="size" placeholder="M / L / XL"></label>
+          <label>الألوان<input id="colors" placeholder="أسود، أبيض"></label>
+          <label>الفئة العمرية<input id="age" placeholder="18–30"></label>
+          <label>الجنس<select id="gender"><option value="">غير محدد</option><option>رجالي</option><option>نسائي</option><option>أطفال</option></select></label>
+        </div>
+        <label class="check"><input id="showOldPrice" type="checkbox" checked> إظهار السعر قبل الخصم</label>
+        <label class="check"><input id="showDetails" type="checkbox" checked> إظهار المقاس والألوان والكمية</label>
+        <div class="actions"><button class="primary" id="generateBtn">إنشاء الإعلان</button><button class="secondary" id="downloadBtn" disabled>تنزيل PNG</button></div>
+      </article>
+    </div>
+
+    <div class="grid preview-grid">
+      <article class="card">
+        <div class="card-title"><span>3</span><div><h2>المعاينة</h2><p>التصميم محلي بالكامل.</p></div></div>
+        <div class="canvas-wrap"><canvas id="adCanvas" width="1080" height="1350"></canvas></div>
+        <div class="actions"><button class="secondary" id="shareBtn" disabled>مشاركة</button><button class="whatsapp" id="whatsappBtn" disabled>WhatsApp</button></div>
+      </article>
+      <article class="card copy-card">
+        <div class="card-title"><span>4</span><div><h2>النص التسويقي</h2><p>يمكن توليده محليًا أو بالـAI.</p></div></div>
+        <textarea id="marketingText" rows="11" placeholder="سيظهر هنا النص التسويقي..."></textarea>
+        <div class="actions"><button class="secondary" id="localCopyBtn">اقتراح نص محلي</button><button class="primary" id="aiTextBtn">توليد بالـAI</button></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="settings" class="tab-panel">
+    <article class="card">
+      <div class="card-title"><span>⚙</span><div><h2>هوية مركز الملابس</h2><p>بعد الحفظ تصبح القوالب مخصصة للمركز.</p></div></div>
+      <div class="form-grid">
+        <label>اسم المركز<input id="shopName" placeholder="اسم مركز الملابس"></label>
+        <label>الهاتف<input id="shopPhone" placeholder="+967 ..."></label>
+        <label>العنوان<input id="shopAddress" placeholder="المدينة / الحي"></label>
+        <label>نص قصير<input id="shopTagline" placeholder="أناقة تستحقها"></label>
+        <label>العملة<input id="currency" value="ر.س"></label>
+        <label>لون الهوية<input id="accent" type="color" value="#111827"></label>
+      </div>
+      <label class="check"><input id="showShopName" type="checkbox" checked> إظهار اسم المركز</label>
+      <label class="check"><input id="showContact" type="checkbox" checked> إظهار الاتصال والعنوان</label>
+      <div class="actions"><button class="primary" id="saveSettings">حفظ إعدادات المركز</button></div>
+    </article>
+  </section>
+
+  <section id="ai" class="tab-panel">
+    <article class="card">
+      <div class="card-title"><span>AI</span><div><h2>مفاتيح الذكاء الاصطناعي</h2><p>يمكنك إضافة عدد غير محدود من المفاتيح. كل مفتاح مرتبط بمزود ونموذج.</p></div></div>
+      <div class="notice">المفاتيح تحفظ محليًا على جهازك. لا نضعها داخل كود التطبيق ولا نرسلها إلى خادم المشروع.</div>
+      <div id="providerList"></div>
+      <div class="provider-form">
+        <select id="providerType">
+          <option value="openai-compatible">OpenAI-compatible</option>
+          <option value="custom">Custom JSON API</option>
+        </select>
+        <input id="providerName" placeholder="اسم المزود">
+        <input id="providerEndpoint" placeholder="https://.../v1">
+        <input id="providerModel" placeholder="اسم النموذج">
+        <input id="providerKey" type="password" placeholder="API Key">
+        <button class="primary" id="addProvider">إضافة المفتاح</button>
+      </div>
+      <div class="ai-grid">
+        <article class="mini-card"><b>Virtual Try-On</b><p>اختياري. يحتاج مزود image-to-image فعلي. لن نخدع المستخدم إذا كان النموذج لا يدعم ذلك.</p><button class="secondary" id="aiTryOnBtn">محاولة Try-On</button></article>
+        <article class="mini-card"><b>النص التسويقي</b><p>يمكن استخدام نموذج نصي متعدد اللغات لإنتاج وصف عربي قصير.</p><button class="secondary" id="testAiBtn">اختبار المفتاح</button></article>
+      </div>
+    </article>
+  </section>
+
+  <section id="access" class="tab-panel">
+    <article class="card narrow">
+      <div class="card-title"><span>🔑</span><div><h2>تفعيل البرنامج</h2><p>لإبقاء الاستخدام مخصصًا لمراكز الملابس.</p></div></div>
+      <label>رمز الاستخدام<input id="accessCode" placeholder="أدخل رمز التفعيل"></label>
+      <div class="actions"><button class="primary" id="activateBtn">تفعيل</button></div>
+      <p id="activationStatus" class="muted"></p>
+    </article>
+  </section>
+
+  <section id="developer" class="tab-panel">
+    <article class="card narrow">
+      <div class="card-title"><span>DEV</span><div><h2>قسم المطور</h2><p>إدارة الحسابات والرموز فقط.</p></div></div>
+      <label>مفتاح المطور<input id="developerSecret" type="password" placeholder="Server developer secret"></label>
+      <label>مدة الرمز<select id="tokenDays"><option value="7">7 أيام</option><option value="30">30 يومًا</option><option value="90">90 يومًا</option><option value="365">سنة</option></select></label>
+      <div class="actions"><button class="primary" id="createTokenBtn">توليد رمز استخدام</button></div>
+      <pre id="tokenOutput" class="output"></pre>
+    </article>
+  </section>
+</main>
+
+<footer>Clothing Ad Generator • Open Source • Offline First</footer>
+<script src="./app.js" defer></script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});</script>
+</body>
+</html>
