@@ -1,0 +1,7 @@
+import crypto from 'node:crypto';
+export function b64u(buf){return Buffer.from(buf).toString('base64').replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
+export function b64uJson(x){return b64u(Buffer.from(JSON.stringify(x),'utf8'))}
+export function sign(payload,privateKey){return b64u(crypto.sign(null,Buffer.from(payload),privateKey))}
+export function createSignedToken({id,issuedAt,expiresAt,privateKey,version=1}){const payload=b64uJson({v:version,id,issuedAt,expiresAt});return `${payload}.${sign(payload,privateKey)}`}
+export function verifySignedToken(token,publicKey,now=Date.now()){if(typeof token!=='string')return {ok:false,error:'invalid-token'};const [p,s,...extra]=token.split('.');if(!p||!s||extra.length)return {ok:false,error:'invalid-format'};if(!crypto.verify(null,Buffer.from(p),publicKey,Buffer.from(s.replaceAll('-','+').replaceAll('_','/'),'base64')))return {ok:false,error:'bad-signature'};let o;try{o=JSON.parse(Buffer.from(p,'base64url').toString('utf8'))}catch{return {ok:false,error:'bad-payload'};};if(o.v!==1||typeof o.id!=='string'||typeof o.issuedAt!=='number'||typeof o.expiresAt!=='number')return {ok:false,error:'bad-payload'};if(now<o.issuedAt-60000)return {ok:false,error:'not-yet-valid'};if(now>=o.expiresAt)return {ok:false,error:'expired'};return {ok:true,payload:o}}
+export function makeActivationRecord(code,days,now=Date.now()){const d=Math.min(Math.max(Number(days)||30,1),3650);return {code,createdAt:now,expiresAt:now+d*86400000}}
