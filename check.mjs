@@ -1,0 +1,10 @@
+import fs from 'node:fs';import path from 'node:path';
+const root=path.resolve('.');
+const required=['package.json','README.md','ARCHITECTURE.md','DEPLOYMENT.md','.env.example','public/index.html','public/app.js','public/styles.css','public/sw.js','public/manifest.webmanifest','server/index.mjs','server/token-lib.mjs','tests/core.test.mjs'];
+const missing=required.filter(x=>!fs.existsSync(path.join(root,x)));if(missing.length)throw new Error('Missing: '+missing.join(', '));
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8'),js=fs.readFileSync(path.join(root,'public/app.js'),'utf8'),server=fs.readFileSync(path.join(root,'server/index.mjs'),'utf8');
+for(const id of ['imageInput','adCanvas','productName','price','addProvider','activateBtn','createTokenBtn'])if(!html.includes(`id="${id}"`))throw new Error('Missing UI id: '+id);
+for(const marker of ['state.activeProvider','protectKey','verifyActivation','/api/activate','/api/developer/tokens'])if(!js.includes(marker))throw new Error('Missing feature: '+marker);
+if(/change-this-before-production/i.test(server))throw new Error('Forbidden default production secret');
+for(const f of ['public/index.html','public/app.js','public/styles.css'])if(/DEVELOPER_SECRET|change-this-before-production/i.test(fs.readFileSync(path.join(root,f),'utf8')))throw new Error('Secret leaked into public: '+f);
+console.log('Production architecture check: PASS');
