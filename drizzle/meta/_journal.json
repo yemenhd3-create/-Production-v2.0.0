@@ -15,6 +15,13 @@
       "when": 1786567115076,
       "tag": "0001_perfect_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786573606338,
+      "tag": "0002_simple_marvex",
+      "breakpoints": true
     }
   ]
 }

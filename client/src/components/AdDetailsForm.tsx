@@ -87,6 +87,28 @@ export default function AdDetailsForm({ details, onChange }: AdDetailsFormProps)
             placeholder="مثال: 12 قطعة"
           />
         </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-bold text-foreground">اسم المتجر <span className="font-normal text-muted-foreground">يظهر أسفل الإعلان</span></span>
+          <Input
+            className={fieldClass}
+            value={details.storeName}
+            onChange={event => update('storeName', event.target.value)}
+            placeholder="مثال: متجر مروان"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-bold text-foreground">رقم التواصل <span className="font-normal text-muted-foreground">يظهر أسفل الإعلان</span></span>
+          <Input
+            className={fieldClass}
+            dir="ltr"
+            inputMode="tel"
+            value={details.storePhone}
+            onChange={event => update('storePhone', event.target.value)}
+            placeholder="770976559"
+          />
+        </label>
       </div>
 
       <label className="block space-y-2">
@@ -165,28 +187,6 @@ export default function AdDetailsForm({ details, onChange }: AdDetailsFormProps)
               placeholder="أناقة ناعمة لكل يوم"
             />
           </label>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-bold text-foreground">اسم المتجر</span>
-              <Input
-                className={fieldClass}
-                value={details.storeName}
-                onChange={event => update('storeName', event.target.value)}
-                placeholder="اسم متجرك"
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-bold text-foreground">رقم التواصل</span>
-              <Input
-                className={fieldClass}
-                dir="ltr"
-                inputMode="tel"
-                value={details.storePhone}
-                onChange={event => update('storePhone', event.target.value)}
-                placeholder="770976559"
-              />
-            </label>
-          </div>
           <label className="block space-y-2">
             <span className="text-sm font-bold text-foreground">نص تسويقي خاص</span>
             <Textarea

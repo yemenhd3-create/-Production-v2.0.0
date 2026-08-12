@@ -12,6 +12,8 @@ export function buildMarketingText(details: AdDetails): string {
   const headline = details.headline.trim();
   const features = details.features.filter(Boolean).slice(0, 2).join('، ');
   const price = details.price.trim() ? ` بسعر ${details.price.trim()} ${details.currency}` : '';
+  const store = details.storeName.trim();
+  const phone = details.storePhone.trim();
   const callToAction = price
     ? `${price}. اطلبها الآن قبل نفاد الكمية.`
     : 'اطلبها الآن قبل نفاد الكمية.';
@@ -21,6 +23,8 @@ export function buildMarketingText(details: AdDetails): string {
     headline,
     features ? `تتميز بـ ${features}` : '',
     callToAction,
+    store ? `متوفر لدى ${store}` : '',
+    phone ? `للطلب: ${phone}` : '',
   ]
     .filter(Boolean)
     .join(' — ');
@@ -39,6 +43,7 @@ export type CloudTryOnResponse = {
   imageUrl: string;
   providerId: string;
   message: string;
+  isTransparent?: boolean;
 };
 
 /** Resolves the exact image source the Home workflow passes to Canvas. */
@@ -57,6 +62,7 @@ export async function resolveTryOnVisualSource(
         imageUrl: cloudResult.imageUrl,
         providerId: cloudResult.providerId,
         message: cloudResult.message,
+        isTransparent: cloudResult.isTransparent === true,
       },
     };
   } catch (error) {

@@ -37,9 +37,13 @@ describe('three-step advertisement workflow defaults', () => {
       ...DEFAULT_AD_DETAILS,
       productName: 'فستان بناتي',
       price: '5000',
+      storeName: 'متجر مروان',
+      storePhone: '770976559',
     });
 
     expect(text).toContain('فستان بناتي');
+    expect(text).toContain('متجر مروان');
+    expect(text).toContain('770976559');
     expect(createLocalFallbackResult()).toMatchObject({ status: 'fallback' });
   });
 

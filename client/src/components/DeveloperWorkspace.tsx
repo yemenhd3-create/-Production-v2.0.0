@@ -1,8 +1,10 @@
 import type { DeveloperProviderSummary } from '@shared/types';
 import { Check, KeyRound, LockKeyhole, LogOut, Plus, RefreshCw, ServerCog, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Input } from './ui/input';
+
+const DeveloperPersonalConsole = lazy(() => import('./DeveloperPersonalConsole'));
 
 type ProviderDraft = {
   id?: string;
@@ -168,7 +170,7 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
         <div className="space-y-4">
           <label className="block space-y-2"><span className="text-sm font-bold">اسم المزود</span><Input className="h-11 rounded-xl" value={draft.name} onChange={event => updateDraft('name', event.target.value)} placeholder="مثال: FASHN" /></label>
           <label className="block space-y-2"><span className="text-sm font-bold">رابط API</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.baseUrl} onChange={event => updateDraft('baseUrl', event.target.value)} placeholder="https://api.example.com/v1" /></label>
-          <label className="block space-y-2"><span className="text-sm font-bold">اسم النموذج أو العملية</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.model} onChange={event => updateDraft('model', event.target.value)} placeholder="virtual-try-on" /></label>
+          <label className="block space-y-2"><span className="text-sm font-bold">اسم النموذج أو العملية</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.model} onChange={event => updateDraft('model', event.target.value)} placeholder="product-to-model" /><span className="block text-xs leading-5 text-muted-foreground">للتلبيس اكتب <b dir="ltr">product-to-model</b>. ولـ PNG شفاف أضف مزوداً ثانياً باسم <b dir="ltr">background-remove</b> بنفس بيانات API أو حسب مزودك.</span></label>
           <label className="block space-y-2"><span className="text-sm font-bold">مفتاح API {draft.id && <span className="font-normal text-muted-foreground">اتركه فارغاً للإبقاء على المفتاح السابق</span>}</span><Input className="h-11 rounded-xl" dir="ltr" type="password" value={draft.apiKey} onChange={event => updateDraft('apiKey', event.target.value)} placeholder="لن يظهر المفتاح بعد الحفظ" autoComplete="off" /></label>
           <button type="button" onClick={() => updateDraft('enabled', !draft.enabled)} className="flex items-center gap-3 text-sm font-bold"><span className={`flex h-6 w-6 items-center justify-center rounded-full ${draft.enabled ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>{draft.enabled && <Check size={14} />}</span>تفعيل هذا المزود</button>
           <div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setDraft(emptyDraft())} className="min-h-12 rounded-xl bg-secondary text-sm font-black text-primary">إلغاء</button><button type="button" disabled={saveMutation.isPending || !draft.name || !draft.baseUrl || !draft.model || (!draft.id && !draft.apiKey)} onClick={submitProvider} className="min-h-12 rounded-xl bg-primary text-sm font-black text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? 'جارٍ الحفظ…' : 'حفظ المزود'}</button></div>
@@ -188,6 +190,7 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
         {!diagnostics.length && <p className="rounded-2xl bg-secondary/70 p-4 text-sm text-muted-foreground">لا توجد أحداث في الجلسة الحالية.</p>}
         <div className="space-y-2">{diagnostics.map(entry => <div key={entry.id} className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-3"><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${entry.level === 'success' ? 'bg-emerald-500' : entry.level === 'error' ? 'bg-red-500' : 'bg-primary'}`} /><div className="min-w-0 flex-1"><p className="text-sm font-medium text-foreground">{entry.message}</p><p className="mt-1 text-xs text-muted-foreground">{entry.at}</p></div></div>)}</div>
       </section>
+      <Suspense fallback={<section className="rounded-[28px] bg-white p-6 text-center text-sm text-muted-foreground shadow-[0_12px_30px_rgba(37,35,95,0.06)]">جارٍ فتح أدوات المساحة الشخصية…</section>}><DeveloperPersonalConsole /></Suspense>
       <button type="button" onClick={onBack} className="w-full py-2 text-sm font-bold text-muted-foreground">العودة إلى الإنشاء</button>
     </section>
   );

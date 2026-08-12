@@ -1,0 +1,86 @@
+import { Archive, BellRing, CheckCircle2, MessageSquareText, ShieldBan, UsersRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { trpc } from '@/lib/trpc';
+
+export default function DeveloperPersonalConsole() {
+  const utils = trpc.useUtils();
+  const announcementsQuery = trpc.developer.personal.announcements.useQuery();
+  const messagesQuery = trpc.developer.personal.messages.useQuery();
+  const usersQuery = trpc.developer.personal.users.useQuery();
+  const [announcementId, setAnnouncementId] = useState<number | undefined>();
+  const [announcement, setAnnouncement] = useState('');
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    const active = announcementsQuery.data?.find(item => item.isActive === 1) ?? announcementsQuery.data?.[0];
+    if (!active || announcementId) return;
+    setAnnouncementId(active.id);
+    setAnnouncement(active.message);
+    setIsActive(active.isActive === 1);
+  }, [announcementId, announcementsQuery.data]);
+
+  const saveAnnouncement = trpc.developer.personal.saveAnnouncement.useMutation({
+    onSuccess: async () => {
+      toast.success('تم حفظ رسالة المطور.');
+      await utils.developer.personal.announcements.invalidate();
+    },
+    onError: error => toast.error(error.message || 'تعذر حفظ رسالة المطور.'),
+  });
+  const changeMessageStatus = trpc.developer.personal.updateMessageStatus.useMutation({
+    onSuccess: async () => utils.developer.personal.messages.invalidate(),
+    onError: error => toast.error(error.message || 'تعذر تحديث حالة الرسالة.'),
+  });
+  const setUserAccess = trpc.developer.personal.setUserAccess.useMutation({
+    onSuccess: async () => {
+      toast.success('تم تحديث حالة الحساب.');
+      await utils.developer.personal.users.invalidate();
+    },
+    onError: error => toast.error(error.message || 'تعذر تحديث حالة الحساب.'),
+  });
+
+  const userCount = usersQuery.data?.length ?? 0;
+  const activeUsers = usersQuery.data?.filter(user => user.isDisabled !== 1).length ?? 0;
+  const newMessages = messagesQuery.data?.filter(message => message.status === 'new').length ?? 0;
+
+  return (
+    <section className="space-y-5" dir="rtl">
+      <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
+        <div className="mb-4 flex items-center gap-2 text-primary"><UsersRound size={20} /><h3 className="font-black">ملخص المساحة الشخصية</h3></div>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <Metric label="الحسابات" value={userCount} />
+          <Metric label="المفعّلة" value={activeUsers} />
+          <Metric label="رسائل جديدة" value={newMessages} />
+        </div>
+      </section>
+
+      <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
+        <div className="flex items-center gap-2 text-primary"><BellRing size={20} /><h3 className="font-black">إعلان عام للمستخدمين</h3></div>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">يظهر هذا الإعلان للحسابات المفعّلة في واجهة التطبيق ويمكن الضغط عليه لفتحه كاملاً.</p>
+        <textarea value={announcement} onChange={event => setAnnouncement(event.target.value)} maxLength={1200} className="mt-4 min-h-28 w-full rounded-2xl border border-stone-200 p-4 text-right text-sm outline-none focus:border-primary" placeholder="مثال: تم تحسين قالب الإعلان اليوم…" />
+        <button type="button" onClick={() => setIsActive(current => !current)} className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-primary"><span className={`flex h-6 w-6 items-center justify-center rounded-full ${isActive ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>{isActive && <CheckCircle2 size={14} />}</span>إظهار الإعلان للمستخدمين</button>
+        <button type="button" disabled={!announcement.trim() || saveAnnouncement.isPending} onClick={() => saveAnnouncement.mutate({ id: announcementId, message: announcement.trim(), isActive })} className="mt-4 min-h-12 w-full rounded-xl bg-primary text-sm font-black text-primary-foreground disabled:opacity-50">{saveAnnouncement.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعلان العام'}</button>
+      </section>
+
+      <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
+        <div className="mb-4 flex items-center gap-2 text-primary"><MessageSquareText size={20} /><h3 className="font-black">رسائل المستخدمين</h3></div>
+        {!messagesQuery.data?.length && <p className="rounded-2xl bg-secondary/70 p-4 text-sm text-muted-foreground">لا توجد رسائل محفوظة حتى الآن.</p>}
+        <div className="space-y-3">
+          {messagesQuery.data?.map(message => <article key={message.id} className="rounded-2xl border border-stone-100 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-foreground">{message.userName || 'مستخدم بلا اسم'}</p><p className="mt-1 text-xs text-muted-foreground" dir="ltr">{message.userEmail || 'لا يوجد بريد ظاهر'}</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${message.status === 'new' ? 'bg-amber-50 text-amber-800' : 'bg-secondary text-muted-foreground'}`}>{message.status === 'new' ? 'جديدة' : message.status === 'read' ? 'مقروءة' : 'مؤرشفة'}</span></div><p className="mt-3 text-sm leading-6 text-foreground">{message.message}</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => changeMessageStatus.mutate({ id: message.id, status: 'read' })} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">مقروءة</button><button type="button" onClick={() => changeMessageStatus.mutate({ id: message.id, status: 'archived' })} className="inline-flex items-center gap-1 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-primary"><Archive size={14} /> أرشفة</button></div></article>)}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
+        <div className="mb-4 flex items-center gap-2 text-primary"><ShieldBan size={20} /><h3 className="font-black">الحسابات والصلاحية</h3></div>
+        {!usersQuery.data?.length && <p className="rounded-2xl bg-secondary/70 p-4 text-sm text-muted-foreground">لم يسجل أي مستخدم بعد.</p>}
+        <div className="space-y-3">
+          {usersQuery.data?.map(user => <article key={user.id} className="flex items-center justify-between gap-3 rounded-2xl border border-stone-100 p-4"><div className="min-w-0"><p className="truncate font-black text-foreground">{user.name || 'مستخدم بلا اسم'}</p><p className="mt-1 truncate text-xs text-muted-foreground" dir="ltr">{user.email || user.loginMethod || `ID ${user.id}`}</p></div><button type="button" disabled={setUserAccess.isPending} onClick={() => setUserAccess.mutate({ id: user.id, isDisabled: user.isDisabled !== 1 })} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold ${user.isDisabled === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{user.isDisabled === 1 ? 'إعادة تفعيل' : 'إيقاف الحساب'}</button></article>)}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-2xl bg-secondary/70 p-3"><p className="text-2xl font-black text-primary">{value}</p><p className="mt-1 text-xs font-bold text-muted-foreground">{label}</p></div>;
+}

@@ -14,12 +14,13 @@ import {
 } from '@shared/adWorkflow';
 import AdDetailsForm from '@/components/AdDetailsForm';
 import ImageUploader from '@/components/ImageUploader';
+import PersonalMessageCenter from '@/components/PersonalMessageCenter';
 import SharePanel from '@/components/SharePanel';
 import { TryOnStatusNotice } from '@/components/TryOnStatusNotice';
 import UserTemplateSettings from '@/components/UserTemplateSettings';
 import { renderAd } from '@/lib/canvasRenderer';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
-import { getFromStorage, saveToStorage } from '@/lib/storage';
+import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import {
@@ -36,6 +37,7 @@ import {
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
 const AboutApp = React.lazy(() => import('@/components/AboutApp'));
 const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorkspace'));
+const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
   { id: 'upload', label: 'رفع الملابس' },
@@ -59,8 +61,9 @@ export default function Home() {
     message: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer'>('create');
+  const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
   const tryOnMutation = trpc.tryOn.run.useMutation();
+  const announcementQuery = trpc.personal.announcement.useQuery();
 
   useEffect(() => {
     const savedDetails = getFromStorage<AdDetails>(StorageKeys.LAST_AD_DETAILS);
@@ -104,6 +107,22 @@ export default function Home() {
     setCurrentStep('upload');
   };
 
+  const clearAdSession = () => {
+    if (!window.confirm('هل تريد مسح صورة الملابس وبيانات الإعلان والتصميم الحالي؟')) return;
+    if (productImage.startsWith('blob:')) URL.revokeObjectURL(productImage);
+    if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
+    setProductImage('');
+    setGeneratedAd('');
+    setMarketingText('');
+    setAdDetails(EMPTY_AD_DETAILS);
+    setTryOnResult({ status: 'idle', message: '' });
+    setCurrentStep('upload');
+    setActiveView('create');
+    removeFromStorage(StorageKeys.LAST_AD_DETAILS);
+    removeFromStorage(StorageKeys.LAST_WORKFLOW_STEP);
+    toast.success('تم مسح جلسة الإعلان. يمكنك بدء تصميم جديد الآن.');
+  };
+
   const generateAd = async () => {
     if (!productImage) {
       setCurrentStep('upload');
@@ -132,7 +151,7 @@ export default function Home() {
 
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, imageForCanvas, dimensions),
+        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: tryOnWorkflow.result.isTransparent ? 'transparentPerson' : 'garment' }),
         15_000,
         'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
       );
@@ -154,7 +173,7 @@ export default function Home() {
     if (!generatedAd) return;
     try {
       downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
-      toast.success('تم بدء تنزيل الإعلان بصيغة PNG.');
+      toast.success('تم حفظ تصميم PNG. افتح التنزيلات أو المعرض لإرساله في واتساب.');
     } catch {
       toast.error('تعذّر تنزيل الإعلان. حاول مرة أخرى.');
     }
@@ -168,8 +187,9 @@ export default function Home() {
         toast.success('تم فتح نافذة المشاركة. اختر واتساب لإرسال الإعلان.');
         return;
       }
+      downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
       shareToWhatsApp('', marketingText);
-      toast.success('تم فتح واتساب بالنص التسويقي. أرفق صورة الإعلان التي نزّلتها.');
+      toast.success('حُفظ التصميم وفتح واتساب بالنص فقط. أرفق ملف PNG من التنزيلات؛ لا نشارك رابط المعاينة المؤقت.');
     } catch {
       toast.error('تعذّرت المشاركة عبر واتساب. جرّب تنزيل الصورة أولاً.');
     }
@@ -203,14 +223,10 @@ export default function Home() {
               <p className="text-xs text-muted-foreground">مشروع شخصي تعليمي</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveView('settings')}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95"
-            aria-label="الإعدادات"
-          >
-            <Settings size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={19} /></button>
+            <button type="button" onClick={() => setActiveView('settings')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95" aria-label="الإعدادات"><Settings size={20} /></button>
+          </div>
         </div>
       </header>
 
@@ -251,6 +267,8 @@ export default function Home() {
           />
         )}
 
+        {activeView === 'messages' && <PersonalMessageCenter onBack={() => setActiveView('create')} />}
+
         {activeView === 'about' && (
           <React.Suspense fallback={<PageLoading label="جارٍ فتح حول التطبيق…" />}>
             <AboutApp onBack={() => setActiveView('settings')} />
@@ -261,6 +279,10 @@ export default function Home() {
           <React.Suspense fallback={<PageLoading label="جارٍ فتح لوحة المطور…" />}>
             <DeveloperWorkspace onBack={() => setActiveView('create')} />
           </React.Suspense>
+        )}
+
+        {activeView === 'create' && announcementQuery.data && (
+          <button type="button" onClick={() => setActiveView('messages')} className="mb-5 w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm leading-6 text-amber-950"><span className="font-black">رسالة من المطور: </span>{announcementQuery.data.message}</button>
         )}
 
         {activeView === 'create' && currentStep === 'upload' && (
@@ -374,7 +396,7 @@ export default function Home() {
                   <div className="mb-3 flex items-center gap-2 text-primary"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></div>
                   <p className="text-sm leading-7 text-foreground">{marketingText}</p>
                 </section>
-                <SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} />
+                <SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} />
               </>
             )}
           </section>

@@ -16,15 +16,17 @@ export default function ImageUploader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleFileSelect = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('الرجاء اختيار صورة');
+    setErrorMessage('');
+    if (!isSupportedImage(file)) {
+      setErrorMessage('اختر صورة بصيغة JPG أو PNG أو WebP. إذا كانت الصورة من واتساب، احفظها أولاً في معرض الهاتف ثم اخترها من جديد.');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('حجم الصورة كبير جداً (الحد الأقصى 10 ميجابايت)');
+      setErrorMessage('حجم الصورة أكبر من 10 ميجابايت. اختر نسخة أصغر أو قصّ الصورة من معرض الهاتف ثم أعد المحاولة.');
       return;
     }
 
@@ -35,7 +37,7 @@ export default function ImageUploader({
       onImageSelect(imageUrl, file);
     } catch (error) {
       console.error('Failed to prepare image:', error);
-      alert('فشل في قراءة الصورة');
+      setErrorMessage('تعذّر تجهيز هذه الصورة. جرّب نسخة JPG أو PNG محفوظة في معرض الهاتف، وتأكد أن المتصفح يملك إذن الوصول للصور.');
     } finally {
       setIsLoading(false);
     }
@@ -74,6 +76,8 @@ export default function ImageUploader({
     if (files && files.length > 0) {
       handleFileSelect(files[0]);
     }
+    // يسمح بإعادة اختيار الملف نفسه بعد تصحيح مشكلة أو تغيير أذونات الصور.
+    e.currentTarget.value = '';
   };
 
   return (
@@ -132,6 +136,8 @@ export default function ImageUploader({
             الحد الأقصى للحجم: 10 ميجابايت
           </p>
 
+          {errorMessage && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800">{errorMessage}</p>}
+
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
@@ -166,24 +172,52 @@ export default function ImageUploader({
 async function createOptimizedImage(file: File): Promise<string> {
   const sourceUrl = URL.createObjectURL(file);
   try {
-    const image = await loadFileImage(sourceUrl);
-    const maxSide = 1600;
-    const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
-    const width = Math.max(1, Math.round(image.width * ratio));
-    const height = Math.max(1, Math.round(image.height * ratio));
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Canvas is unavailable');
-
-    context.drawImage(image, 0, 0, width, height);
-    const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-    const blob = await canvasToBlob(canvas, outputType, 0.88);
-    return URL.createObjectURL(blob);
+    try {
+      return await optimizeLoadedImage(await loadFileImage(sourceUrl), file.type);
+    } catch (objectUrlError) {
+      // بعض متصفحات Android تفشل أحياناً في فك ملف المختار عبر Blob URL رغم أن FileReader يستطيع قراءته.
+      console.warn('Blob URL image read failed; retrying through FileReader.', objectUrlError);
+      const dataUrl = await readFileAsDataUrl(file);
+      return await optimizeLoadedImage(await loadFileImage(dataUrl), file.type);
+    }
+  } catch (error) {
+    // لا نتابع إلى الإعلان بمصدر لا يمكن للـ Canvas رسمه، كي لا تظهر رسالة فشل متأخرة ومربكة.
+    throw error;
   } finally {
     URL.revokeObjectURL(sourceUrl);
   }
+}
+
+async function optimizeLoadedImage(image: HTMLImageElement, mimeType: string): Promise<string> {
+  const maxSide = 1600;
+  const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+  const width = Math.max(1, Math.round((image.naturalWidth || image.width) * ratio));
+  const height = Math.max(1, Math.round((image.naturalHeight || image.height) * ratio));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas is unavailable');
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, width, height);
+  const outputType = mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+  const blob = await canvasToBlob(canvas, outputType, 0.88);
+  return URL.createObjectURL(blob);
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('تعذرت قراءة ملف الصورة من الهاتف'));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isSupportedImage(file: File) {
+  if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return true;
+  return /\.(jpe?g|png|webp)$/i.test(file.name);
 }
 
 function loadFileImage(sourceUrl: string): Promise<HTMLImageElement> {

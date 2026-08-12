@@ -16,12 +16,16 @@ class LoadedImage {
 
 function createContext() {
   const noop = () => undefined;
+  const fillText = vi.fn();
+  const drawImage = vi.fn();
   return {
     fillRect: noop, stroke: noop, save: noop, restore: noop, beginPath: noop,
-    arc: noop, fill: noop, fillText: noop, drawImage: noop, arcTo: noop,
+    arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
     moveTo: noop, lineTo: noop, closePath: noop,
     measureText: (text: string) => ({ width: text.length * 12 }),
-  } as unknown as CanvasRenderingContext2D;
+    __fillText: fillText,
+    __drawImage: drawImage,
+  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn> };
 }
 
 describe('Canvas advertisement renderer', () => {
@@ -51,7 +55,7 @@ describe('Canvas advertisement renderer', () => {
 
   it('renders a PNG Blob URL at the requested export dimensions without mocking renderAd', async () => {
     const result = await renderAd(
-      { ...DEFAULT_AD_DETAILS, productName: 'عباية عملية', price: '5000', discount: '20', storeName: 'متجر مروان' },
+      { ...DEFAULT_AD_DETAILS, productName: 'عباية عملية', price: '5000', discount: '20', storeName: 'متجر مروان', storePhone: '770976559' },
       { ...DEFAULT_TEMPLATE_SETTINGS, size: 'story' },
       'blob:garment-image',
       { width: 540, height: 960 }
@@ -61,5 +65,19 @@ describe('Canvas advertisement renderer', () => {
     expect(createdCanvas?.width).toBe(540);
     expect(createdCanvas?.height).toBe(960);
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(context.__fillText).toHaveBeenCalledWith('متجر مروان', expect.any(Number), expect.any(Number));
+    expect(context.__fillText).toHaveBeenCalledWith('770976559', expect.any(Number), expect.any(Number));
+  });
+
+  it('anchors a transparent on-model result near the bottom of the white product card', async () => {
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:garment-image', { width: 1080, height: 1350, visualMode: 'garment' });
+    const garmentY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
+
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:transparent-person', { width: 1080, height: 1350, visualMode: 'transparentPerson' });
+    const personY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
+
+    expect(personY).toBeGreaterThan(garmentY);
   });
 });

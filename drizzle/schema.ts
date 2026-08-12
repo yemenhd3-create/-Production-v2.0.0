@@ -17,6 +17,7 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  isDisabled: int("isDisabled").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -38,3 +39,25 @@ export const developerProviders = mysqlTable("developer_providers", {
 });
 
 export type DeveloperProvider = typeof developerProviders.$inferSelect;
+
+/** رسالة عامة يحررها المطور وتظهر للحسابات المفعّلة فقط. */
+export const appAnnouncements = mysqlTable("app_announcements", {
+  id: int("id").autoincrement().primaryKey(),
+  message: text("message").notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** رسالة قصيرة من حساب مستخدم إلى المطور؛ لا تحفظ صوراً أو أسراراً. */
+export const userMessages = mysqlTable("user_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  message: text("message").notNull(),
+  status: mysqlEnum("status", ["new", "read", "archived"]).default("new").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AppAnnouncement = typeof appAnnouncements.$inferSelect;
+export type UserMessage = typeof userMessages.$inferSelect;

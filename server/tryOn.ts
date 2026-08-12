@@ -5,6 +5,7 @@ import { decryptProviderKey } from './developerProviders';
 import { storagePut } from './storage';
 
 const FASHN_PRODUCT_TO_MODEL = 'product-to-model';
+const FASHN_BACKGROUND_REMOVE = 'background-remove';
 const POLL_INTERVAL_MS = 3_000;
 const MAX_POLL_ATTEMPTS = 20;
 
@@ -14,6 +15,7 @@ export type CloudTryOnResult = {
   imageUrl: string;
   providerId: string;
   message: string;
+  isTransparent: boolean;
 };
 
 type TryOnRuntimeOptions = {
@@ -21,11 +23,8 @@ type TryOnRuntimeOptions = {
   maxPollAttempts?: number;
 };
 
-type FashnStatusResponse = {
-  status?: string;
-  output?: unknown;
-  error?: string;
-};
+type ProviderRecord = typeof developerProviders.$inferSelect;
+type FashnStatusResponse = { status?: string; output?: unknown; error?: string };
 
 function asUrl(value: unknown): string | undefined {
   return typeof value === 'string' && /^https?:\/\//.test(value) ? value : undefined;
@@ -70,9 +69,47 @@ async function storeGeneratedImage(sourceUrl: string) {
   return storagePut(`tryon-results/${Date.now()}.png`, bytes, contentType);
 }
 
+async function runProviderTask(
+  provider: ProviderRecord,
+  modelName: string,
+  inputs: Record<string, unknown>,
+  options: TryOnRuntimeOptions
+) {
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${decryptProviderKey(provider.encryptedApiKey)}`,
+  };
+  const runResponse = await fetch(endpoint(provider.baseUrl, '/run'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model_name: modelName, inputs }),
+  });
+  if (!runResponse.ok) throw new Error(`رفض مزود ${modelName} الطلب (${runResponse.status})`);
+  const runData = (await runResponse.json()) as { id?: string; error?: string };
+  if (!runData.id) throw new Error(runData.error || `لم يعطِ مزود ${modelName} معرفاً للمهمة`);
+
+  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
+  const maxPollAttempts = options.maxPollAttempts ?? MAX_POLL_ATTEMPTS;
+  for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+    await wait(pollIntervalMs);
+    const statusResponse = await fetch(endpoint(provider.baseUrl, `/status/${runData.id}`), { headers });
+    if (!statusResponse.ok) throw new Error(`تعذر قراءة حالة ${modelName} (${statusResponse.status})`);
+    const statusData = (await statusResponse.json()) as FashnStatusResponse;
+    if (statusData.status === 'completed') {
+      const externalImageUrl = extractOutputImageUrl(statusData.output);
+      if (!externalImageUrl) throw new Error(`اكتمل ${modelName} دون رابط صورة صالح`);
+      return { externalImageUrl, stored: await storeGeneratedImage(externalImageUrl) };
+    }
+    if (!['starting', 'in_queue', 'processing'].includes(statusData.status || '')) {
+      throw new Error(statusData.error || `فشل مزود ${modelName} في معالجة الصورة`);
+    }
+  }
+  throw new Error(`انتهت مهلة انتظار نتيجة ${modelName}`);
+}
+
 /**
- * Runs FASHN Product to Model when a developer has explicitly configured an enabled
- * `product-to-model` provider. API keys remain on the server and are never returned.
+ * يشغّل Product-to-Model. إذا أضاف المطور مزوداً آخر باسم `background-remove`،
+ * يمرر النتيجة إليه ويحفظ PNG الشفاف قبل عرضه داخل قالب الإعلان.
  */
 export async function runProductToModelTryOn(
   productImageData: string,
@@ -81,59 +118,50 @@ export async function runProductToModelTryOn(
 ): Promise<CloudTryOnResult> {
   const db = await getDb();
   if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
-  const provider = (await db
-    .select()
-    .from(developerProviders)
+  const provider = (await db.select().from(developerProviders)
     .where(and(eq(developerProviders.isEnabled, 1), eq(developerProviders.model, FASHN_PRODUCT_TO_MODEL)))
     .limit(1))[0];
+  if (!provider) throw new Error('لا يوجد مزود Product to Model مفعّل في لوحة المطور');
 
-  if (!provider) {
-    throw new Error('لا يوجد مزود Product to Model مفعّل في لوحة المطور');
+  const productResult = await runProviderTask(provider, FASHN_PRODUCT_TO_MODEL, {
+    product_image: productImageData,
+    aspect_ratio: aspectRatio,
+    resolution: '1k',
+  }, options);
+
+  const backgroundProvider = (await db.select().from(developerProviders)
+    .where(and(eq(developerProviders.isEnabled, 1), eq(developerProviders.model, FASHN_BACKGROUND_REMOVE)))
+    .limit(1))[0];
+  if (!backgroundProvider) {
+    return {
+      status: 'success',
+      imageUrl: productResult.stored.url,
+      providerId: provider.id,
+      message: 'تم تلبيس القطعة بالذكاء الاصطناعي بنجاح. أضف مزود background-remove من لوحة المطور للحصول على PNG بخلفية شفافة.',
+      isTransparent: false,
+    };
   }
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${decryptProviderKey(provider.encryptedApiKey)}`,
-  };
-  const runResponse = await fetch(endpoint(provider.baseUrl, '/run'), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model_name: FASHN_PRODUCT_TO_MODEL,
-      inputs: {
-        product_image: productImageData,
-        aspect_ratio: aspectRatio,
-        resolution: '1k',
-      },
-    }),
-  });
-  if (!runResponse.ok) throw new Error(`رفض مزود Try-On الطلب (${runResponse.status})`);
-
-  const runData = (await runResponse.json()) as { id?: string; error?: string };
-  if (!runData.id) throw new Error(runData.error || 'لم يعطِ مزود Try-On معرفاً للمهمة');
-
-  const pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_MS;
-  const maxPollAttempts = options.maxPollAttempts ?? MAX_POLL_ATTEMPTS;
-  for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
-    await wait(pollIntervalMs);
-    const statusResponse = await fetch(endpoint(provider.baseUrl, `/status/${runData.id}`), { headers });
-    if (!statusResponse.ok) throw new Error(`تعذر قراءة حالة Try-On (${statusResponse.status})`);
-    const statusData = (await statusResponse.json()) as FashnStatusResponse;
-    if (statusData.status === 'completed') {
-      const externalImageUrl = extractOutputImageUrl(statusData.output);
-      if (!externalImageUrl) throw new Error('اكتمل Try-On دون رابط صورة صالح');
-      const stored = await storeGeneratedImage(externalImageUrl);
-      return {
-        status: 'success',
-        imageUrl: stored.url,
-        providerId: provider.id,
-        message: 'تم تلبيس القطعة بالذكاء الاصطناعي بنجاح.',
-      };
-    }
-    if (!['starting', 'in_queue', 'processing'].includes(statusData.status || '')) {
-      throw new Error(statusData.error || 'فشل مزود Try-On في معالجة الصورة');
-    }
+  try {
+    const transparentResult = await runProviderTask(backgroundProvider, FASHN_BACKGROUND_REMOVE, {
+      image: productResult.externalImageUrl,
+      return_base64: false,
+    }, options);
+    return {
+      status: 'success',
+      imageUrl: transparentResult.stored.url,
+      providerId: provider.id,
+      message: 'تم تلبيس القطعة وتفريغ الخلفية بنجاح. استُخدمت نتيجة PNG شفافة داخل القالب.',
+      isTransparent: true,
+    };
+  } catch (error) {
+    console.warn('[Try-On] Background removal failed; keeping the on-model result.', error);
+    return {
+      status: 'success',
+      imageUrl: productResult.stored.url,
+      providerId: provider.id,
+      message: 'تم تلبيس القطعة بالذكاء الاصطناعي، لكن تعذر تفريغ الخلفية؛ استخدمنا صورة الشخص الناتجة كما هي.',
+      isTransparent: false,
+    };
   }
-
-  throw new Error('انتهت مهلة انتظار نتيجة Try-On');
 }

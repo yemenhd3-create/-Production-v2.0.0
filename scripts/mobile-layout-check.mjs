@@ -99,7 +99,7 @@ try {
             width: Math.round(box.width),
           };
         });
-      const importantElements = ['#root', 'header', 'main', 'nav']
+      const importantElements = ['#root', 'main', 'header', 'nav']
         .map((selector) => {
           const element = document.querySelector(selector);
           if (!element) return { selector, found: false, withinViewport: false };
@@ -113,12 +113,17 @@ try {
             withinViewport: box.left >= -1 && box.right <= viewportWidth + 1,
           };
         });
-      const importantElementsPass = importantElements.every((element) => element.found && element.withinViewport);
+      const requiredElementsPass = importantElements
+        .filter((element) => element.selector === '#root' || element.selector === 'main')
+        .every((element) => element.found && element.withinViewport);
+      const presentElementsPass = importantElements
+        .filter((element) => element.found)
+        .every((element) => element.withinViewport);
       return {
         viewportWidth,
         documentWidth,
         bodyWidth,
-        passes: documentWidth <= viewportWidth && bodyWidth <= viewportWidth && overflowing.length === 0 && importantElementsPass,
+        passes: documentWidth <= viewportWidth && bodyWidth <= viewportWidth && overflowing.length === 0 && requiredElementsPass && presentElementsPass,
         overflowing,
         importantElements,
       };

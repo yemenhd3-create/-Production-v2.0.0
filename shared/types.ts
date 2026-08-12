@@ -47,6 +47,7 @@ export interface TryOnResult {
   imageUrl?: string;
   message: string;
   providerId?: string;
+  isTransparent?: boolean;
 }
 
 /** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
