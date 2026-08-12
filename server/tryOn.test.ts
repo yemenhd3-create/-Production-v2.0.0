@@ -21,7 +21,7 @@ vi.mock('./db', () => ({
 vi.mock('./developerProviders', () => ({ decryptProviderKey: () => 'server-only-api-key' }));
 vi.mock('./storage', () => ({ storagePut: storagePutMock }));
 
-const { extractOutputImageUrl, runProductToModelTryOn } = await import('./tryOn');
+const { extractOutputImageUrl, removeBackgroundFromProduct, runProductToModelTryOn } = await import('./tryOn');
 
 describe('FASHN output parsing', () => {
   it('finds an image URL across common output shapes without accepting unsafe values', () => {
@@ -75,5 +75,22 @@ describe('FASHN output parsing', () => {
     expect(result.imageUrl).toBe('/manus-storage/tryon-results/transparent.png');
     expect(result.message).toContain('PNG شفافة');
     expect(JSON.stringify(fetchMock.mock.calls[3]?.[1])).toContain('background-remove');
+  });
+
+  it('removes the background from the raw product image when called directly', async () => {
+    const backgroundProvider = { ...provider, model: 'background-remove' };
+    limitMock.mockReset().mockResolvedValueOnce([backgroundProvider]);
+    storagePutMock.mockResolvedValueOnce({ key: 'tryon-results/raw-cutout.png', url: '/manus-storage/tryon-results/raw-cutout.png' });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'raw-job' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'completed', output: ['https://images.fashn.ai/raw-cutout.png'] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(removeBackgroundFromProduct('data:image/png;base64,AA==', { pollIntervalMs: 0, maxPollAttempts: 1 })).resolves.toMatchObject({
+      imageUrl: '/manus-storage/tryon-results/raw-cutout.png',
+      isTransparent: true,
+    });
+    expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).toContain('background-remove');
   });
 });

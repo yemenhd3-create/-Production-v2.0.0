@@ -1,12 +1,12 @@
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
-import CanvasVisualCheck from "./components/CanvasVisualCheck";
-import PersonalAccessGate from "./components/PersonalAccessGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+
+const CanvasVisualCheck = lazy(() => import('./components/CanvasVisualCheck'));
+const PersonalAccessGate = lazy(() => import('./components/PersonalAccessGate'));
+const AuthenticatedApplication = lazy(() => import('./components/AuthenticatedApplication'));
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -21,8 +21,14 @@ function Router() {
 }
 
 function PersonalHome() {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('canvas-visual-check')) return <CanvasVisualCheck />;
-  return <PersonalAccessGate><Home /></PersonalAccessGate>;
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('canvas-visual-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز معاينة القالب…" />}><CanvasVisualCheck /></Suspense>;
+  }
+  return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
+}
+
+function LoadingScreen({ text }: { text: string }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[#fffdf6] p-6" dir="rtl"><section className="rounded-3xl bg-white px-7 py-6 text-center shadow-[0_12px_32px_rgba(37,35,95,0.08)]"><span className="mx-auto block h-7 w-7 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" /><p className="mt-3 text-sm font-bold text-primary">{text}</p></section></main>;
 }
 
 // NOTE: About Theme
@@ -37,10 +43,7 @@ function App() {
         defaultTheme="light"
         // switchable
       >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <Router />
       </ThemeProvider>
     </ErrorBoundary>
   );

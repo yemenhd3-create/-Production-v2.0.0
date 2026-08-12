@@ -165,3 +165,28 @@ export async function runProductToModelTryOn(
     };
   }
 }
+
+/** يزيل خلفية صورة الملابس الخام عندما يضيف المطور مزود background-remove في اللوحة. */
+export async function removeBackgroundFromProduct(
+  productImageData: string,
+  options: TryOnRuntimeOptions = {}
+): Promise<CloudTryOnResult> {
+  const db = await getDb();
+  if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
+  const provider = (await db.select().from(developerProviders)
+    .where(and(eq(developerProviders.isEnabled, 1), eq(developerProviders.model, FASHN_BACKGROUND_REMOVE)))
+    .limit(1))[0];
+  if (!provider) throw new Error('لا يوجد مزود background-remove مفعّل في لوحة المطور');
+
+  const result = await runProviderTask(provider, FASHN_BACKGROUND_REMOVE, {
+    image: productImageData,
+    return_base64: false,
+  }, options);
+  return {
+    status: 'success',
+    imageUrl: result.stored.url,
+    providerId: provider.id,
+    message: 'تمت إزالة خلفية صورة الملابس وحفظ PNG شفاف داخل القالب الأبيض.',
+    isTransparent: true,
+  };
+}

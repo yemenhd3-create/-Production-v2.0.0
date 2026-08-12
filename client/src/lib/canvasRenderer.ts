@@ -8,7 +8,7 @@ export interface RenderOptions {
 }
 
 const COLORS = {
-  ivory: '#FFFDF6',
+  ivory: '#FFFFFF',
   purple: '#2A2865',
   purpleSoft: '#F0ECFF',
   red: '#D01720',
@@ -136,21 +136,9 @@ function drawHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template:
 }
 
 async function drawProductStage(ctx: CanvasRenderingContext2D, box: Box, imageSrc: string, x: (value: number) => number, y: (value: number) => number, visualMode: 'garment' | 'transparentPerson') {
-  ctx.save();
-  ctx.fillStyle = COLORS.white;
-  ctx.shadowColor = 'rgba(37, 35, 95, 0.15)';
-  ctx.shadowBlur = x(24);
-  ctx.shadowOffsetY = y(12);
-  roundedRect(ctx, box.x, box.y, box.width, box.height, x(34));
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = '#E5E1DB';
-  ctx.lineWidth = x(2);
-  ctx.stroke();
-  ctx.restore();
-
-  // الشخص الشفاف يُثبت عند أرضية البطاقة بهامش صغير؛ أما الملابس فتتمركز من دون تمديد أو قص.
-  await drawImageContain(ctx, imageSrc, box.x + x(30), box.y + y(30), box.width - x(60), box.height - y(60), visualMode);
+  // مساحة العرض جزء أبيض من القالب كله، بلا بطاقة أو ظل داخلي؛ لذلك تندمج صورة الملابس البيضاء تلقائياً.
+  // الشخص الشفاف يثبت قرب القاعدة، والملابس تبقى محتواة من دون تمديد أو قص.
+  await drawImageContain(ctx, imageSrc, box.x + x(12), box.y + y(12), box.width - x(24), box.height - y(24), visualMode);
 }
 
 function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, layout: Layout) {

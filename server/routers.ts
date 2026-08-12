@@ -7,7 +7,7 @@ import { z } from "zod";
 import { authenticateDeveloper } from "./developerAuth";
 import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSession, issueDeveloperSession } from './developerSession';
 import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
-import { runProductToModelTryOn } from './tryOn';
+import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
 import {
   createUserMessage,
   getActiveAnnouncement,
@@ -111,6 +111,12 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertPersonalUserIsActive(ctx.user.id);
         return runProductToModelTryOn(input.productImageData, input.aspectRatio);
+      }),
+    removeBackground: protectedProcedure
+      .input(z.object({ productImageData: z.string().startsWith('data:image/').max(12_000_000) }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return removeBackgroundFromProduct(input.productImageData);
       }),
   }),
 

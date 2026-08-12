@@ -12,12 +12,7 @@ import {
   getCanvasDimensions,
   resolveTryOnVisualSource,
 } from '@shared/adWorkflow';
-import AdDetailsForm from '@/components/AdDetailsForm';
 import ImageUploader from '@/components/ImageUploader';
-import PersonalMessageCenter from '@/components/PersonalMessageCenter';
-import SharePanel from '@/components/SharePanel';
-import { TryOnStatusNotice } from '@/components/TryOnStatusNotice';
-import UserTemplateSettings from '@/components/UserTemplateSettings';
 import { renderAd } from '@/lib/canvasRenderer';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
@@ -37,6 +32,11 @@ import {
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
 const AboutApp = React.lazy(() => import('@/components/AboutApp'));
 const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorkspace'));
+const AdDetailsForm = React.lazy(() => import('@/components/AdDetailsForm'));
+const PersonalMessageCenter = React.lazy(() => import('@/components/PersonalMessageCenter'));
+const SharePanel = React.lazy(() => import('@/components/SharePanel'));
+const TryOnStatusNotice = React.lazy(() => import('@/components/TryOnStatusNotice').then(module => ({ default: module.TryOnStatusNotice })));
+const UserTemplateSettings = React.lazy(() => import('@/components/UserTemplateSettings'));
 const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
@@ -63,6 +63,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
   const tryOnMutation = trpc.tryOn.run.useMutation();
+  const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery();
 
   useEffect(() => {
@@ -140,10 +141,21 @@ export default function Home() {
     try {
       const tryOnWorkflow = await resolveTryOnVisualSource(
         productImage,
-        async () => tryOnMutation.mutateAsync({
-          productImageData: await blobUrlToDataUri(productImage),
-          aspectRatio: templateSettings.size === 'story' ? '9:16' : '4:5',
-        }),
+        async () => {
+          const productImageData = await blobUrlToDataUri(productImage);
+          try {
+            return await tryOnMutation.mutateAsync({
+              productImageData,
+              aspectRatio: templateSettings.size === 'story' ? '9:16' : '4:5',
+            });
+          } catch (tryOnError) {
+            const rawCutout = await backgroundRemoveMutation.mutateAsync({ productImageData });
+            return {
+              ...rawCutout,
+              message: `تعذر التلبيس بالذكاء الاصطناعي، لكن ${rawCutout.message}`,
+            };
+          }
+        },
         fetchImageAsBlobUrl
       );
       const imageForCanvas = tryOnWorkflow.imageForCanvas;
@@ -258,16 +270,14 @@ export default function Home() {
           </div>
         </section>}
 
-        {activeView === 'settings' && (
-          <UserTemplateSettings
+        {activeView === 'settings' && (<React.Suspense fallback={<PageLoading label="جارٍ فتح الإعدادات…" />}><UserTemplateSettings
             settings={templateSettings}
             onChange={setTemplateSettings}
             onBack={() => setActiveView('create')}
             onAbout={() => setActiveView('about')}
-          />
-        )}
+          /></React.Suspense>)}
 
-        {activeView === 'messages' && <PersonalMessageCenter onBack={() => setActiveView('create')} />}
+        {activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
 
         {activeView === 'about' && (
           <React.Suspense fallback={<PageLoading label="جارٍ فتح حول التطبيق…" />}>
@@ -320,7 +330,7 @@ export default function Home() {
               </button>
             </div>
 
-            <AdDetailsForm details={adDetails} onChange={setAdDetails} />
+            <React.Suspense fallback={<PageLoading label="جارٍ تجهيز حقول الإعلان…" />}><AdDetailsForm details={adDetails} onChange={setAdDetails} /></React.Suspense>
 
             <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4">
               <div className="flex items-start gap-3">
@@ -378,7 +388,7 @@ export default function Home() {
                     alt="معاينة الإعلان النهائي"
                     className="mx-auto max-h-[560px] w-full rounded-3xl border border-stone-100 bg-stone-50 object-contain shadow-sm"
                   />
-                  <TryOnStatusNotice result={tryOnResult} />
+                  <React.Suspense fallback={null}><TryOnStatusNotice result={tryOnResult} /></React.Suspense>
                 </>
               )}
 
@@ -396,7 +406,7 @@ export default function Home() {
                   <div className="mb-3 flex items-center gap-2 text-primary"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></div>
                   <p className="text-sm leading-7 text-foreground">{marketingText}</p>
                 </section>
-                <SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} />
+                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}
           </section>

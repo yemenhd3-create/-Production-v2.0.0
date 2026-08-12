@@ -4,12 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mutateAsync = vi.fn();
+const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
 
 vi.mock('../client/src/lib/trpc', () => ({
   trpc: {
-    tryOn: { run: { useMutation: () => ({ mutateAsync }) } },
+    tryOn: {
+      run: { useMutation: () => ({ mutateAsync }) },
+      removeBackground: { useMutation: () => ({ mutateAsync: removeBackgroundMutateAsync }) },
+    },
     personal: { announcement: { useQuery: () => ({ data: null }) } },
   },
 }));
@@ -37,13 +41,14 @@ describe('Home Try-On workflow', () => {
     vi.clearAllMocks();
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
+    removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
     vi.stubGlobal('confirm', vi.fn(() => true));
     vi.stubGlobal('fetch', vi.fn((url: string | URL | Request) => {
       const target = typeof url === 'string' ? url : url.toString();
       if (target === 'blob:product-original') return Promise.resolve({ ok: true, blob: async () => new Blob(['product'], { type: 'image/png' }) });
-      if (target === '/manus-storage/tryon-result.png') return Promise.resolve({ ok: true, blob: async () => new Blob(['tryon'], { type: 'image/png' }) });
+      if (target === '/manus-storage/tryon-result.png' || target === '/manus-storage/raw-cutout.png') return Promise.resolve({ ok: true, blob: async () => new Blob(['tryon'], { type: 'image/png' }) });
       if (target === 'blob:final-ad') return Promise.resolve({ ok: true, blob: async () => new Blob(['advertisement'], { type: 'image/png' }) });
       return Promise.reject(new Error(`Unexpected URL: ${target}`));
     }));
@@ -75,6 +80,17 @@ describe('Home Try-On workflow', () => {
 
     await screen.findByText('تم تلبيس القطعة بالذكاء الاصطناعي بنجاح.');
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.anything()));
+    expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
+  });
+
+  it('uses a transparent raw product cutout when Try-On is unavailable but background removal succeeds', async () => {
+    mutateAsync.mockRejectedValue(new Error('لا يوجد مزود Try-On مفعّل'));
+    removeBackgroundMutateAsync.mockResolvedValue({ imageUrl: '/manus-storage/raw-cutout.png', providerId: 'background-provider', isTransparent: true, message: 'تمت إزالة خلفية صورة الملابس وحفظ PNG شفاف داخل القالب الأبيض.' });
+
+    await startGeneration();
+
+    await screen.findByText(/تمت إزالة خلفية صورة الملابس/);
+    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'transparentPerson' })));
     expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
   });
 
