@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import CanvasVisualCheck from "./components/CanvasVisualCheck";
 import PersonalAccessGate from "./components/PersonalAccessGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -20,6 +21,7 @@ function Router() {
 }
 
 function PersonalHome() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('canvas-visual-check')) return <CanvasVisualCheck />;
   return <PersonalAccessGate><Home /></PersonalAccessGate>;
 }
 

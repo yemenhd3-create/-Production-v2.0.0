@@ -61,6 +61,8 @@ export interface TemplateSettings {
   showFeatures: boolean;
   showPrice: boolean;
   showStoreInfo: boolean;
+  showFrame: boolean;
+  showQualityMark: boolean;
 }
 
 // ========== Store Settings ==========
@@ -274,6 +276,8 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showFeatures: true,
   showPrice: true,
   showStoreInfo: true,
+  showFrame: true,
+  showQualityMark: true,
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

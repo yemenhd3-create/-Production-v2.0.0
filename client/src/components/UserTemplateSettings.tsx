@@ -17,6 +17,8 @@ const toggles: Array<{ key: Exclude<keyof TemplateSettings, 'size'>; title: stri
   { key: 'showFeatures', title: 'الميزات', description: 'مثل خامة عالية الجودة وقطن ناعم.' },
   { key: 'showPrice', title: 'السعر', description: 'تظهر بطاقة السعر الحمراء عند إدخاله.' },
   { key: 'showStoreInfo', title: 'اسم المتجر والتواصل', description: 'يظهر الشريط الأحمر السفلي عند إدخاله.' },
+  { key: 'showFrame', title: 'إطار القالب', description: 'الحد العاجي الرفيع المحيط بالإعلان.' },
+  { key: 'showQualityMark', title: 'علامة الجودة', description: 'رمز التحقق البنفسجي في أعلى القالب.' },
 ];
 
 export default function UserTemplateSettings({ settings, onChange, onBack, onAbout }: UserTemplateSettingsProps) {

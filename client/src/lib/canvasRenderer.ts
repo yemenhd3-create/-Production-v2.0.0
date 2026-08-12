@@ -8,15 +8,17 @@ export interface RenderOptions {
 }
 
 const COLORS = {
-  ivory: '#FFFBF3',
-  purple: '#272260',
+  ivory: '#FFFDF6',
+  purple: '#2A2865',
   purpleSoft: '#F0ECFF',
-  red: '#CC111A',
-  redDark: '#A70F17',
+  red: '#D01720',
+  redDark: '#AD111A',
   white: '#FFFFFF',
   gray: '#737581',
   line: '#E8E2D8',
 };
+
+const TEMPLATE_FONT_FAMILY = 'Cairo, Tahoma, Arial, sans-serif';
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -27,6 +29,7 @@ export async function renderAd(
   productImageSrc: string,
   options: RenderOptions = {}
 ): Promise<string> {
+  await waitForCanvasFonts();
   const width = options.width || 1080;
   const height = options.height || 1350;
   const canvas = document.createElement('canvas');
@@ -39,14 +42,16 @@ export async function renderAd(
   const sy = height / 1350;
   const x = (value: number) => value * sx;
   const y = (value: number) => value * sy;
-  const font = (weight: number, size: number) => `${weight} ${Math.round(size * sx)}px Cairo, Tahoma, Arial, sans-serif`;
+  const font = (weight: number, size: number) => `${weight} ${Math.round(size * sx)}px ${TEMPLATE_FONT_FAMILY}`;
 
   ctx.fillStyle = COLORS.ivory;
   ctx.fillRect(0, 0, width, height);
-  roundedRect(ctx, x(28), y(28), width - x(56), height - y(56), x(30));
-  ctx.strokeStyle = '#D8D2C8';
-  ctx.lineWidth = x(2);
-  ctx.stroke();
+  if (template.showFrame) {
+    roundedRect(ctx, x(28), y(28), width - x(56), height - y(56), x(30));
+    ctx.strokeStyle = '#D8D2C8';
+    ctx.lineWidth = x(2);
+    ctx.stroke();
+  }
 
   drawHeader(ctx, details, template, { x, y, font, width });
 
@@ -115,17 +120,19 @@ function drawHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template:
   }
   ctx.restore();
 
-  // طبقة العلامة الثابتة في أقصى اليمين، كما في القالب المرجعي.
-  ctx.save();
-  roundedRect(ctx, width - x(175), y(80), x(72), y(72), x(19));
-  ctx.fillStyle = COLORS.purpleSoft;
-  ctx.fill();
-  ctx.fillStyle = COLORS.purple;
-  ctx.font = font(900, 36);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('✓', width - x(139), y(116));
-  ctx.restore();
+  if (template.showQualityMark) {
+    // طبقة العلامة الثابتة في أقصى اليمين، كما في القالب المرجعي.
+    ctx.save();
+    roundedRect(ctx, width - x(175), y(80), x(72), y(72), x(19));
+    ctx.fillStyle = COLORS.purpleSoft;
+    ctx.fill();
+    ctx.fillStyle = COLORS.purple;
+    ctx.font = font(900, 36);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✓', width - x(139), y(116));
+    ctx.restore();
+  }
 }
 
 async function drawProductStage(ctx: CanvasRenderingContext2D, box: Box, imageSrc: string, x: (value: number) => number, y: (value: number) => number, visualMode: 'garment' | 'transparentPerson') {
@@ -291,6 +298,15 @@ function loadImage(source: string): Promise<HTMLImageElement> {
     if (!source.startsWith('blob:') && !source.startsWith('data:')) image.crossOrigin = 'anonymous';
     image.src = source;
   });
+}
+
+async function waitForCanvasFonts() {
+  if (typeof document === 'undefined' || !('fonts' in document)) return;
+  try {
+    await document.fonts.ready;
+  } catch {
+    // يستمر التصدير بخط Tahoma الاحتياطي إذا تعذر تحميل خط الويب على الهاتف.
+  }
 }
 
 function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {

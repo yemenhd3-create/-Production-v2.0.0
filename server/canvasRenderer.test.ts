@@ -18,14 +18,20 @@ function createContext() {
   const noop = () => undefined;
   const fillText = vi.fn();
   const drawImage = vi.fn();
-  return {
-    fillRect: noop, stroke: noop, save: noop, restore: noop, beginPath: noop,
+  const stroke = vi.fn();
+  const fonts: string[] = [];
+  const context = {
+    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop,
     arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
     moveTo: noop, lineTo: noop, closePath: noop,
     measureText: (text: string) => ({ width: text.length * 12 }),
     __fillText: fillText,
     __drawImage: drawImage,
-  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn> };
+    __stroke: stroke,
+    __fonts: fonts,
+  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn>; __stroke: ReturnType<typeof vi.fn>; __fonts: string[] };
+  Object.defineProperty(context, 'font', { get: () => fonts.at(-1), set: (value: string) => fonts.push(value) });
+  return context;
 }
 
 describe('Canvas advertisement renderer', () => {
@@ -33,6 +39,10 @@ describe('Canvas advertisement renderer', () => {
   let createdCanvas: HTMLCanvasElement | null = null;
 
   beforeEach(() => {
+    context.__fillText.mockClear();
+    context.__drawImage.mockClear();
+    context.__stroke.mockClear();
+    context.__fonts.splice(0);
     vi.stubGlobal('Image', LoadedImage);
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:rendered-advertisement') });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
@@ -79,5 +89,21 @@ describe('Canvas advertisement renderer', () => {
     const personY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
 
     expect(personY).toBeGreaterThan(garmentY);
+  });
+
+  it('turns optional frame and quality layers on and off and keeps the reference heading typography', async () => {
+    const titledDetails = { ...DEFAULT_AD_DETAILS, productName: 'فستان بلوشي أنيق' };
+    await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: false, showQualityMark: false }, 'blob:garment-image', { width: 1080, height: 1350 });
+    const strokesWithoutFrame = context.__stroke.mock.calls.length;
+    expect(context.__fillText).not.toHaveBeenCalledWith('✓', expect.any(Number), expect.any(Number));
+
+    context.__fillText.mockClear();
+    context.__stroke.mockClear();
+    context.__fonts.splice(0);
+    await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: true, showQualityMark: true }, 'blob:garment-image', { width: 1080, height: 1350 });
+
+    expect(context.__stroke.mock.calls.length).toBeGreaterThan(strokesWithoutFrame);
+    expect(context.__fillText).toHaveBeenCalledWith('✓', expect.any(Number), expect.any(Number));
+    expect(context.__fonts).toContain('900 53px Cairo, Tahoma, Arial, sans-serif');
   });
 });
