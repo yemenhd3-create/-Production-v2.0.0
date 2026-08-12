@@ -2,6 +2,7 @@ import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { isDeveloperSession } from '../developerSession';
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -26,6 +27,15 @@ const requireUser = t.middleware(async opts => {
 });
 
 export const protectedProcedure = t.procedure.use(requireUser);
+
+const requireDeveloper = t.middleware(async opts => {
+  if (!isDeveloperSession(opts.ctx.req)) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'يلزم تسجيل الدخول إلى لوحة المطور' });
+  }
+  return opts.next();
+});
+
+export const developerProcedure = t.procedure.use(requireDeveloper);
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {

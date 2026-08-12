@@ -25,14 +25,21 @@
     <script type="module" src="/src/main.tsx"></script>
     <script defer src="%VITE_ANALYTICS_ENDPOINT%/umami" data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
     
-    <!-- Service Worker Registration -->
-    <script>
+    <!-- Service Worker: disabled in development so HMR never serves a stale screen. -->
+    <script type="module">
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(err => {
-            console.log('SW registration failed: ', err);
+        if (import.meta.env.PROD) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(err => {
+              console.log('SW registration failed: ', err);
+            });
           });
-        });
+        } else {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(registration => registration.unregister());
+          });
+          caches.keys().then(names => names.forEach(name => caches.delete(name)));
+        }
       }
     </script>
   </body>

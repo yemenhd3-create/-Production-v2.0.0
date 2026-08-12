@@ -17,7 +17,7 @@ export default function ImageUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('الرجاء اختيار صورة');
       return;
@@ -30,19 +30,15 @@ export default function ImageUploader({
 
     setIsLoading(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
+    try {
+      const imageUrl = await createOptimizedImage(file);
       onImageSelect(imageUrl, file);
-      setIsLoading(false);
-    };
-
-    reader.onerror = () => {
+    } catch (error) {
+      console.error('Failed to prepare image:', error);
       alert('فشل في قراءة الصورة');
+    } finally {
       setIsLoading(false);
-    };
-
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -165,4 +161,53 @@ export default function ImageUploader({
       )}
     </div>
   );
+}
+
+async function createOptimizedImage(file: File): Promise<string> {
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadFileImage(sourceUrl);
+    const maxSide = 1600;
+    const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * ratio));
+    const height = Math.max(1, Math.round(image.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is unavailable');
+
+    context.drawImage(image, 0, 0, width, height);
+    const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const blob = await canvasToBlob(canvas, outputType, 0.88);
+    return URL.createObjectURL(blob);
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+function loadFileImage(sourceUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const timeout = window.setTimeout(() => reject(new Error('Image preparation timed out')), 10_000);
+    image.onload = () => {
+      window.clearTimeout(timeout);
+      resolve(image);
+    };
+    image.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error('Image file could not be loaded'));
+    };
+    image.decoding = 'async';
+    image.src = sourceUrl;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error('Could not optimize image'));
+    }, type, quality);
+  });
 }

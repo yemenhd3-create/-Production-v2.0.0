@@ -8,7 +8,18 @@ import { StorageKeys } from '@shared/types';
 // Simple encryption/decryption using base64 (for client-side only)
 // For production, consider using a proper encryption library like TweetNaCl.js
 
-const ENCRYPTION_KEY = 'clothing_ad_generator_v1';
+function toBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+function fromBase64(value: string): string {
+  const binary = atob(value);
+  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
 
 /**
  * Simple encryption using XOR with base64 encoding
@@ -19,8 +30,7 @@ function encrypt(data: string): string {
     // Convert to base64 and add timestamp for additional obfuscation
     const timestamp = Date.now().toString();
     const combined = `${timestamp}:${data}`;
-    const encoded = btoa(combined);
-    return encoded;
+    return toBase64(combined);
   } catch (error) {
     console.error('Encryption error:', error);
     return data;
@@ -32,9 +42,9 @@ function encrypt(data: string): string {
  */
 function decrypt(encrypted: string): string {
   try {
-    const decoded = atob(encrypted);
-    const [, data] = decoded.split(':');
-    return data || decoded;
+    const decoded = fromBase64(encrypted);
+    const separator = decoded.indexOf(':');
+    return separator >= 0 ? decoded.slice(separator + 1) : decoded;
   } catch (error) {
     console.error('Decryption error:', error);
     return encrypted;

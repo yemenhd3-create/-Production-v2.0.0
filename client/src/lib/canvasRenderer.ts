@@ -1,496 +1,420 @@
-/**
- * Canvas Renderer - Professional Ad Generator
- * Generates high-quality advertisement images for clothing products
- * Matches reference design: white background, centered product, discount badge, price panel, footer
- */
+import type { AdDetails, TemplateSettings } from '@shared/types';
 
-import { CanvasSettings, DEFAULT_CANVAS_HEIGHT, DEFAULT_CANVAS_WIDTH } from '@shared/types';
-
-interface RenderOptions {
+export interface RenderOptions {
   width?: number;
   height?: number;
   quality?: number;
 }
 
+const COLORS = {
+  ivory: '#FFF9F0',
+  purple: '#25235F',
+  purpleSoft: '#EFEDFF',
+  red: '#C9151D',
+  gold: '#E6A300',
+  gray: '#6B7280',
+  line: '#E9E3DA',
+  white: '#FFFFFF',
+};
+
 /**
- * Main render function - generates complete ad image
+ * Builds the final social image from the uploaded garment and all optional display settings.
+ * The image source can be an AI Try-On result later; for now the local garment image is a safe fallback.
  */
 export async function renderAd(
-  settings: CanvasSettings,
+  details: AdDetails,
+  template: TemplateSettings,
   productImageSrc: string,
   options: RenderOptions = {}
 ): Promise<string> {
-  const width = options.width || DEFAULT_CANVAS_WIDTH;
-  const height = options.height || DEFAULT_CANVAS_HEIGHT;
-
+  const width = options.width || 1080;
+  const height = options.height || 1350;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
 
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get canvas context');
+  if (!ctx) throw new Error('تعذر تهيئة مساحة الرسم');
 
-  // 1. White background
-  ctx.fillStyle = settings.backgroundColor || '#FFFFFF';
+  const scale = width / 1080;
+  const s = (value: number) => value * scale;
+
+  ctx.fillStyle = COLORS.ivory;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Discount badge (top-left)
-  if (settings.showDiscount !== false) {
-    drawDiscountBadge(ctx, settings, width, height);
-  }
-
-  // 3. Product title (top-center)
-  drawProductTitle(ctx, settings, width, height);
-
-  // 4. Quality badge (top-right)
-  if (settings.showQualityBadge !== false) {
-    drawQualityBadge(ctx, width, height);
-  }
-
-  // 5. Product image (center, large)
-  if (productImageSrc) {
-    await drawProductImage(ctx, productImageSrc, width, height);
-  }
-
-  // 6. Left info panel
-  drawLeftInfoPanel(ctx, settings, width, height);
-
-  // 7. Right price panel
-  drawRightPricePanel(ctx, settings, width, height);
-
-  // 8. Features badges
-  drawFeaturesBadges(ctx, settings, width, height);
-
-  // 9. Footer bar
-  drawFooterBar(ctx, settings, width, height);
-
-  return canvas.toDataURL('image/png', options.quality || 0.95);
-}
-
-/**
- * Draw discount badge (shield shape, top-left)
- */
-function drawDiscountBadge(
-  ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
-  width: number,
-  height: number
-) {
-  const oldPrice = parseFloat(settings.oldPrice) || 0;
-  const newPrice = parseFloat(settings.newPrice) || 0;
-  const discount =
-    oldPrice > newPrice && oldPrice > 0 ? Math.round(((oldPrice - newPrice) / oldPrice) * 100) : 0;
-
-  if (discount <= 0) return;
-
-  const x = width * 0.02;
-  const y = height * 0.01;
-  const badgeWidth = width * 0.15;
-  const badgeHeight = height * 0.12;
-
-  ctx.save();
-
-  // Shield shape
-  ctx.beginPath();
-  ctx.moveTo(x + badgeWidth / 2, y);
-  ctx.lineTo(x + badgeWidth, y + badgeHeight * 0.2);
-  ctx.lineTo(x + badgeWidth, y + badgeHeight * 0.7);
-  ctx.quadraticCurveTo(x + badgeWidth, y + badgeHeight, x + badgeWidth / 2, y + badgeHeight);
-  ctx.quadraticCurveTo(x, y + badgeHeight, x, y + badgeHeight * 0.7);
-  ctx.lineTo(x, y + badgeHeight * 0.2);
-  ctx.closePath();
-
-  // Fill with gradient
-  const grad = ctx.createLinearGradient(x, y, x, y + badgeHeight);
-  grad.addColorStop(0, '#DC2626');
-  grad.addColorStop(1, '#991B1B');
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Border
-  ctx.strokeStyle = '#B91C1C';
-  ctx.lineWidth = 2;
+  // A fixed branded frame keeps the advertisement consistent across all products.
+  roundedRect(ctx, s(28), s(28), width - s(56), height - s(56), s(32));
+  ctx.strokeStyle = COLORS.purple;
+  ctx.globalAlpha = 0.14;
+  ctx.lineWidth = s(3);
   ctx.stroke();
+  ctx.globalAlpha = 1;
 
-  // "خصم" text
-  ctx.fillStyle = '#F5C200';
-  ctx.font = `bold ${badgeHeight * 0.3}px Cairo, Tahoma, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('خصم', x + badgeWidth / 2, y + badgeHeight * 0.35);
+  drawHeader(ctx, details, template, width, height, s);
 
-  // Percentage
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${badgeHeight * 0.6}px Cairo, Tahoma, sans-serif`;
-  ctx.fillText(`${discount}%`, x + badgeWidth / 2, y + badgeHeight * 0.65);
+  const imageBox = {
+    x: s(246),
+    y: height * 0.19,
+    width: width - s(492),
+    height: height * 0.51,
+  };
+  await drawProductStage(ctx, imageBox, productImageSrc, s);
 
-  ctx.restore();
+  if (template.showQuantity || template.showColors) {
+    drawInformationPanel(ctx, details, template, width, height, s);
+  }
+
+  if (template.showPrice && details.price.trim()) {
+    drawPricePanel(ctx, details, width, height, s);
+  }
+
+  if (template.showFeatures && details.features.filter(Boolean).length) {
+    drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 3), width, height, s);
+  }
+
+  if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) {
+    drawFooter(ctx, details, width, height, s);
+  }
+
+  const blob = await canvasToBlob(canvas, 'image/png', options.quality || 0.9);
+  return URL.createObjectURL(blob);
 }
 
-/**
- * Draw product title (top-center)
- */
-function drawProductTitle(
+function drawHeader(
   ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
+  details: AdDetails,
+  template: TemplateSettings,
   width: number,
-  height: number
+  height: number,
+  s: (value: number) => number
 ) {
-  const y = height * 0.03;
-  const maxWidth = width * 0.6;
+  if (template.showDiscount && details.discount.trim()) {
+    const badgeX = s(76);
+    const badgeY = s(70);
+    const badgeSize = s(154);
+    ctx.save();
+    ctx.fillStyle = COLORS.red;
+    ctx.beginPath();
+    ctx.arc(badgeX + badgeSize / 2, badgeY + badgeSize / 2, badgeSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#A71017';
+    ctx.lineWidth = s(4);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.white;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${s(27)}px Cairo, Tahoma, sans-serif`;
+    ctx.fillText('خصم', badgeX + badgeSize / 2, badgeY + badgeSize * 0.37);
+    ctx.font = `900 ${s(48)}px Cairo, Tahoma, sans-serif`;
+    ctx.fillText(`${details.discount}%`, badgeX + badgeSize / 2, badgeY + badgeSize * 0.67);
+    ctx.restore();
+  }
+
+  const title = template.showProductName ? details.productName.trim() : '';
+  const headline = template.showHeadline ? details.headline.trim() : '';
+  const centerX = width / 2;
+  const titleY = s(84);
 
   ctx.save();
-  ctx.fillStyle = settings.textColor || '#000000';
-  ctx.font = `bold ${height * 0.06}px Cairo, Tahoma, sans-serif`;
+  ctx.fillStyle = COLORS.purple;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-
-  // Draw title with text wrapping
-  const title = settings.productName || 'اسم المنتج';
-  wrapText(ctx, title, width / 2, y, maxWidth, height * 0.08);
-
+  if (title) {
+    ctx.font = `900 ${s(55)}px Cairo, Tahoma, sans-serif`;
+    drawWrappedText(ctx, title, centerX, titleY, width * 0.55, s(64), 2);
+  }
+  if (headline) {
+    ctx.fillStyle = COLORS.gray;
+    ctx.font = `600 ${s(26)}px Cairo, Tahoma, sans-serif`;
+    const headlineY = title ? titleY + s(70) : titleY + s(6);
+    drawWrappedText(ctx, headline, centerX, headlineY, width * 0.55, s(34), 2);
+  }
   ctx.restore();
-}
 
-/**
- * Draw quality badge (top-right)
- */
-function drawQualityBadge(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number
-) {
-  const x = width * 0.85;
-  const y = height * 0.02;
-  const badgeSize = height * 0.08;
-
+  // Fixed quality mark; this carries the visual identity without inventing a store claim.
   ctx.save();
-
-  // Circle background
-  ctx.fillStyle = '#4CAF50';
-  ctx.beginPath();
-  ctx.arc(x, y + badgeSize / 2, badgeSize / 2, 0, Math.PI * 2);
+  const markX = width - s(150);
+  const markY = s(84);
+  ctx.fillStyle = COLORS.purpleSoft;
+  roundedRect(ctx, markX, markY, s(76), s(76), s(22));
   ctx.fill();
-
-  // Icon or text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${badgeSize * 0.5}px Arial`;
+  ctx.fillStyle = COLORS.purple;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('✓', x, y + badgeSize / 2);
-
+  ctx.font = `900 ${s(32)}px Cairo, Tahoma, sans-serif`;
+  ctx.fillText('✓', markX + s(38), markY + s(37));
   ctx.restore();
 }
 
-/**
- * Draw product image (center)
- */
-async function drawProductImage(
+async function drawProductStage(
   ctx: CanvasRenderingContext2D,
+  box: { x: number; y: number; width: number; height: number },
   imageSrc: string,
-  width: number,
-  height: number
+  s: (value: number) => number
 ) {
-  return new Promise<void>((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
+  ctx.save();
+  ctx.fillStyle = COLORS.white;
+  ctx.shadowColor = 'rgba(37, 35, 95, 0.12)';
+  ctx.shadowBlur = s(28);
+  ctx.shadowOffsetY = s(12);
+  roundedRect(ctx, box.x, box.y, box.width, box.height, s(34));
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = s(2);
+  ctx.stroke();
+  ctx.restore();
 
-    img.onload = () => {
-      ctx.save();
-
-      // Calculate dimensions to fit image in center area
-      const maxWidth = width * 0.5;
-      const maxHeight = height * 0.5;
-      const imgAspect = img.width / img.height;
-
-      let drawWidth = maxWidth;
-      let drawHeight = maxWidth / imgAspect;
-
-      if (drawHeight > maxHeight) {
-        drawHeight = maxHeight;
-        drawWidth = maxHeight * imgAspect;
-      }
-
-      const x = (width - drawWidth) / 2;
-      const y = height * 0.2;
-
-      // Draw image
-      ctx.drawImage(img, x, y, drawWidth, drawHeight);
-
-      ctx.restore();
-      resolve();
-    };
-
-    img.onerror = () => {
-      console.error('Failed to load product image');
-      resolve();
-    };
-
-    img.src = imageSrc;
-  });
+  await drawImageContain(ctx, imageSrc, box.x + s(26), box.y + s(26), box.width - s(52), box.height - s(52));
 }
 
-/**
- * Draw left info panel (quantity, pieces, colors)
- */
-function drawLeftInfoPanel(
+function drawInformationPanel(
   ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
+  details: AdDetails,
+  template: TemplateSettings,
   width: number,
-  height: number
+  height: number,
+  s: (value: number) => number
 ) {
-  const x = width * 0.02;
-  const y = height * 0.5;
-  const panelWidth = width * 0.15;
-  const panelHeight = height * 0.35;
-  const itemHeight = panelHeight * 0.2;
+  const items = [
+    template.showQuantity && details.quantity.trim()
+      ? { label: 'الكمية', value: details.quantity.trim() }
+      : null,
+    template.showColors && details.colors.length
+      ? { label: 'الألوان', value: details.colors.slice(0, 2).join('، ') }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  if (!items.length) return;
+
+  const panelWidth = s(180);
+  const panelX = s(54);
+  const panelY = height * 0.43;
+  const itemHeight = s(118);
+  const panelHeight = items.length * itemHeight + s(26);
 
   ctx.save();
-
-  // Panel background
-  ctx.fillStyle = '#F5F5F5';
-  ctx.fillRect(x, y, panelWidth, panelHeight);
-
-  // Border
-  ctx.strokeStyle = '#E0E0E0';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x, y, panelWidth, panelHeight);
-
-  // Items
-  const items = [
-    { icon: '👕', label: 'العدد', value: settings.quantity || '1' },
-    { icon: '📏', label: 'الكمية', value: '1' },
-    { icon: '🎨', label: 'الألوان', value: settings.colors?.length || '0' },
-  ];
+  ctx.fillStyle = COLORS.white;
+  roundedRect(ctx, panelX, panelY, panelWidth, panelHeight, s(24));
+  ctx.fill();
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = s(2);
+  ctx.stroke();
 
   items.forEach((item, index) => {
-    const itemY = y + index * itemHeight + itemHeight * 0.1;
-
-    // Icon
-    ctx.font = `${itemHeight * 0.4}px Arial`;
+    const top = panelY + s(14) + index * itemHeight;
+    ctx.fillStyle = COLORS.purpleSoft;
+    roundedRect(ctx, panelX + s(12), top, panelWidth - s(24), itemHeight - s(12), s(17));
+    ctx.fill();
+    ctx.fillStyle = COLORS.gray;
+    ctx.font = `700 ${s(19)}px Cairo, Tahoma, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(item.icon, x + panelWidth / 2, itemY);
-
-    // Label
-    ctx.fillStyle = '#666666';
-    ctx.font = `${itemHeight * 0.25}px Cairo`;
-    ctx.textAlign = 'center';
-    ctx.fillText(item.label, x + panelWidth / 2, itemY + itemHeight * 0.25);
-
-    // Value
-    ctx.fillStyle = '#000000';
-    ctx.font = `bold ${itemHeight * 0.3}px Cairo`;
-    ctx.fillText(String(item.value), x + panelWidth / 2, itemY + itemHeight * 0.5);
+    ctx.textBaseline = 'top';
+    ctx.fillText(item.label, panelX + panelWidth / 2, top + s(17));
+    ctx.fillStyle = COLORS.purple;
+    ctx.font = `900 ${s(22)}px Cairo, Tahoma, sans-serif`;
+    drawWrappedText(ctx, item.value, panelX + panelWidth / 2, top + s(47), panelWidth - s(32), s(26), 2);
   });
-
   ctx.restore();
 }
 
-/**
- * Draw right price panel
- */
-function drawRightPricePanel(
+function drawPricePanel(
   ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
+  details: AdDetails,
   width: number,
-  height: number
+  height: number,
+  s: (value: number) => number
 ) {
-  const x = width * 0.83;
-  const y = height * 0.5;
-  const panelWidth = width * 0.15;
-  const panelHeight = height * 0.35;
+  const panelWidth = s(184);
+  const panelX = width - panelWidth - s(54);
+  const panelY = height * 0.42;
+  const panelHeight = s(250);
 
   ctx.save();
-
-  // Panel background (red)
-  ctx.fillStyle = '#C41A1A';
-  ctx.fillRect(x, y, panelWidth, panelHeight);
-
-  // Title
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${panelHeight * 0.15}px Cairo`;
+  ctx.fillStyle = COLORS.red;
+  roundedRect(ctx, panelX, panelY, panelWidth, panelHeight, s(27));
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `700 ${s(22)}px Cairo, Tahoma, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(settings.subtitle || 'عنوان', x + panelWidth / 2, y + panelHeight * 0.1);
+  ctx.textBaseline = 'top';
+  ctx.fillText('السعر', panelX + panelWidth / 2, panelY + s(30));
 
-  // Divider
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + panelWidth * 0.1, y + panelHeight * 0.2);
-  ctx.lineTo(x + panelWidth * 0.9, y + panelHeight * 0.2);
-  ctx.stroke();
+  ctx.fillStyle = COLORS.white;
+  ctx.font = `900 ${s(48)}px Cairo, Tahoma, sans-serif`;
+  ctx.fillText(details.price.trim(), panelX + panelWidth / 2, panelY + s(76));
+  ctx.font = `700 ${s(22)}px Cairo, Tahoma, sans-serif`;
+  ctx.fillText(details.currency, panelX + panelWidth / 2, panelY + s(137));
 
-  // Old price (strikethrough)
-  ctx.fillStyle = '#FFD700';
-  ctx.font = `${panelHeight * 0.12}px Cairo`;
-  ctx.textAlign = 'center';
-  const oldPriceY = y + panelHeight * 0.35;
-  ctx.fillText(
-    `${settings.oldPrice} ${settings.currency}`,
-    x + panelWidth / 2,
-    oldPriceY
-  );
-  // Strikethrough line
-  ctx.strokeStyle = '#FFD700';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + panelWidth * 0.15, oldPriceY - panelHeight * 0.03);
-  ctx.lineTo(x + panelWidth * 0.85, oldPriceY - panelHeight * 0.03);
-  ctx.stroke();
-
-  // New price (large, bold)
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${panelHeight * 0.25}px Cairo`;
-  ctx.textAlign = 'center';
-  ctx.fillText(
-    `${settings.newPrice}`,
-    x + panelWidth / 2,
-    y + panelHeight * 0.6
-  );
-
-  // Currency
-  ctx.font = `${panelHeight * 0.12}px Cairo`;
-  ctx.fillText(
-    settings.currency,
-    x + panelWidth / 2,
-    y + panelHeight * 0.75
-  );
-
+  if (details.discount.trim()) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = s(2);
+    ctx.beginPath();
+    ctx.moveTo(panelX + s(24), panelY + s(185));
+    ctx.lineTo(panelX + panelWidth - s(24), panelY + s(185));
+    ctx.stroke();
+    ctx.fillStyle = COLORS.white;
+    ctx.font = `800 ${s(20)}px Cairo, Tahoma, sans-serif`;
+    ctx.fillText(`وفر ${details.discount}%`, panelX + panelWidth / 2, panelY + s(204));
+  }
   ctx.restore();
 }
 
-/**
- * Draw features badges
- */
-function drawFeaturesBadges(
+function drawFeatureBadges(
   ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
+  features: string[],
   width: number,
-  height: number
+  height: number,
+  s: (value: number) => number
 ) {
-  const features = [
-    { icon: '⭐', text: 'جودة عالية' },
-    { icon: '✨', text: 'قطن ناعم' },
-  ];
-
-  const x = width * 0.02;
-  const y = height * 0.88;
-  const badgeWidth = width * 0.15;
-  const badgeHeight = height * 0.08;
+  const y = height * 0.75;
+  const gap = s(14);
+  const maxWidth = width - s(120);
+  let x = (width - Math.min(maxWidth, features.length * s(255) + (features.length - 1) * gap)) / 2;
 
   ctx.save();
-
-  features.forEach((feature, index) => {
-    const badgeY = y + index * (badgeHeight + height * 0.02);
-
-    // Badge background
-    ctx.fillStyle = '#F0F0F0';
-    ctx.fillRect(x, badgeY, badgeWidth, badgeHeight);
-
-    // Border
-    ctx.strokeStyle = '#CCCCCC';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, badgeY, badgeWidth, badgeHeight);
-
-    // Icon
-    ctx.font = `${badgeHeight * 0.5}px Arial`;
+  features.forEach(feature => {
+    const badgeWidth = Math.min(s(255), maxWidth / features.length - gap);
+    ctx.fillStyle = COLORS.purpleSoft;
+    roundedRect(ctx, x, y, badgeWidth, s(64), s(20));
+    ctx.fill();
+    ctx.fillStyle = COLORS.purple;
+    ctx.font = `800 ${s(21)}px Cairo, Tahoma, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#000000';
-    ctx.fillText(feature.icon, x + badgeWidth * 0.2, badgeY + badgeHeight / 2);
-
-    // Text
-    ctx.font = `${badgeHeight * 0.35}px Cairo`;
-    ctx.textAlign = 'right';
-    ctx.fillText(feature.text, x + badgeWidth * 0.9, badgeY + badgeHeight / 2);
+    ctx.textBaseline = 'middle';
+    const safeText = truncateToWidth(ctx, feature, badgeWidth - s(24));
+    ctx.fillText(safeText, x + badgeWidth / 2, y + s(32));
+    x += badgeWidth + gap;
   });
-
   ctx.restore();
 }
 
-/**
- * Draw footer bar with store info
- */
-function drawFooterBar(
+function drawFooter(
   ctx: CanvasRenderingContext2D,
-  settings: CanvasSettings,
+  details: AdDetails,
   width: number,
-  height: number
+  height: number,
+  s: (value: number) => number
 ) {
-  const footerHeight = height * 0.08;
-  const footerY = height - footerHeight;
-
+  const footerHeight = s(104);
+  const footerY = height - s(52) - footerHeight;
   ctx.save();
+  ctx.fillStyle = COLORS.red;
+  roundedRect(ctx, s(50), footerY, width - s(100), footerHeight, s(24));
+  ctx.fill();
 
-  // Background
-  ctx.fillStyle = '#8B0000';
-  ctx.fillRect(0, footerY, width, footerHeight);
-
-  // Store info
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${footerHeight * 0.4}px Cairo`;
-  ctx.textAlign = 'right';
+  ctx.fillStyle = COLORS.white;
   ctx.textBaseline = 'middle';
-
-  const padding = width * 0.02;
-  const centerY = footerY + footerHeight / 2;
-
-  // Store name
-  ctx.fillText(settings.storeName, width - padding, centerY);
-
-  // Phone
-  ctx.font = `${footerHeight * 0.35}px Cairo`;
-  ctx.fillText(`☎ ${settings.storePhone}`, width * 0.5, centerY);
-
-  // Location
-  ctx.fillText(`📍 ${settings.storeLocation}`, padding, centerY);
-
+  if (details.storeName.trim()) {
+    ctx.font = `900 ${s(28)}px Cairo, Tahoma, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(details.storeName.trim(), width - s(78), footerY + footerHeight / 2);
+  }
+  if (details.storePhone.trim()) {
+    ctx.font = `700 ${s(25)}px Cairo, Tahoma, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.direction = 'ltr';
+    ctx.fillText(details.storePhone.trim(), s(78), footerY + footerHeight / 2);
+  }
   ctx.restore();
 }
 
-/**
- * Helper function to wrap text
- */
-function wrapText(
+async function drawImageContain(
+  ctx: CanvasRenderingContext2D,
+  imageSrc: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxHeight: number
+) {
+  const image = await loadImage(imageSrc);
+  const ratio = Math.min(maxWidth / image.width, maxHeight / image.height);
+  const width = image.width * ratio;
+  const height = image.height * ratio;
+  ctx.save();
+  ctx.drawImage(image, x + (maxWidth - width) / 2, y + (maxHeight - height) / 2, width, height);
+  ctx.restore();
+}
+
+function loadImage(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      callback();
+    };
+    const timeout = window.setTimeout(() => finish(() => reject(new Error('انتهت مهلة تحميل صورة الملابس'))), 10_000);
+    image.onload = () => finish(() => resolve(image));
+    image.onerror = () => finish(() => reject(new Error('تعذر تحميل صورة الملابس')));
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+    image.src = source;
+
+    if (typeof image.decode === 'function') {
+      image.decode().then(() => finish(() => resolve(image))).catch(() => {
+        // onload/onerror remain as a compatible fallback for data URLs and older browsers.
+      });
+    }
+  });
+}
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function drawWrappedText(
   ctx: CanvasRenderingContext2D,
   text: string,
   x: number,
   y: number,
   maxWidth: number,
-  lineHeight: number
+  lineHeight: number,
+  maxLines: number
 ) {
-  const words = text.split(' ');
+  const words = text.split(/\s+/).filter(Boolean);
   let line = '';
-  let lineY = y;
+  let lineIndex = 0;
 
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
-
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line, x, lineY);
-      line = words[i] + ' ';
-      lineY += lineHeight;
-    } else {
-      line = testLine;
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width <= maxWidth || !line) {
+      line = next;
+      continue;
     }
+    ctx.fillText(line, x, y + lineIndex * lineHeight);
+    lineIndex += 1;
+    if (lineIndex >= maxLines) return;
+    line = word;
   }
 
-  if (line) {
-    ctx.fillText(line, x, lineY);
-  }
+  if (line && lineIndex < maxLines) ctx.fillText(truncateToWidth(ctx, line, maxWidth), x, y + lineIndex * lineHeight);
 }
 
-/**
- * Download canvas as image
- */
-export function downloadCanvas(
-  canvas: HTMLCanvasElement,
-  filename: string = 'ad.png'
-): void {
-  const link = document.createElement('a');
-  link.href = canvas.toDataURL('image/png');
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const ellipsis = '…';
+  let output = text;
+  while (output.length && ctx.measureText(`${output}${ellipsis}`).width > maxWidth) {
+    output = output.slice(0, -1);
+  }
+  return `${output}${ellipsis}`;
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error('تعذر تصدير الإعلان كصورة'));
+    }, type, quality);
+  });
 }

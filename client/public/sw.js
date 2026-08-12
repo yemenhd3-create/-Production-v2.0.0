@@ -3,8 +3,8 @@
  * Handles offline support, caching, and background sync
  */
 
-const CACHE_NAME = 'clothing-ad-generator-v1';
-const RUNTIME_CACHE = 'clothing-ad-runtime-v1';
+const CACHE_NAME = 'clothing-ad-generator-v3';
+const RUNTIME_CACHE = 'clothing-ad-runtime-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -74,6 +74,21 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           return caches.match(request);
         })
+    );
+    return;
+  }
+
+  // Application shells must always try the network first so deployments never
+  // get stuck on a previous interface version.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request).then(response => response || caches.match('/index.html')))
     );
     return;
   }

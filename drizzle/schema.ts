@@ -25,4 +25,16 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/** Encrypted credentials are never sent back to the browser once saved. */
+export const developerProviders = mysqlTable("developer_providers", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  baseUrl: varchar("baseUrl", { length: 500 }).notNull(),
+  model: varchar("model", { length: 160 }).notNull(),
+  encryptedApiKey: text("encryptedApiKey").notNull(),
+  isEnabled: int("isEnabled").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DeveloperProvider = typeof developerProviders.$inferSelect;

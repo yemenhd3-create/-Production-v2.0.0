@@ -19,6 +19,49 @@ export interface ProductData {
   description?: string;
 }
 
+// ========== Three-step Ad Workflow ==========
+/**
+ * Data entered by a regular user on the second screen. Every field is optional
+ * so the local poster can always be generated from the uploaded garment image.
+ */
+export interface AdDetails {
+  productName: string;
+  headline: string;
+  discount: string;
+  quantity: string;
+  colors: string[];
+  price: string;
+  currency: string;
+  features: string[];
+  storeName: string;
+  storePhone: string;
+  marketingText: string;
+}
+
+export type AdWorkflowStep = 'upload' | 'details' | 'final';
+
+export type TryOnStatus = 'idle' | 'processing' | 'success' | 'fallback' | 'unavailable';
+
+export interface TryOnResult {
+  status: TryOnStatus;
+  imageUrl?: string;
+  message: string;
+  providerId?: string;
+}
+
+/** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
+export interface TemplateSettings {
+  size: 'story' | 'portrait';
+  showProductName: boolean;
+  showHeadline: boolean;
+  showDiscount: boolean;
+  showQuantity: boolean;
+  showColors: boolean;
+  showFeatures: boolean;
+  showPrice: boolean;
+  showStoreInfo: boolean;
+}
+
 // ========== Store Settings ==========
 export interface StoreSettings {
   storeName: string;
@@ -62,6 +105,17 @@ export interface AIProvider {
   apiKey: string;
   enabled: boolean;
   type?: 'text' | 'image' | 'both';
+}
+
+/** Public provider metadata shown to the authenticated developer. API keys are never returned. */
+export interface DeveloperProviderSummary {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  hasApiKey: boolean;
+  updatedAt: number;
 }
 
 // ========== Subscription Token ==========
@@ -174,6 +228,9 @@ export enum StorageKeys {
   GENERATED_ADS = 'clothing_ad_generated_ads',
   DEVELOPER_STATE = 'clothing_ad_developer_state',
   LAST_PRODUCT_DATA = 'clothing_ad_last_product_data',
+  LAST_AD_DETAILS = 'clothing_ad_last_ad_details',
+  TEMPLATE_SETTINGS = 'clothing_ad_template_settings',
+  LAST_WORKFLOW_STEP = 'clothing_ad_last_workflow_step',
 }
 
 // ========== Constants ==========
@@ -190,6 +247,32 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   accentColor: '#C41A1A',
   showQualityBadge: true,
   showDiscount: true,
+};
+
+export const DEFAULT_AD_DETAILS: AdDetails = {
+  productName: '',
+  headline: '',
+  discount: '',
+  quantity: '',
+  colors: [],
+  price: '',
+  currency: DEFAULT_CURRENCY,
+  features: ['خامة عالية الجودة', 'قطن ناعم ومريح'],
+  storeName: '',
+  storePhone: '',
+  marketingText: '',
+};
+
+export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
+  size: 'portrait',
+  showProductName: true,
+  showHeadline: true,
+  showDiscount: true,
+  showQuantity: true,
+  showColors: true,
+  showFeatures: true,
+  showPrice: true,
+  showStoreInfo: true,
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

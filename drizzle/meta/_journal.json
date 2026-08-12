@@ -8,6 +8,13 @@
       "when": 1786303728129,
       "tag": "0000_wealthy_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1786567115076,
+      "tag": "0001_perfect_swordsman",
+      "breakpoints": true
     }
   ]
 }

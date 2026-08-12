@@ -1,355 +1,408 @@
-import { useState, useEffect } from 'react';
-import { ProductData, StoreSettings, AIProvider, DEFAULT_STORE_SETTINGS, StorageKeys } from '@shared/types';
-import Stepper from '@/components/Stepper';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
+import type { AdDetails, AdWorkflowStep, TemplateSettings, TryOnResult } from '@shared/types';
+import {
+  DEFAULT_AD_DETAILS,
+  DEFAULT_TEMPLATE_SETTINGS,
+  StorageKeys,
+} from '@shared/types';
+import {
+  buildMarketingText,
+  createLocalFallbackResult,
+  getCanvasDimensions,
+  resolveTryOnVisualSource,
+} from '@shared/adWorkflow';
+import AdDetailsForm from '@/components/AdDetailsForm';
+import AboutApp from '@/components/AboutApp';
+import DeveloperWorkspace from '@/components/DeveloperWorkspace';
 import ImageUploader from '@/components/ImageUploader';
-import ProductForm from '@/components/ProductForm';
-import SettingsPanel from '@/components/SettingsPanel';
-import AdPreview from '@/components/AdPreview';
-import DeveloperPanel from '@/components/DeveloperPanel';
+import { TryOnStatusNotice } from '@/components/TryOnStatusNotice';
+import UserTemplateSettings from '@/components/UserTemplateSettings';
 import { renderAd } from '@/lib/canvasRenderer';
-import { shareToWhatsApp, downloadImage, copyToClipboard } from '@/lib/share';
+import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, saveToStorage } from '@/lib/storage';
-import { Settings, Code2, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { trpc } from '@/lib/trpc';
+import {
+  Check,
+  ChevronRight,
+  Download,
+  ImagePlus,
+  MessageCircle,
+  Pencil,
+  Send,
+  Settings,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 
-const STEPS = ['الصورة', 'البيانات', 'الإعدادات', 'النشر'];
+const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
+
+const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
+  { id: 'upload', label: 'رفع الملابس' },
+  { id: 'details', label: 'بيانات الإعلان' },
+  { id: 'final', label: 'الإعلان جاهز' },
+];
+
+function isWorkflowStep(value: string | null): value is AdWorkflowStep {
+  return value === 'upload' || value === 'details' || value === 'final';
+}
 
 export default function Home() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [productImage, setProductImage] = useState<string>('');
-  const [productImageFile, setProductImageFile] = useState<File | null>(null);
-
-  const [productData, setProductData] = useState<ProductData>({
-    productName: '',
-    subtitle: '',
-    storeName: '',
-    oldPrice: '',
-    newPrice: '',
-    currency: 'ريال',
+  const [currentStep, setCurrentStep] = useState<AdWorkflowStep>('upload');
+  const [productImage, setProductImage] = useState('');
+  const [adDetails, setAdDetails] = useState<AdDetails>(DEFAULT_AD_DETAILS);
+  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
+  const [generatedAd, setGeneratedAd] = useState('');
+  const [marketingText, setMarketingText] = useState('');
+  const [tryOnResult, setTryOnResult] = useState<TryOnResult>({
+    status: 'idle',
+    message: '',
   });
-
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
-  const [aiProviders, setAiProviders] = useState<AIProvider[]>([]);
-  const [showAiKeys, setShowAiKeys] = useState(false);
-
-  const [generatedAd, setGeneratedAd] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [devPanelOpen, setDevPanelOpen] = useState(false);
-  const [devUnlocked, setDevUnlocked] = useState(false);
-  const [devPassword, setDevPassword] = useState('');
-  const [devKey, setDevKey] = useState('');
+  const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer'>('create');
+  const tryOnMutation = trpc.tryOn.run.useMutation();
 
-  // Load saved data on mount
   useEffect(() => {
-    const savedProduct = getFromStorage<ProductData>(StorageKeys.LAST_PRODUCT_DATA);
-    if (savedProduct) {
-      setProductData(savedProduct);
-    }
+    const savedDetails = getFromStorage<AdDetails>(StorageKeys.LAST_AD_DETAILS);
+    const savedTemplate = getFromStorage<TemplateSettings>(StorageKeys.TEMPLATE_SETTINGS);
 
-    const savedSettings = getFromStorage<StoreSettings>(StorageKeys.STORE_SETTINGS);
-    if (savedSettings) {
-      setStoreSettings(savedSettings);
-    }
-
-    const savedProviders = getFromStorage<AIProvider[]>(StorageKeys.AI_PROVIDERS, []);
-    if (savedProviders) {
-      setAiProviders(savedProviders);
-    }
+    if (savedDetails) setAdDetails({ ...DEFAULT_AD_DETAILS, ...savedDetails });
+    if (savedTemplate) setTemplateSettings({ ...DEFAULT_TEMPLATE_SETTINGS, ...savedTemplate });
   }, []);
 
-  // Save product data whenever it changes
   useEffect(() => {
-    saveToStorage(StorageKeys.LAST_PRODUCT_DATA, productData);
-  }, [productData]);
+    saveToStorage(StorageKeys.LAST_AD_DETAILS, adDetails);
+  }, [adDetails]);
 
-  // Save store settings whenever they change
   useEffect(() => {
-    saveToStorage(StorageKeys.STORE_SETTINGS, storeSettings);
-  }, [storeSettings]);
+    saveToStorage(StorageKeys.TEMPLATE_SETTINGS, templateSettings);
+  }, [templateSettings]);
 
-  // Save AI providers whenever they change
   useEffect(() => {
-    saveToStorage(StorageKeys.AI_PROVIDERS, aiProviders);
-  }, [aiProviders]);
+    return () => {
+      if (productImage.startsWith('blob:')) URL.revokeObjectURL(productImage);
+    };
+  }, [productImage]);
 
-  // Generate ad when moving to preview step
   useEffect(() => {
-    if (currentStep === 3 && productImage && !generatedAd) {
-      generateAd();
-    }
-  }, [currentStep]);
+    return () => {
+      if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
+    };
+  }, [generatedAd]);
+
+  const handleImageSelect = (imageUrl: string) => {
+    setProductImage(imageUrl);
+    setGeneratedAd('');
+    setTryOnResult({ status: 'idle', message: '' });
+    setCurrentStep('details');
+  };
+
+  const handleImageRemove = () => {
+    setProductImage('');
+    setGeneratedAd('');
+    setTryOnResult({ status: 'idle', message: '' });
+    setCurrentStep('upload');
+  };
 
   const generateAd = async () => {
     if (!productImage) {
-      alert('الرجاء اختيار صورة أولاً');
+      setCurrentStep('upload');
       return;
     }
 
-    if (!productData.productName || !productData.newPrice) {
-      alert('الرجاء ملء البيانات المطلوبة');
-      return;
-    }
-
+    setCurrentStep('final');
     setIsGenerating(true);
+    setGeneratedAd('');
+    setTryOnResult({
+      status: 'processing',
+      message: 'جارٍ تجهيز الإعلان ومحاولة تجربة الملابس بالذكاء الاصطناعي…',
+    });
 
     try {
-      const canvasSettings = {
-        ...storeSettings,
-        ...productData,
-      };
+      const tryOnWorkflow = await resolveTryOnVisualSource(
+        productImage,
+        async () => tryOnMutation.mutateAsync({
+          productImageData: await blobUrlToDataUri(productImage),
+          aspectRatio: templateSettings.size === 'story' ? '9:16' : '4:5',
+        }),
+        fetchImageAsBlobUrl
+      );
+      const imageForCanvas = tryOnWorkflow.imageForCanvas;
+      setTryOnResult(tryOnWorkflow.result);
 
-      const adImage = await renderAd(canvasSettings, productImage);
-      setGeneratedAd(adImage);
+      const dimensions = getCanvasDimensions(templateSettings.size);
+      const output = await withTimeout(
+        renderAd(adDetails, templateSettings, imageForCanvas, dimensions),
+        15_000,
+        'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
+      );
+
+      setGeneratedAd(output);
+      setMarketingText(buildMarketingText(adDetails));
     } catch (error) {
-      console.error('Failed to generate ad:', error);
-      alert('فشل في إنشاء الإعلان');
+      console.error('Failed to generate local advertisement:', error);
+      setTryOnResult({
+        status: 'unavailable',
+        message: 'تعذّر إنشاء الإعلان حالياً. تحقق من الصورة ثم حاول مرة أخرى.',
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleImageSelect = (imageUrl: string, file: File) => {
-    setProductImage(imageUrl);
-    setProductImageFile(file);
-  };
-
-  const handleImageRemove = () => {
-    setProductImage('');
-    setProductImageFile(null);
-    setGeneratedAd('');
-  };
-
   const handleDownload = () => {
-    if (generatedAd) {
-      const filename = `${productData.productName || 'إعلان'}-${Date.now()}.png`;
-      downloadImage(generatedAd, filename);
+    if (!generatedAd) return;
+    downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
+  };
+
+  const handleWhatsApp = () => {
+    if (!generatedAd) return;
+    shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText).then(shared => {
+      if (!shared) shareToWhatsApp('', marketingText);
+    });
+  };
+
+  const handleShare = async () => {
+    if (!generatedAd) return;
+    const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
+    if (!shared) {
+      shareToWhatsApp('', marketingText);
     }
   };
 
-  const handleShare = () => {
-    if (generatedAd) {
-      const caption = `${productData.productName}\n${productData.subtitle}\nالسعر: ${productData.newPrice} ${productData.currency}\n\nمن ${productData.storeName}`;
-      shareToWhatsApp(generatedAd, caption);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (generatedAd) {
-      const success = await copyToClipboard(generatedAd);
-      if (success) {
-        alert('تم نسخ الصورة إلى الحافظة');
-      }
-    }
-  };
-
-  const calculateDiscount = () => {
-    const oldPrice = parseFloat(productData.oldPrice) || 0;
-    const newPrice = parseFloat(productData.newPrice) || 0;
-
-    if (oldPrice > newPrice && oldPrice > 0) {
-      return Math.round(((oldPrice - newPrice) / oldPrice) * 100);
-    }
-
-    return 0;
-  };
+  const currentIndex = WORKFLOW_STEPS.findIndex(step => step.id === currentStep);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-white">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="container py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#fffaf4] text-foreground" dir="rtl">
+      <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#fffaf4]/95 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold">
-              إ
+            <img src={LOGO_URL} alt="Marwan Designer" className="h-11 w-11 rounded-2xl object-contain shadow-sm" />
+            <div>
+              <h1 className="text-lg font-black tracking-tight text-primary">مولد إعلانات الملابس</h1>
+              <p className="text-xs text-muted-foreground">مشروع شخصي تعليمي</p>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">مولد الإعلانات</h1>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setDevPanelOpen(true)}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Code2 size={18} />
-              <span className="hidden sm:inline">مطور</span>
-            </Button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveView('settings')}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95"
+            aria-label="الإعدادات"
+          >
+            <Settings size={20} />
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Forms */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Stepper */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <Stepper
-                steps={STEPS}
-                currentStep={currentStep}
-                onStepChange={setCurrentStep}
-                isLoading={isGenerating}
-              />
-            </div>
-
-            {/* Step Content */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              {currentStep === 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-900">رفع صورة المنتج</h2>
-                  <ImageUploader
-                    onImageSelect={handleImageSelect}
-                    currentImage={productImage}
-                    onImageRemove={handleImageRemove}
-                  />
-                </div>
-              )}
-
-              {currentStep === 1 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-900">بيانات المنتج</h2>
-                  <ProductForm
-                    data={productData}
-                    onChange={setProductData}
-                  />
-                </div>
-              )}
-
-              {currentStep === 2 && (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-900">الإعدادات</h2>
-                  <SettingsPanel
-                    settings={storeSettings}
-                    onSettingsChange={setStoreSettings}
-                    providers={aiProviders}
-                    onProvidersChange={setAiProviders}
-                    showKeys={showAiKeys}
-                    onShowKeysChange={setShowAiKeys}
-                  />
-                </div>
-              )}
-
-              {currentStep === 3 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={24} className="text-red-600" />
-                    <h2 className="text-xl font-bold text-gray-900">معاينة الإعلان</h2>
+      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pt-9">
+        {activeView === 'create' && <section className="mb-6 rounded-3xl bg-white p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
+          <div className="flex items-start justify-between gap-1">
+            {WORKFLOW_STEPS.map((step, index) => {
+              const isCurrent = step.id === currentStep;
+              const isDone = index < currentIndex;
+              return (
+                <div key={step.id} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-black transition ${
+                      isCurrent
+                        ? 'bg-accent text-accent-foreground shadow-lg shadow-red-200'
+                        : isDone
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-muted-foreground'
+                    }`}
+                  >
+                    {isDone ? <Check size={17} /> : index + 1}
                   </div>
-                  <AdPreview
-                    imageUrl={generatedAd}
-                    isLoading={isGenerating}
-                    onDownload={handleDownload}
-                    onShare={handleShare}
-                    onCopy={handleCopy}
-                    discount={calculateDiscount()}
-                    storeName={productData.storeName}
-                    productName={productData.productName}
-                  />
+                  <span className={`text-[11px] font-bold leading-tight sm:text-xs ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {step.label}
+                  </span>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
+        </section>}
 
-          {/* Right Column - Summary */}
-          <div className="space-y-4">
-            {/* Quick Summary */}
-            <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Settings size={20} />
-                ملخص الإعلان
-              </h3>
+        {activeView === 'settings' && (
+          <UserTemplateSettings
+            settings={templateSettings}
+            onChange={setTemplateSettings}
+            onBack={() => setActiveView('create')}
+            onAbout={() => setActiveView('about')}
+          />
+        )}
 
-              <div className="space-y-3 text-sm">
+        {activeView === 'about' && <AboutApp onBack={() => setActiveView('settings')} />}
+
+        {activeView === 'developer' && <DeveloperWorkspace onBack={() => setActiveView('create')} />}
+
+        {activeView === 'create' && currentStep === 'upload' && (
+          <section className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+            <div className="mb-6">
+              <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                <ImagePlus size={15} /> المرحلة الأولى
+              </span>
+              <h2 className="text-2xl font-black text-foreground">ارفع صورة الملابس</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط، وسننقلك مباشرة إلى بيانات الإعلان.</p>
+            </div>
+            <ImageUploader
+              onImageSelect={handleImageSelect}
+              currentImage={productImage}
+              onImageRemove={handleImageRemove}
+            />
+          </section>
+        )}
+
+        {activeView === 'create' && currentStep === 'details' && (
+          <section className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+            <div className="mb-6 flex gap-4 rounded-2xl bg-secondary/60 p-3">
+              <img src={productImage} alt="صورة القطعة المختارة" className="h-16 w-16 rounded-xl object-cover" />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-bold text-primary">المرحلة الثانية</span>
+                <h2 className="mt-1 text-xl font-black text-foreground">بيانات الإعلان</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">جميع الحقول اختيارية؛ لن يتوقف الإعلان إن تركتها فارغة.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentStep('upload')}
+                className="self-start rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-white"
+              >
+                تغيير
+              </button>
+            </div>
+
+            <AdDetailsForm details={adDetails} onChange={setAdDetails} />
+
+            <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4">
+              <div className="flex items-start gap-3">
+                <Wand2 size={19} className="mt-0.5 shrink-0 text-primary" />
+                <p className="text-sm leading-6 text-primary">
+                  عند الضغط على زر التوليد سيحاول التطبيق التلبيس بالذكاء الاصطناعي تلقائياً. إذا لم تتوفر النتيجة، سيضع صورة القطعة داخل القالب مباشرة.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={generateAd}
+              className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 text-base font-black text-accent-foreground shadow-lg shadow-red-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Sparkles size={20} /> توليد الإعلان
+            </button>
+          </section>
+        )}
+
+        {activeView === 'create' && currentStep === 'final' && (
+          <section className="space-y-5">
+            <div className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+              <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-gray-600">اسم المنتج</p>
-                  <p className="font-medium text-gray-900">{productData.productName || '-'}</p>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                    <Sparkles size={15} /> المرحلة الثالثة
+                  </span>
+                  <h2 className="mt-3 text-2xl font-black text-foreground">الإعلان النهائي</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">راجع النتيجة ثم نزّلها أو شاركها مباشرة.</p>
                 </div>
-
-                <div>
-                  <p className="text-gray-600">المتجر</p>
-                  <p className="font-medium text-gray-900">{productData.storeName || '-'}</p>
-                </div>
-
-                <div>
-                  <p className="text-gray-600">السعر</p>
-                  <p className="font-medium text-gray-900">
-                    {productData.newPrice ? `${productData.newPrice} ${productData.currency}` : '-'}
-                  </p>
-                </div>
-
-                {calculateDiscount() > 0 && (
-                  <div>
-                    <p className="text-gray-600">الخصم</p>
-                    <p className="font-medium text-red-600">{calculateDiscount()}%</p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-gray-600">الصورة</p>
-                  <p className="font-medium text-gray-900">{productImage ? '✓ تم الرفع' : '-'}</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep('details')}
+                  className="inline-flex items-center gap-1 rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary transition active:scale-95"
+                >
+                  <Pencil size={16} /> تعديل
+                </button>
               </div>
 
-              {/* Generate Button */}
-              {currentStep === 3 && !generatedAd && (
-                <Button
-                  onClick={generateAd}
-                  disabled={isGenerating || !productImage}
-                  className="w-full"
-                >
-                  {isGenerating ? 'جاري الإنشاء...' : 'إنشاء الإعلان'}
-                </Button>
+              {isGenerating && (
+                <div className="flex min-h-80 flex-col items-center justify-center rounded-3xl bg-secondary/70 p-8 text-center">
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-primary shadow-sm">
+                    <Sparkles className="animate-pulse" size={28} />
+                  </div>
+                  <h3 className="text-lg font-black text-foreground">جارٍ توليد الإعلان</h3>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">نرتب القالب ونحاول تجهيز تجربة الملابس. لا تغلق الصفحة الآن.</p>
+                </div>
               )}
 
-              {/* Regenerate Button */}
-              {currentStep === 3 && generatedAd && (
-                <Button
-                  onClick={generateAd}
-                  disabled={isGenerating}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {isGenerating ? 'جاري الإنشاء...' : 'إعادة الإنشاء'}
-                </Button>
+              {!isGenerating && generatedAd && (
+                <>
+                  <img
+                    src={generatedAd}
+                    alt="معاينة الإعلان النهائي"
+                    className="mx-auto max-h-[560px] w-full rounded-3xl border border-stone-100 bg-stone-50 object-contain shadow-sm"
+                  />
+                  <TryOnStatusNotice result={tryOnResult} />
+                </>
+              )}
+
+              {!isGenerating && tryOnResult.status === 'unavailable' && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
+                  <p className="font-bold text-red-900">{tryOnResult.message}</p>
+                  <button type="button" onClick={generateAd} className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button>
+                </div>
               )}
             </div>
 
-            {/* Tips */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-              <p className="font-semibold text-blue-900">💡 نصائح للحصول على أفضل النتائج:</p>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• استخدم صور عالية الجودة</li>
-                <li>• ملء جميع البيانات المطلوبة</li>
-                <li>• تحقق من الإعدادات قبل النشر</li>
-                <li>• شارك الإعلان عبر واتساب</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+            {!isGenerating && generatedAd && (
+              <>
+                <section className="rounded-3xl bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
+                  <div className="mb-3 flex items-center gap-2 text-primary"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></div>
+                  <p className="text-sm leading-7 text-foreground">{marketingText}</p>
+                </section>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={handleDownload} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-black text-primary-foreground transition active:scale-[0.98]"><Download size={19} /> تنزيل PNG</button>
+                  <button type="button" onClick={handleShare} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-secondary px-3 text-sm font-black text-primary transition active:scale-[0.98]"><Send size={19} /> مشاركة</button>
+                  <button type="button" onClick={handleWhatsApp} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-3 text-sm font-black text-white transition active:scale-[0.98]"><MessageCircle size={19} /> واتساب</button>
+                  <button type="button" onClick={() => setCurrentStep('details')} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-white px-3 text-sm font-black text-primary transition active:scale-[0.98]"><Pencil size={19} /> تعديل</button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
       </main>
 
-      {/* Developer Panel */}
-      <DeveloperPanel
-        open={devPanelOpen}
-        unlocked={devUnlocked}
-        password={devPassword}
-        keyValue={devKey}
-        setPassword={setDevPassword}
-        setKeyValue={setDevKey}
-        onClose={() => {
-          setDevPanelOpen(false);
-          setDevUnlocked(false);
-        }}
-        onLogin={() => {
-          if (devPassword === 'dev1234' && devKey === 'OPEN-DEV-KEY') {
-            setDevUnlocked(true);
-          } else {
-            alert('بيانات المطور غير صحيحة');
-          }
-        }}
-      />
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur" aria-label="التنقل الرئيسي">
+        <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
+          <button type="button" onClick={() => setActiveView('create')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'create' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Sparkles size={20} />إنشاء</button>
+          <button type="button" onClick={() => setActiveView('settings')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'settings' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Settings size={20} />الإعدادات</button>
+          <button type="button" onClick={() => setActiveView('developer')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'developer' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><ChevronRight size={20} />المطور</button>
+        </div>
+      </nav>
     </div>
   );
+}
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), milliseconds);
+    promise.then(
+      result => {
+        window.clearTimeout(timeout);
+        resolve(result);
+      },
+      error => {
+        window.clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
+}
+
+function blobUrlToDataUri(url: string): Promise<string> {
+  return fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error('تعذر قراءة صورة الملابس');
+      return response.blob();
+    })
+    .then(blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('تعذر تجهيز صورة الملابس'));
+      reader.readAsDataURL(blob);
+    }));
+}
+
+async function fetchImageAsBlobUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('تعذر تحميل صورة Try-On النهائية');
+  const blob = await response.blob();
+  if (!blob.type.startsWith('image/')) throw new Error('نتيجة Try-On ليست صورة صالحة');
+  return URL.createObjectURL(blob);
 }
