@@ -13,29 +13,29 @@ import {
   resolveTryOnVisualSource,
 } from '@shared/adWorkflow';
 import AdDetailsForm from '@/components/AdDetailsForm';
-import AboutApp from '@/components/AboutApp';
-import DeveloperWorkspace from '@/components/DeveloperWorkspace';
 import ImageUploader from '@/components/ImageUploader';
+import SharePanel from '@/components/SharePanel';
 import { TryOnStatusNotice } from '@/components/TryOnStatusNotice';
 import UserTemplateSettings from '@/components/UserTemplateSettings';
 import { renderAd } from '@/lib/canvasRenderer';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 import {
   Check,
   ChevronRight,
-  Download,
   ImagePlus,
   MessageCircle,
   Pencil,
-  Send,
   Settings,
   Sparkles,
   Wand2,
 } from 'lucide-react';
 
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
+const AboutApp = React.lazy(() => import('@/components/AboutApp'));
+const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorkspace'));
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
   { id: 'upload', label: 'رفع الملابس' },
@@ -152,21 +152,41 @@ export default function Home() {
 
   const handleDownload = () => {
     if (!generatedAd) return;
-    downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
+    try {
+      downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
+      toast.success('تم بدء تنزيل الإعلان بصيغة PNG.');
+    } catch {
+      toast.error('تعذّر تنزيل الإعلان. حاول مرة أخرى.');
+    }
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = async () => {
     if (!generatedAd) return;
-    shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText).then(shared => {
-      if (!shared) shareToWhatsApp('', marketingText);
-    });
+    try {
+      const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
+      if (shared) {
+        toast.success('تم فتح نافذة المشاركة. اختر واتساب لإرسال الإعلان.');
+        return;
+      }
+      shareToWhatsApp('', marketingText);
+      toast.success('تم فتح واتساب بالنص التسويقي. أرفق صورة الإعلان التي نزّلتها.');
+    } catch {
+      toast.error('تعذّرت المشاركة عبر واتساب. جرّب تنزيل الصورة أولاً.');
+    }
   };
 
   const handleShare = async () => {
     if (!generatedAd) return;
-    const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
-    if (!shared) {
+    try {
+      const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
+      if (shared) {
+        toast.success('تم فتح نافذة مشاركة الإعلان.');
+        return;
+      }
       shareToWhatsApp('', marketingText);
+      toast.success('تم فتح واتساب بالنص التسويقي كخيار مشاركة بديل.');
+    } catch {
+      toast.error('تعذّرت مشاركة الإعلان حالياً.');
     }
   };
 
@@ -231,9 +251,17 @@ export default function Home() {
           />
         )}
 
-        {activeView === 'about' && <AboutApp onBack={() => setActiveView('settings')} />}
+        {activeView === 'about' && (
+          <React.Suspense fallback={<PageLoading label="جارٍ فتح حول التطبيق…" />}>
+            <AboutApp onBack={() => setActiveView('settings')} />
+          </React.Suspense>
+        )}
 
-        {activeView === 'developer' && <DeveloperWorkspace onBack={() => setActiveView('create')} />}
+        {activeView === 'developer' && (
+          <React.Suspense fallback={<PageLoading label="جارٍ فتح لوحة المطور…" />}>
+            <DeveloperWorkspace onBack={() => setActiveView('create')} />
+          </React.Suspense>
+        )}
 
         {activeView === 'create' && currentStep === 'upload' && (
           <section className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
@@ -346,12 +374,7 @@ export default function Home() {
                   <div className="mb-3 flex items-center gap-2 text-primary"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></div>
                   <p className="text-sm leading-7 text-foreground">{marketingText}</p>
                 </section>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={handleDownload} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-3 text-sm font-black text-primary-foreground transition active:scale-[0.98]"><Download size={19} /> تنزيل PNG</button>
-                  <button type="button" onClick={handleShare} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-secondary px-3 text-sm font-black text-primary transition active:scale-[0.98]"><Send size={19} /> مشاركة</button>
-                  <button type="button" onClick={handleWhatsApp} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-3 text-sm font-black text-white transition active:scale-[0.98]"><MessageCircle size={19} /> واتساب</button>
-                  <button type="button" onClick={() => setCurrentStep('details')} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-white px-3 text-sm font-black text-primary transition active:scale-[0.98]"><Pencil size={19} /> تعديل</button>
-                </div>
+                <SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} />
               </>
             )}
           </section>
@@ -367,6 +390,10 @@ export default function Home() {
       </nav>
     </div>
   );
+}
+
+function PageLoading({ label }: { label: string }) {
+  return <div className="rounded-[28px] bg-white p-8 text-center text-sm font-bold text-primary shadow-[0_16px_40px_rgba(37,35,95,0.08)]">{label}</div>;
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {

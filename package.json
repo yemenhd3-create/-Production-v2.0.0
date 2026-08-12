@@ -10,6 +10,9 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "perf:check": "node scripts/performance-check.mjs",
+    "mobile:check": "node scripts/mobile-layout-check.mjs",
+    "quality": "pnpm test && pnpm check && pnpm build && pnpm perf:check",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {

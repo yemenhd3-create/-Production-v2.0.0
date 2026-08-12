@@ -49,8 +49,11 @@
     --primary-dark: 0 0% 10%;
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
     @apply border-gray-200;
+    box-sizing: border-box;
   }
 
   html {
@@ -58,11 +61,24 @@
     font-family: "Cairo", "Tajawal", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-white text-gray-900;
+    margin: 0;
     line-height: 1.6;
+    min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   /* Fix flex for RTL */
