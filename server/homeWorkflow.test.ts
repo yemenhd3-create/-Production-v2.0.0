@@ -90,7 +90,7 @@ describe('Home Try-On workflow', () => {
     await startGeneration();
 
     await screen.findByText(/تمت إزالة خلفية صورة الملابس/);
-    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'transparentPerson' })));
+    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'garment' })));
     expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
   });
 

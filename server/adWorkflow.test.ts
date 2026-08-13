@@ -86,7 +86,11 @@ describe('three-step advertisement workflow defaults', () => {
   });
 
   it('maps export sizes and calculates an old price only for valid discounts', () => {
+    expect(getCanvasDimensions('portrait')).toEqual({ width: 1080, height: 1350 });
+    expect(getCanvasDimensions('square')).toEqual({ width: 1080, height: 1080 });
     expect(getCanvasDimensions('story')).toEqual({ width: 1080, height: 1920 });
+    expect(getCanvasDimensions('whatsapp')).toEqual({ width: 1080, height: 1440 });
+    expect(getCanvasDimensions('landscape')).toEqual({ width: 1200, height: 628 });
     expect(deriveOldPrice('5000', '20')).toBe('6250');
     expect(deriveOldPrice('5000', '0')).toBe('');
   });

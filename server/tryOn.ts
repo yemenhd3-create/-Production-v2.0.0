@@ -16,6 +16,7 @@ export type CloudTryOnResult = {
   providerId: string;
   message: string;
   isTransparent: boolean;
+  transparentSubject?: 'person' | 'garment';
 };
 
 type TryOnRuntimeOptions = {
@@ -153,6 +154,7 @@ export async function runProductToModelTryOn(
       providerId: provider.id,
       message: 'تم تلبيس القطعة وتفريغ الخلفية بنجاح. استُخدمت نتيجة PNG شفافة داخل القالب.',
       isTransparent: true,
+      transparentSubject: 'person',
     };
   } catch (error) {
     console.warn('[Try-On] Background removal failed; keeping the on-model result.', error);
@@ -188,5 +190,6 @@ export async function removeBackgroundFromProduct(
     providerId: provider.id,
     message: 'تمت إزالة خلفية صورة الملابس وحفظ PNG شفاف داخل القالب الأبيض.',
     isTransparent: true,
+    transparentSubject: 'garment',
   };
 }

@@ -48,11 +48,15 @@ export interface TryOnResult {
   message: string;
   providerId?: string;
   isTransparent?: boolean;
+  transparentSubject?: 'person' | 'garment';
 }
+
+export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
+export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
 
 /** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
 export interface TemplateSettings {
-  size: 'story' | 'portrait';
+  size: TemplateSize;
   showProductName: boolean;
   showHeadline: boolean;
   showDiscount: boolean;
@@ -63,6 +67,12 @@ export interface TemplateSettings {
   showStoreInfo: boolean;
   showFrame: boolean;
   showQualityMark: boolean;
+  badgeType: TemplateBadgeType;
+  badgeText: string;
+  showHeaderArtwork: boolean;
+  headerArtwork?: string;
+  showFooterArtwork: boolean;
+  footerArtwork?: string;
 }
 
 // ========== Store Settings ==========
@@ -278,6 +288,12 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showStoreInfo: true,
   showFrame: true,
   showQualityMark: true,
+  badgeType: 'discount',
+  badgeText: '',
+  showHeaderArtwork: false,
+  headerArtwork: '',
+  showFooterArtwork: false,
+  footerArtwork: '',
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

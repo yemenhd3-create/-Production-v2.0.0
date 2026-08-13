@@ -144,15 +144,17 @@ export default function Home() {
         async () => {
           const productImageData = await blobUrlToDataUri(productImage);
           try {
+            const aspectRatio = templateSettings.size === 'story' ? '9:16' : '4:5';
             return await tryOnMutation.mutateAsync({
               productImageData,
-              aspectRatio: templateSettings.size === 'story' ? '9:16' : '4:5',
+              aspectRatio,
             });
           } catch (tryOnError) {
             const rawCutout = await backgroundRemoveMutation.mutateAsync({ productImageData });
             return {
               ...rawCutout,
               message: `تعذر التلبيس بالذكاء الاصطناعي، لكن ${rawCutout.message}`,
+              transparentSubject: 'garment' as const,
             };
           }
         },
@@ -163,7 +165,7 @@ export default function Home() {
 
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: tryOnWorkflow.result.isTransparent ? 'transparentPerson' : 'garment' }),
+        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: tryOnWorkflow.result.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
         15_000,
         'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
       );

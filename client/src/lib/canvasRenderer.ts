@@ -1,4 +1,4 @@
-import type { AdDetails, TemplateSettings } from '@shared/types';
+import type { AdDetails, TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
 
 export interface RenderOptions {
   width?: number;
@@ -8,7 +8,7 @@ export interface RenderOptions {
 }
 
 const COLORS = {
-  ivory: '#FFFFFF',
+  background: '#FFFFFF',
   purple: '#2A2865',
   purpleSoft: '#F0ECFF',
   red: '#D01720',
@@ -19,322 +19,221 @@ const COLORS = {
 };
 
 const TEMPLATE_FONT_FAMILY = 'Cairo, Tahoma, Arial, sans-serif';
-
 type Box = { x: number; y: number; width: number; height: number };
+type Geometry = { safe: Box; header: Box; hero: Box; info: Box; price: Box; features: Box; footer: Box; badge: Box };
+type Layout = { font: (weight: number, size: number) => string; width: number; height: number; scale: number };
 
-/** يرسم قالباً ثابتاً 4:5 أو 9:16، مع طبقات اختيارية من إعدادات المستخدم. */
-export async function renderAd(
-  details: AdDetails,
-  template: TemplateSettings,
-  productImageSrc: string,
-  options: RenderOptions = {}
-): Promise<string> {
+/** يرسم قالباً هندسياً مستقلاً لكل مقاس؛ الملابس دائماً أكبر منطقة بصرية. */
+export async function renderAd(details: AdDetails, template: TemplateSettings, productImageSrc: string, options: RenderOptions = {}): Promise<string> {
   await waitForCanvasFonts();
-  const width = options.width || 1080;
-  const height = options.height || 1350;
+  const { width, height } = resolveCanvasSize(template.size, options.width, options.height);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('تعذر تهيئة مساحة الرسم');
 
-  const sx = width / 1080;
-  const sy = height / 1350;
-  const x = (value: number) => value * sx;
-  const y = (value: number) => value * sy;
-  const font = (weight: number, size: number) => `${weight} ${Math.round(size * sx)}px ${TEMPLATE_FONT_FAMILY}`;
-
-  ctx.fillStyle = COLORS.ivory;
+  const layout: Layout = { width, height, scale: width / 1080, font: (weight, size) => `${weight} ${Math.round(size * (width / 1080))}px ${TEMPLATE_FONT_FAMILY}` };
+  const geometry = createGeometry(template.size, width, height);
+  ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, width, height);
-  if (template.showFrame) {
-    roundedRect(ctx, x(28), y(28), width - x(56), height - y(56), x(30));
-    ctx.strokeStyle = '#D8D2C8';
-    ctx.lineWidth = x(2);
-    ctx.stroke();
-  }
+  if (template.showFrame) drawFrame(ctx, geometry.safe, layout.scale);
 
-  drawHeader(ctx, details, template, { x, y, font, width });
+  if (template.showHeaderArtwork && template.headerArtwork) await drawArtwork(ctx, template.headerArtwork, geometry.header);
+  else drawTextHeader(ctx, details, template, geometry.header, layout);
 
-  const stage: Box = { x: x(236), y: y(250), width: x(608), height: y(616) };
-  await drawProductStage(ctx, stage, productImageSrc, x, y, options.visualMode || 'garment');
-
-  if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, { x, y, font });
-  if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, { x, y, font });
-  if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), { x, y, font, width });
-  if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) drawFooter(ctx, details, { x, y, font, width, height });
+  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
+  drawBadge(ctx, details, template, geometry.badge, layout);
+  if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout);
+  if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout);
+  if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), geometry.features, layout);
+  if (template.showFooterArtwork && template.footerArtwork) await drawArtwork(ctx, template.footerArtwork, geometry.footer);
+  else if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) drawFooter(ctx, details, geometry.footer, layout);
 
   const blob = await canvasToBlob(canvas, 'image/png', options.quality || 0.92);
   return URL.createObjectURL(blob);
 }
 
-type Layout = {
-  x: (value: number) => number;
-  y: (value: number) => number;
-  font: (weight: number, size: number) => string;
-  width?: number;
-  height?: number;
-};
+function resolveCanvasSize(size: TemplateSize, requestedWidth?: number, requestedHeight?: number) {
+  if (requestedWidth && requestedHeight) return { width: requestedWidth, height: requestedHeight };
+  const dimensions: Record<TemplateSize, { width: number; height: number }> = {
+    portrait: { width: 1080, height: 1350 }, square: { width: 1080, height: 1080 }, story: { width: 1080, height: 1920 }, whatsapp: { width: 1080, height: 1440 }, landscape: { width: 1200, height: 628 },
+  };
+  return dimensions[size] || dimensions.portrait;
+}
 
-function drawHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, layout: Layout) {
-  const { x, y, font, width = 1080 } = layout;
-  if (template.showDiscount && details.discount.trim()) {
-    const cx = x(142);
-    const cy = y(145);
-    const radius = x(78);
-    ctx.save();
-    ctx.fillStyle = COLORS.red;
-    ctx.shadowColor = 'rgba(120, 0, 0, 0.18)';
-    ctx.shadowBlur = x(10);
-    ctx.shadowOffsetY = y(5);
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = COLORS.redDark;
-    ctx.lineWidth = x(3);
-    ctx.stroke();
-    ctx.fillStyle = COLORS.white;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = font(800, 27);
-    ctx.fillText('خصم', cx, cy - y(20));
-    ctx.font = font(900, 45);
-    ctx.fillText(`${details.discount.trim()}%`, cx, cy + y(24));
-    ctx.restore();
+function createGeometry(size: TemplateSize, width: number, height: number): Geometry {
+  const box = (x: number, y: number, w: number, h: number): Box => ({ x: width * x, y: height * y, width: width * w, height: height * h });
+  if (size === 'landscape') {
+    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), hero: box(.07, .30, .48, .60), info: box(.61, .42, .14, .25), price: box(.79, .38, .15, .30), features: box(.60, .18, .34, .12), footer: box(.60, .75, .34, .15), badge: box(.06, .10, .11, .16) };
   }
+  const config: Record<Exclude<TemplateSize, 'landscape'>, { headerY: number; headerH: number; heroY: number; heroH: number; infoY: number; featureY: number; footerY: number; footerH: number }> = {
+    portrait: { headerY: .06, headerH: .13, heroY: .20, heroH: .52, infoY: .42, featureY: .75, footerY: .88, footerH: .08 },
+    square: { headerY: .06, headerH: .15, heroY: .22, heroH: .48, infoY: .43, featureY: .73, footerY: .87, footerH: .09 },
+    story: { headerY: .055, headerH: .10, heroY: .17, heroH: .58, infoY: .44, featureY: .78, footerY: .90, footerH: .065 },
+    whatsapp: { headerY: .06, headerH: .12, heroY: .19, heroH: .55, infoY: .43, featureY: .77, footerY: .885, footerH: .075 },
+  };
+  const c = config[size];
+  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(.07, c.footerY, .86, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
+}
 
+function drawFrame(ctx: CanvasRenderingContext2D, box: Box, scale: number) {
+  ctx.save();
+  roundedRect(ctx, box.x, box.y, box.width, box.height, 28 * scale);
+  ctx.strokeStyle = '#D8D2C8';
+  ctx.lineWidth = 2 * scale;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
   const title = template.showProductName ? details.productName.trim() : '';
   const headline = template.showHeadline ? details.headline.trim() : '';
+  const { font, scale } = layout;
   ctx.save();
   ctx.fillStyle = COLORS.purple;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
+  const isLandscape = layout.width > layout.height;
+  const titleCenter = template.showQualityMark ? box.x + box.width * .38 : box.x + box.width / 2;
+  const titleWidth = template.showQualityMark ? box.width * .68 : box.width * .88;
   if (title) {
-    ctx.font = font(900, 53);
-    drawWrappedText(ctx, title, width / 2, y(84), x(560), y(62), 2);
+    ctx.font = font(900, isLandscape ? 38 : 53);
+    drawWrappedText(ctx, title, titleCenter, box.y + box.height * .08, titleWidth, (isLandscape ? 45 : 62) * scale, 2);
   }
   if (headline) {
     ctx.fillStyle = COLORS.gray;
     ctx.font = font(600, 22);
-    drawWrappedText(ctx, headline, width / 2, y(title ? 157 : 104), x(500), y(30), 2);
+    drawWrappedText(ctx, headline, titleCenter, box.y + box.height * (title ? .62 : .25), titleWidth, 30 * scale, 2);
   }
-  ctx.restore();
-
   if (template.showQualityMark) {
-    // طبقة العلامة الثابتة في أقصى اليمين، كما في القالب المرجعي.
-    ctx.save();
-    roundedRect(ctx, width - x(175), y(80), x(72), y(72), x(19));
+    const markSize = Math.min(box.height * .48, 72 * scale);
+    roundedRect(ctx, box.x + box.width - markSize, box.y + box.height * .08, markSize, markSize, markSize * .26);
     ctx.fillStyle = COLORS.purpleSoft;
     ctx.fill();
     ctx.fillStyle = COLORS.purple;
     ctx.font = font(900, 36);
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✓', width - x(139), y(116));
-    ctx.restore();
+    ctx.fillText('✓', box.x + box.width - markSize / 2, box.y + box.height * .08 + markSize / 2);
   }
+  ctx.restore();
 }
 
-async function drawProductStage(ctx: CanvasRenderingContext2D, box: Box, imageSrc: string, x: (value: number) => number, y: (value: number) => number, visualMode: 'garment' | 'transparentPerson') {
-  // مساحة العرض جزء أبيض من القالب كله، بلا بطاقة أو ظل داخلي؛ لذلك تندمج صورة الملابس البيضاء تلقائياً.
-  // الشخص الشفاف يثبت قرب القاعدة، والملابس تبقى محتواة من دون تمديد أو قص.
-  await drawImageContain(ctx, imageSrc, box.x + x(12), box.y + y(12), box.width - x(24), box.height - y(24), visualMode);
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson') {
+  // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
+  const padding = Math.min(box.width, box.height) * .015;
+  await drawImageContain(ctx, imageSrc, box.x + padding, box.y + padding, box.width - padding * 2, box.height - padding * 2, visualMode);
 }
 
-function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, layout: Layout) {
-  const { x, y, font } = layout;
-  const items = [
-    template.showQuantity && details.quantity.trim() ? { label: 'الكمية', value: details.quantity.trim() } : null,
-    template.showColors && details.colors.length ? { label: 'الألوان', value: details.colors.slice(0, 2).join('، ') } : null,
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
-  if (!items.length) return;
-
-  const box: Box = { x: x(54), y: y(552), width: x(170), height: y(items.length === 2 ? 276 : 150) };
+function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+  const type = template.badgeType || (template.showDiscount && details.discount.trim() ? 'discount' : 'none');
+  if (type === 'none') return;
+  const labels: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: details.discount.trim() ? `خصم\n${details.discount.trim()}%` : 'خصم', new: 'جديد', offer: 'عرض', price: 'سعر', quality: 'جودة' };
+  const text = template.badgeText.trim() || labels[type];
+  const colors: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: COLORS.red, new: COLORS.purple, offer: '#F07B16', price: COLORS.redDark, quality: '#198754' };
+  const radius = Math.min(box.width, box.height) / 2;
+  const cx = box.x + radius;
+  const cy = box.y + radius;
   ctx.save();
+  ctx.fillStyle = colors[type];
+  ctx.shadowColor = 'rgba(0,0,0,.16)';
+  ctx.shadowBlur = radius * .18;
+  ctx.shadowOffsetY = radius * .08;
+  ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = 'transparent';
   ctx.fillStyle = COLORS.white;
-  roundedRect(ctx, box.x, box.y, box.width, box.height, x(25));
-  ctx.fill();
-  ctx.strokeStyle = '#E5E1DB';
-  ctx.lineWidth = x(2);
-  ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lines = text.split(/\n|\s{2,}/).filter(Boolean).slice(0, 2);
+  ctx.font = layout.font(900, Math.max(17, Math.min(31, radius / layout.scale * .36)));
+  lines.forEach((line, index) => ctx.fillText(line, cx, cy + (index - (lines.length - 1) / 2) * radius * .46));
+  ctx.restore();
+}
+
+function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+  const items = [template.showQuantity && details.quantity.trim() ? { label: 'الكمية', value: details.quantity.trim() } : null, template.showColors && details.colors.length ? { label: 'الألوان', value: details.colors.slice(0, 2).join('، ') } : null].filter(Boolean) as Array<{ label: string; value: string }>;
+  if (!items.length) return;
+  ctx.save();
+  const gap = box.height * .06;
+  const itemHeight = (box.height - gap * (items.length - 1)) / items.length;
   items.forEach((item, index) => {
-    const itemY = box.y + y(18) + index * y(124);
-    ctx.fillStyle = COLORS.purpleSoft;
-    roundedRect(ctx, box.x + x(12), itemY, box.width - x(24), y(108), x(16));
-    ctx.fill();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = COLORS.gray;
-    ctx.font = font(700, 19);
-    ctx.fillText(item.label, box.x + box.width / 2, itemY + y(17));
-    ctx.fillStyle = COLORS.purple;
-    ctx.font = font(900, 23);
-    drawWrappedText(ctx, item.value, box.x + box.width / 2, itemY + y(47), box.width - x(28), y(27), 2);
+    const y = box.y + index * (itemHeight + gap);
+    roundedRect(ctx, box.x, y, box.width, itemHeight, Math.min(box.width, itemHeight) * .18);
+    ctx.fillStyle = COLORS.purpleSoft; ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = COLORS.gray; ctx.font = layout.font(700, 19); ctx.fillText(item.label, box.x + box.width / 2, y + itemHeight * .16);
+    ctx.fillStyle = COLORS.purple; ctx.font = layout.font(900, 23); drawWrappedText(ctx, item.value, box.x + box.width / 2, y + itemHeight * .46, box.width * .84, itemHeight * .24, 2);
   });
   ctx.restore();
 }
 
-function drawPricePanel(ctx: CanvasRenderingContext2D, details: AdDetails, layout: Layout) {
-  const { x, y, font } = layout;
-  const box: Box = { x: x(856), y: y(526), width: x(170), height: y(258) };
+function drawPricePanel(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout) {
   ctx.save();
-  ctx.fillStyle = COLORS.red;
-  roundedRect(ctx, box.x, box.y, box.width, box.height, x(28));
-  ctx.fill();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = font(700, 21);
-  ctx.fillText('السعر', box.x + box.width / 2, box.y + y(30));
-  ctx.fillStyle = COLORS.white;
-  ctx.font = font(900, 44);
-  ctx.fillText(details.price.trim(), box.x + box.width / 2, box.y + y(78));
-  ctx.font = font(700, 21);
-  ctx.fillText(details.currency.trim() || 'ريال', box.x + box.width / 2, box.y + y(133));
+  roundedRect(ctx, box.x, box.y, box.width, box.height, Math.min(box.width, box.height) * .18);
+  ctx.fillStyle = COLORS.red; ctx.fill();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.font = layout.font(700, 21); ctx.fillText('السعر', box.x + box.width / 2, box.y + box.height * .14);
+  ctx.fillStyle = COLORS.white; ctx.font = layout.font(900, 44); ctx.fillText(details.price.trim(), box.x + box.width / 2, box.y + box.height * .36);
+  ctx.font = layout.font(700, 21); ctx.fillText(details.currency.trim() || 'ريال', box.x + box.width / 2, box.y + box.height * .61);
   if (details.discount.trim()) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = x(2);
-    ctx.beginPath();
-    ctx.moveTo(box.x + x(22), box.y + y(181));
-    ctx.lineTo(box.x + box.width - x(22), box.y + y(181));
-    ctx.stroke();
-    ctx.font = font(800, 18);
-    ctx.fillText(`وفر ${details.discount.trim()}%`, box.x + box.width / 2, box.y + y(202));
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = Math.max(1, layout.scale * 2); ctx.beginPath(); ctx.moveTo(box.x + box.width * .16, box.y + box.height * .76); ctx.lineTo(box.x + box.width * .84, box.y + box.height * .76); ctx.stroke();
+    ctx.font = layout.font(800, 18); ctx.fillText(`وفر ${details.discount.trim()}%`, box.x + box.width / 2, box.y + box.height * .81);
   }
   ctx.restore();
 }
 
-function drawFeatureBadges(ctx: CanvasRenderingContext2D, features: string[], layout: Layout) {
-  const { x, y, font, width = 1080 } = layout;
-  const gap = x(16);
-  const maxWidth = x(470);
-  const badgeWidth = Math.min(maxWidth, (width - x(170) - gap) / features.length);
-  const totalWidth = features.length * badgeWidth + (features.length - 1) * gap;
-  let badgeX = (width - totalWidth) / 2;
-  const badgeY = y(970);
+function drawFeatureBadges(ctx: CanvasRenderingContext2D, features: string[], box: Box, layout: Layout) {
+  const gap = box.width * .025;
+  const width = (box.width - gap * (features.length - 1)) / features.length;
   ctx.save();
-  for (const feature of features) {
-    ctx.fillStyle = COLORS.purpleSoft;
-    roundedRect(ctx, badgeX, badgeY, badgeWidth, y(62), x(20));
-    ctx.fill();
-    ctx.fillStyle = COLORS.purple;
-    ctx.font = font(800, 20);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(truncateToWidth(ctx, feature, badgeWidth - x(26)), badgeX + badgeWidth / 2, badgeY + y(31));
-    badgeX += badgeWidth + gap;
-  }
+  features.forEach((feature, index) => {
+    const x = box.x + index * (width + gap);
+    roundedRect(ctx, x, box.y, width, box.height, Math.min(width, box.height) * .27); ctx.fillStyle = COLORS.purpleSoft; ctx.fill();
+    ctx.fillStyle = COLORS.purple; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = layout.font(800, 20); ctx.fillText(truncateToWidth(ctx, feature, width * .84), x + width / 2, box.y + box.height / 2);
+  });
   ctx.restore();
 }
 
-function drawFooter(ctx: CanvasRenderingContext2D, details: AdDetails, layout: Layout) {
-  const { x, y, font, width = 1080, height = 1350 } = layout;
-  const footerHeight = y(100);
-  const footerY = height - y(78) - footerHeight;
+function drawFooter(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout) {
   ctx.save();
-  ctx.fillStyle = COLORS.red;
-  roundedRect(ctx, x(54), footerY, width - x(108), footerHeight, x(23));
-  ctx.fill();
-  ctx.fillStyle = COLORS.white;
-  ctx.textBaseline = 'middle';
-  if (details.storeName.trim()) {
-    ctx.font = font(900, 27);
-    ctx.textAlign = 'right';
-    ctx.fillText(truncateToWidth(ctx, details.storeName.trim(), x(380)), width - x(82), footerY + footerHeight / 2);
-  }
-  if (details.storePhone.trim()) {
-    ctx.font = font(800, 24);
-    ctx.textAlign = 'left';
-    ctx.direction = 'ltr';
-    ctx.fillText(details.storePhone.trim(), x(82), footerY + footerHeight / 2);
-  }
+  roundedRect(ctx, box.x, box.y, box.width, box.height, box.height * .25); ctx.fillStyle = COLORS.red; ctx.fill();
+  ctx.fillStyle = COLORS.white; ctx.textBaseline = 'middle';
+  if (details.storeName.trim()) { ctx.font = layout.font(900, 27); ctx.textAlign = 'right'; ctx.fillText(truncateToWidth(ctx, details.storeName.trim(), box.width * .58), box.x + box.width * .94, box.y + box.height / 2); }
+  if (details.storePhone.trim()) { ctx.font = layout.font(800, 24); ctx.textAlign = 'left'; ctx.direction = 'ltr'; ctx.fillText(details.storePhone.trim(), box.x + box.width * .06, box.y + box.height / 2); }
+  ctx.restore();
+}
+
+async function drawArtwork(ctx: CanvasRenderingContext2D, source: string, box: Box) {
+  const image = await loadImage(source);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, box.x, box.y, box.width, box.height);
   ctx.restore();
 }
 
 async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson') {
   const image = await loadImage(imageSrc);
-  const widthLimit = visualMode === 'transparentPerson' ? maxWidth * 0.9 : maxWidth;
-  const heightLimit = visualMode === 'transparentPerson' ? maxHeight * 0.96 : maxHeight;
+  const widthLimit = visualMode === 'transparentPerson' ? maxWidth * .94 : maxWidth;
+  const heightLimit = visualMode === 'transparentPerson' ? maxHeight * .985 : maxHeight;
   const ratio = Math.min(widthLimit / image.width, heightLimit / image.height);
-  const drawWidth = Math.max(1, image.width * ratio);
-  const drawHeight = Math.max(1, image.height * ratio);
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  const drawWidth = Math.max(1, image.width * ratio); const drawHeight = Math.max(1, image.height * ratio);
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const drawX = x + (maxWidth - drawWidth) / 2;
-  const drawY = visualMode === 'transparentPerson'
-    ? y + maxHeight - drawHeight - maxHeight * 0.025
-    : y + (maxHeight - drawHeight) / 2;
-  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-  ctx.restore();
+  const drawY = visualMode === 'transparentPerson' ? y + maxHeight - drawHeight - maxHeight * .012 : y + (maxHeight - drawHeight) / 2;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight); ctx.restore();
 }
 
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    let settled = false;
-    const finish = (callback: () => void) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timeout);
-      callback();
-    };
+    const image = new Image(); let settled = false;
+    const finish = (callback: () => void) => { if (settled) return; settled = true; window.clearTimeout(timeout); callback(); };
     const timeout = window.setTimeout(() => finish(() => reject(new Error('انتهت مهلة تحميل صورة الملابس'))), 12_000);
-    image.onload = () => finish(() => resolve(image));
-    image.onerror = () => finish(() => reject(new Error('تعذر تحميل صورة الملابس في القالب')));
-    image.decoding = 'async';
-    if (!source.startsWith('blob:') && !source.startsWith('data:')) image.crossOrigin = 'anonymous';
-    image.src = source;
+    image.onload = () => finish(() => resolve(image)); image.onerror = () => finish(() => reject(new Error('تعذر تحميل صورة الملابس في القالب')));
+    image.decoding = 'async'; if (!source.startsWith('blob:') && !source.startsWith('data:')) image.crossOrigin = 'anonymous'; image.src = source;
   });
 }
 
-async function waitForCanvasFonts() {
-  if (typeof document === 'undefined' || !('fonts' in document)) return;
-  try {
-    await document.fonts.ready;
-  } catch {
-    // يستمر التصدير بخط Tahoma الاحتياطي إذا تعذر تحميل خط الويب على الهاتف.
-  }
-}
-
-function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
-}
-
-function drawWrappedText(ctx: CanvasRenderingContext2D, text: string, centerX: number, topY: number, maxWidth: number, lineHeight: number, maxLines: number) {
-  const words = text.split(/\s+/).filter(Boolean);
-  let line = '';
-  let lineIndex = 0;
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth || !line) {
-      line = candidate;
-      continue;
-    }
-    ctx.fillText(line, centerX, topY + lineIndex * lineHeight);
-    lineIndex += 1;
-    if (lineIndex >= maxLines) return;
-    line = word;
-  }
-  if (line && lineIndex < maxLines) ctx.fillText(truncateToWidth(ctx, line, maxWidth), centerX, topY + lineIndex * lineHeight);
-}
-
-function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  if (ctx.measureText(text).width <= maxWidth) return text;
-  let value = text;
-  while (value.length && ctx.measureText(`${value}…`).width > maxWidth) value = value.slice(0, -1);
-  return `${value}…`;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('تعذر تصدير الإعلان كصورة'))), type, quality);
-  });
-}
+async function waitForCanvasFonts() { if (typeof document !== 'undefined' && 'fonts' in document) try { await document.fonts.ready; } catch { /* Tahoma fallback */ } }
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) { const r = Math.min(radius, width / 2, height / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + width, y, x + width, y + height, r); ctx.arcTo(x + width, y + height, x, y + height, r); ctx.arcTo(x, y + height, x, y, r); ctx.arcTo(x, y, x + width, y, r); ctx.closePath(); }
+function drawWrappedText(ctx: CanvasRenderingContext2D, text: string, centerX: number, topY: number, maxWidth: number, lineHeight: number, maxLines: number) { const words = text.split(/\s+/).filter(Boolean); let line = ''; let index = 0; for (const word of words) { const candidate = line ? `${line} ${word}` : word; if (ctx.measureText(candidate).width <= maxWidth || !line) { line = candidate; continue; } ctx.fillText(line, centerX, topY + index * lineHeight); index += 1; if (index >= maxLines) return; line = word; } if (line && index < maxLines) ctx.fillText(truncateToWidth(ctx, line, maxWidth), centerX, topY + index * lineHeight); }
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) { if (ctx.measureText(text).width <= maxWidth) return text; let value = text; while (value.length && ctx.measureText(`${value}…`).width > maxWidth) value = value.slice(0, -1); return `${value}…`; }
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> { return new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('تعذر تصدير الإعلان كصورة'))), type, quality)); }

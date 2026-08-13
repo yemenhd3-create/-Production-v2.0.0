@@ -44,6 +44,7 @@ export type CloudTryOnResponse = {
   providerId: string;
   message: string;
   isTransparent?: boolean;
+  transparentSubject?: 'person' | 'garment';
 };
 
 /** Resolves the exact image source the Home workflow passes to Canvas. */
@@ -63,6 +64,7 @@ export async function resolveTryOnVisualSource(
         providerId: cloudResult.providerId,
         message: cloudResult.message,
         isTransparent: cloudResult.isTransparent === true,
+        transparentSubject: cloudResult.transparentSubject,
       },
     };
   } catch (error) {
@@ -82,9 +84,14 @@ export function deriveOldPrice(price: string, discount: string): string {
 }
 
 export function getCanvasDimensions(size: TemplateSettings['size']) {
-  return size === 'story'
-    ? { width: 1080, height: 1920 }
-    : { width: 1080, height: 1350 };
+  const dimensions = {
+    portrait: { width: 1080, height: 1350 },
+    square: { width: 1080, height: 1080 },
+    story: { width: 1080, height: 1920 },
+    whatsapp: { width: 1080, height: 1440 },
+    landscape: { width: 1200, height: 628 },
+  } as const;
+  return dimensions[size] || dimensions.portrait;
 }
 
 /** Temporary adapter while the Canvas renderer is migrated to the redesigned contract. */
