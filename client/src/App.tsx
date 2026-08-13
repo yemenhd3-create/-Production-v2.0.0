@@ -7,12 +7,14 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 const CanvasVisualCheck = lazy(() => import('./components/CanvasVisualCheck'));
 const PersonalAccessGate = lazy(() => import('./components/PersonalAccessGate'));
 const AuthenticatedApplication = lazy(() => import('./components/AuthenticatedApplication'));
+const DeviceCompatibilityCheck = lazy(() => import('./pages/DeviceCompatibilityCheck'));
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={PersonalHome} />
+      <Route path={"/device-check"} component={DeviceCheckHome} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -24,7 +26,14 @@ function PersonalHome() {
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('canvas-visual-check')) {
     return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز معاينة القالب…" />}><CanvasVisualCheck /></Suspense>;
   }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('device-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ فتح فحص توافق الهاتف…" />}><DeviceCompatibilityCheck /></Suspense>;
+  }
   return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
+}
+
+function DeviceCheckHome() {
+  return <Suspense fallback={<LoadingScreen text="جارٍ فتح فحص توافق الهاتف…" />}><PersonalAccessGate><DeviceCompatibilityCheck /></PersonalAccessGate></Suspense>;
 }
 
 function LoadingScreen({ text }: { text: string }) {
