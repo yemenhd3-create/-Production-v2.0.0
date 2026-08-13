@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PERFECT_CORP_BACKGROUND_REMOVE } from '../shared/providerPresets';
 
 const provider = {
   id: '8b95c0be-4b22-4c33-a4a0-39d7ef5030c6',
@@ -92,5 +93,22 @@ describe('FASHN output parsing', () => {
       isTransparent: true,
     });
     expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).toContain('background-remove');
+  });
+
+  it('keeps the original product-to-model image when Perfect Corp background removal fails', async () => {
+    const perfectProvider = { ...provider, id: '3b27a3d3-c04c-4ac6-8951-5fc89dcb1b92', model: PERFECT_CORP_BACKGROUND_REMOVE };
+    limitMock.mockReset().mockResolvedValueOnce([provider]).mockResolvedValueOnce([perfectProvider]);
+    storagePutMock.mockResolvedValueOnce({ key: 'tryon-results/model.png', url: '/manus-storage/tryon-results/model.png' });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'product-job' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'completed', output: ['https://images.fashn.ai/model.png'] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 401, error_code: 'InvalidApiKey' }), { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(runProductToModelTryOn('data:image/png;base64,AA==', '4:5', { pollIntervalMs: 0, maxPollAttempts: 1 })).resolves.toMatchObject({
+      imageUrl: '/manus-storage/tryon-results/model.png',
+      isTransparent: false,
+    });
   });
 });

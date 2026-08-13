@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { desc, eq } from 'drizzle-orm';
 import { developerProviders } from '../drizzle/schema';
+import { PERFECT_CORP_API_BASE_URL, PERFECT_CORP_BACKGROUND_REMOVE } from '../shared/providerPresets';
 import type { DeveloperProviderSummary } from '../shared/types';
 import { getDb } from './db';
 
@@ -70,10 +71,11 @@ export async function saveDeveloperProvider(input: ProviderInput): Promise<Devel
   const encryptedApiKey = input.apiKey?.trim() ? encryptProviderKey(input.apiKey.trim()) : existing?.encryptedApiKey;
   if (!encryptedApiKey) throw new Error('أدخل مفتاح API للمزود الجديد');
 
+  const isPerfectCorpBackgroundRemoval = input.model.trim() === PERFECT_CORP_BACKGROUND_REMOVE;
   const values = {
     id,
     name: input.name.trim(),
-    baseUrl: input.baseUrl.trim(),
+    baseUrl: isPerfectCorpBackgroundRemoval ? PERFECT_CORP_API_BASE_URL : input.baseUrl.trim(),
     model: input.model.trim(),
     encryptedApiKey,
     isEnabled: input.enabled ? 1 : 0,
@@ -116,19 +118,27 @@ export async function checkDeveloperProvider(id: string): Promise<ProviderConnec
   const provider = (await db.select().from(developerProviders).where(eq(developerProviders.id, id)).limit(1))[0];
   if (!provider) throw new Error('المزود غير موجود');
 
-  const url = assertSafeProviderUrl(provider.baseUrl);
+  const isPerfectCorpBackgroundRemoval = provider.model === PERFECT_CORP_BACKGROUND_REMOVE;
+  const url = isPerfectCorpBackgroundRemoval
+    ? new URL('/s2s/v2.0/file', PERFECT_CORP_API_BASE_URL)
+    : assertSafeProviderUrl(provider.baseUrl);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const response = await fetch(url, {
+    const response = await fetch(url, isPerfectCorpBackgroundRemoval ? {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${decryptProviderKey(provider.encryptedApiKey)}` },
+      body: JSON.stringify({ files: [{ content_type: 'image/png', file_name: 'connection-check.png', file_size: 1 }] }),
+      signal: controller.signal,
+    } : {
       method: 'GET',
       headers: { Accept: 'application/json', Authorization: `Bearer ${decryptProviderKey(provider.encryptedApiKey)}` },
       signal: controller.signal,
     });
     return {
-      reachable: response.status < 500,
+      reachable: response.ok,
       status: response.status,
-      message: response.status < 500 ? 'تم الوصول إلى المزود.' : 'استجاب المزود بخطأ من الخادم.',
+      message: response.ok ? 'تم التحقق من اتصال المزود والمفتاح.' : response.status === 401 ? 'تعذر التحقق من المفتاح؛ راجعه في حساب المزود.' : 'استجاب المزود بخطأ عند اختبار الاتصال.',
     };
   } catch {
     return { reachable: false, message: 'تعذر الوصول إلى المزود خلال مهلة الاختبار.' };

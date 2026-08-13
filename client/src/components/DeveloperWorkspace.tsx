@@ -1,4 +1,5 @@
 import type { DeveloperProviderSummary } from '@shared/types';
+import { PERFECT_CORP_API_BASE_URL, PERFECT_CORP_BACKGROUND_REMOVE, PERFECT_CORP_BACKGROUND_REMOVE_NAME } from '@shared/providerPresets';
 import { Check, KeyRound, LockKeyhole, LogOut, Plus, RefreshCw, ServerCog, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { trpc } from '@/lib/trpc';
@@ -122,6 +123,17 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
     setDraft(current => ({ ...current, [key]: value }));
   };
 
+  const configurePerfectCorp = () => {
+    setDraft({
+      name: PERFECT_CORP_BACKGROUND_REMOVE_NAME,
+      baseUrl: PERFECT_CORP_API_BASE_URL,
+      model: PERFECT_CORP_BACKGROUND_REMOVE,
+      apiKey: '',
+      enabled: true,
+    });
+    setNotice('أدخل مفتاح Perfect Corp فقط ثم احفظ. رابط الخدمة والعملية ثُبتا تلقائياً لحمايتك من الخطأ.');
+  };
+
   const submitProvider = () => {
     setNotice('');
     saveMutation.mutate({
@@ -166,11 +178,11 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
       </div>
 
       <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
-        <div className="mb-5 flex items-center gap-2 text-primary"><Plus size={19} /><h3 className="font-black">{draft.id ? 'تعديل مزود' : 'إضافة مزود جديد'}</h3></div>
+        <div className="mb-5 flex items-center justify-between gap-3 text-primary"><div className="flex items-center gap-2"><Plus size={19} /><h3 className="font-black">{draft.id ? 'تعديل مزود' : 'إضافة مزود جديد'}</h3></div><button type="button" onClick={configurePerfectCorp} className="rounded-xl bg-violet-50 px-3 py-2 text-xs font-black text-primary">إعداد Perfect Corp</button></div>
         <div className="space-y-4">
           <label className="block space-y-2"><span className="text-sm font-bold">اسم المزود</span><Input className="h-11 rounded-xl" value={draft.name} onChange={event => updateDraft('name', event.target.value)} placeholder="مثال: FASHN" /></label>
-          <label className="block space-y-2"><span className="text-sm font-bold">رابط API</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.baseUrl} onChange={event => updateDraft('baseUrl', event.target.value)} placeholder="https://api.example.com/v1" /></label>
-          <label className="block space-y-2"><span className="text-sm font-bold">اسم النموذج أو العملية</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.model} onChange={event => updateDraft('model', event.target.value)} placeholder="product-to-model" /><span className="block text-xs leading-5 text-muted-foreground">للتلبيس اكتب <b dir="ltr">product-to-model</b>. ولـ PNG شفاف أضف مزوداً ثانياً باسم <b dir="ltr">background-remove</b> بنفس بيانات API أو حسب مزودك.</span></label>
+          <label className="block space-y-2"><span className="text-sm font-bold">رابط API</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.baseUrl} onChange={event => updateDraft('baseUrl', event.target.value)} readOnly={draft.model === PERFECT_CORP_BACKGROUND_REMOVE} placeholder="https://api.example.com/v1" /></label>
+          <label className="block space-y-2"><span className="text-sm font-bold">اسم النموذج أو العملية</span><Input className="h-11 rounded-xl" dir="ltr" value={draft.model} onChange={event => updateDraft('model', event.target.value)} readOnly={draft.model === PERFECT_CORP_BACKGROUND_REMOVE} placeholder="product-to-model" /><span className="block text-xs leading-5 text-muted-foreground">للتلبيس اكتب <b dir="ltr">product-to-model</b>. ولـ PNG شفاف أضف مزوداً ثانياً باسم <b dir="ltr">background-remove</b>. استخدم زر <b>إعداد Perfect Corp</b> للمسار المخصص، ولا تكتب اسم عمليته يدوياً.</span></label>
           <label className="block space-y-2"><span className="text-sm font-bold">مفتاح API {draft.id && <span className="font-normal text-muted-foreground">اتركه فارغاً للإبقاء على المفتاح السابق</span>}</span><Input className="h-11 rounded-xl" dir="ltr" type="password" value={draft.apiKey} onChange={event => updateDraft('apiKey', event.target.value)} placeholder="لن يظهر المفتاح بعد الحفظ" autoComplete="off" /></label>
           <button type="button" onClick={() => updateDraft('enabled', !draft.enabled)} className="flex items-center gap-3 text-sm font-bold"><span className={`flex h-6 w-6 items-center justify-center rounded-full ${draft.enabled ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>{draft.enabled && <Check size={14} />}</span>تفعيل هذا المزود</button>
           <div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setDraft(emptyDraft())} className="min-h-12 rounded-xl bg-secondary text-sm font-black text-primary">إلغاء</button><button type="button" disabled={saveMutation.isPending || !draft.name || !draft.baseUrl || !draft.model || (!draft.id && !draft.apiKey)} onClick={submitProvider} className="min-h-12 rounded-xl bg-primary text-sm font-black text-primary-foreground disabled:opacity-50">{saveMutation.isPending ? 'جارٍ الحفظ…' : 'حفظ المزود'}</button></div>

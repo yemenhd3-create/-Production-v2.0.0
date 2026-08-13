@@ -1,7 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { developerProviders } from '../drizzle/schema';
+import { PERFECT_CORP_BACKGROUND_REMOVE } from '../shared/providerPresets';
 import { getDb } from './db';
 import { decryptProviderKey } from './developerProviders';
+import { removeBackgroundWithPerfectCorp } from './perfectCorp';
 import { storagePut } from './storage';
 
 const FASHN_PRODUCT_TO_MODEL = 'product-to-model';
@@ -108,6 +110,30 @@ async function runProviderTask(
   throw new Error(`انتهت مهلة انتظار نتيجة ${modelName}`);
 }
 
+async function runBackgroundRemovalProvider(
+  provider: ProviderRecord,
+  imageData: string,
+  options: TryOnRuntimeOptions
+) {
+  if (provider.model === PERFECT_CORP_BACKGROUND_REMOVE) {
+    const externalImageUrl = await removeBackgroundWithPerfectCorp(imageData, decryptProviderKey(provider.encryptedApiKey), options);
+    return { externalImageUrl, stored: await storeGeneratedImage(externalImageUrl) };
+  }
+  return runProviderTask(provider, FASHN_BACKGROUND_REMOVE, { image: imageData, return_base64: false }, options);
+}
+
+async function getBackgroundRemovalProvider() {
+  const db = await getDb();
+  if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
+  const providers = await db.select().from(developerProviders)
+    .where(and(
+      eq(developerProviders.isEnabled, 1),
+      inArray(developerProviders.model, [PERFECT_CORP_BACKGROUND_REMOVE, FASHN_BACKGROUND_REMOVE])
+    )).limit(2);
+  return providers.find(provider => provider.model === PERFECT_CORP_BACKGROUND_REMOVE)
+    ?? providers.find(provider => provider.model === FASHN_BACKGROUND_REMOVE);
+}
+
 /**
  * يشغّل Product-to-Model. إذا أضاف المطور مزوداً آخر باسم `background-remove`،
  * يمرر النتيجة إليه ويحفظ PNG الشفاف قبل عرضه داخل قالب الإعلان.
@@ -130,9 +156,7 @@ export async function runProductToModelTryOn(
     resolution: '1k',
   }, options);
 
-  const backgroundProvider = (await db.select().from(developerProviders)
-    .where(and(eq(developerProviders.isEnabled, 1), eq(developerProviders.model, FASHN_BACKGROUND_REMOVE)))
-    .limit(1))[0];
+  const backgroundProvider = await getBackgroundRemovalProvider();
   if (!backgroundProvider) {
     return {
       status: 'success',
@@ -144,10 +168,7 @@ export async function runProductToModelTryOn(
   }
 
   try {
-    const transparentResult = await runProviderTask(backgroundProvider, FASHN_BACKGROUND_REMOVE, {
-      image: productResult.externalImageUrl,
-      return_base64: false,
-    }, options);
+    const transparentResult = await runBackgroundRemovalProvider(backgroundProvider, productResult.externalImageUrl, options);
     return {
       status: 'success',
       imageUrl: transparentResult.stored.url,
@@ -173,17 +194,10 @@ export async function removeBackgroundFromProduct(
   productImageData: string,
   options: TryOnRuntimeOptions = {}
 ): Promise<CloudTryOnResult> {
-  const db = await getDb();
-  if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
-  const provider = (await db.select().from(developerProviders)
-    .where(and(eq(developerProviders.isEnabled, 1), eq(developerProviders.model, FASHN_BACKGROUND_REMOVE)))
-    .limit(1))[0];
-  if (!provider) throw new Error('لا يوجد مزود background-remove مفعّل في لوحة المطور');
+  const provider = await getBackgroundRemovalProvider();
+  if (!provider) throw new Error('لا يوجد مزود إزالة خلفية مفعّل في لوحة المطور');
 
-  const result = await runProviderTask(provider, FASHN_BACKGROUND_REMOVE, {
-    image: productImageData,
-    return_base64: false,
-  }, options);
+  const result = await runBackgroundRemovalProvider(provider, productImageData, options);
   return {
     status: 'success',
     imageUrl: result.stored.url,
