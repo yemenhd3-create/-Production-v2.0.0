@@ -91,7 +91,7 @@ describe('Canvas advertisement renderer', () => {
     expect(personY).toBeGreaterThan(garmentY);
   });
 
-  it('turns optional frame and quality layers on and off and keeps the reference heading typography', async () => {
+  it('لا يرسم إطاراً محيطاً بالإعلان حتى عند وجود إعداد قديم له ويحافظ على خط العنوان', async () => {
     const titledDetails = { ...DEFAULT_AD_DETAILS, productName: 'فستان بلوشي أنيق' };
     await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: false, showQualityMark: false }, 'blob:garment-image', { width: 1080, height: 1350 });
     const strokesWithoutFrame = context.__stroke.mock.calls.length;
@@ -100,18 +100,17 @@ describe('Canvas advertisement renderer', () => {
     context.__fillText.mockClear();
     context.__stroke.mockClear();
     context.__fonts.splice(0);
-    await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: true, showQualityMark: true }, 'blob:garment-image', { width: 1080, height: 1350 });
+    await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: true, showQualityMark: false }, 'blob:garment-image', { width: 1080, height: 1350 });
 
-    expect(context.__stroke.mock.calls.length).toBeGreaterThan(strokesWithoutFrame);
-    expect(context.__fillText).toHaveBeenCalledWith('✓', expect.any(Number), expect.any(Number));
+    expect(context.__stroke.mock.calls.length).toBe(strokesWithoutFrame);
     expect(context.__fonts).toContain('900 53px Cairo, Tahoma, Arial, sans-serif');
   });
 
-  it('يرسم شعار المتجر الدائري وبانر العنوان كطبقات مستقلة عند تفعيلهما', async () => {
+  it('يرسم شعار المتجر الدائري وتذييله العريض كطبقات مستقلة عند تفعيلهما', async () => {
     context.__drawImage.mockClear();
     await renderAd(
       { ...DEFAULT_AD_DETAILS, productName: 'قميص قطني' },
-      { ...DEFAULT_TEMPLATE_SETTINGS, showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' },
+      { ...DEFAULT_TEMPLATE_SETTINGS, showFooterArtwork: true, footerArtwork: 'data:image/png;base64,footer', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' },
       'blob:garment-image',
       { width: 1080, height: 1350 }
     );
@@ -119,15 +118,15 @@ describe('Canvas advertisement renderer', () => {
   });
 
   it('يطبق مواضع وتحجيم الطبقات المحفوظة داخل Canvas بدلاً من المواضع الافتراضية', async () => {
-    const base = { ...DEFAULT_TEMPLATE_SETTINGS, showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' };
+    const base = { ...DEFAULT_TEMPLATE_SETTINGS, showFooterArtwork: true, footerArtwork: 'data:image/png;base64,footer', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' };
     context.__drawImage.mockClear();
     await renderAd(DEFAULT_AD_DETAILS, base, 'blob:garment-image', { width: 1080, height: 1350 });
-    const defaultHeaderX = context.__drawImage.mock.calls[0][1];
-    const defaultLogoX = context.__drawImage.mock.calls[1][1];
+    const defaultLogoX = context.__drawImage.mock.calls[0][1];
+    const defaultFooterX = context.__drawImage.mock.calls[2][1];
 
     context.__drawImage.mockClear();
-    await renderAd(DEFAULT_AD_DETAILS, { ...base, artworkLayouts: { portrait: { header: { x: .28, y: .18, width: .42, height: .10, fit: 'contain' }, logo: { x: .12, y: .14, width: .12, height: .12, fit: 'cover' } } } }, 'blob:garment-image', { width: 1080, height: 1350 });
-    expect(context.__drawImage.mock.calls[0][1]).not.toBe(defaultHeaderX);
-    expect(context.__drawImage.mock.calls[1][1]).not.toBe(defaultLogoX);
+    await renderAd(DEFAULT_AD_DETAILS, { ...base, artworkLayouts: { portrait: { footer: { x: .12, y: .82, width: .7, height: .14, fit: 'stretch' }, logo: { x: .12, y: .10, width: .12, height: .12, fit: 'cover' } } } }, 'blob:garment-image', { width: 1080, height: 1350 });
+    expect(context.__drawImage.mock.calls[0][1]).not.toBe(defaultLogoX);
+    expect(context.__drawImage.mock.calls[2][1]).not.toBe(defaultFooterX);
   });
 });

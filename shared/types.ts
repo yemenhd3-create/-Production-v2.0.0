@@ -302,7 +302,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showFeatures: true,
   showPrice: true,
   showStoreInfo: true,
-  showFrame: true,
+  showFrame: false,
   showQualityMark: true,
   badgeType: 'discount',
   badgeText: '',

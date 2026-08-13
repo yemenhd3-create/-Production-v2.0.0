@@ -26,17 +26,20 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-  it('يقبل بانر ترند التربية 2688×494 ثم شعاراً مربعاً ويحفظهما في الإعدادات', async () => {
+  it('يقبل شعاراً مربعاً ثم تذييل ترند التربية 2688×494 ويحفظهما في الإعدادات', async () => {
     const onChange = vi.fn();
     const { container, rerender } = render(<UserTemplateSettings settings={DEFAULT_TEMPLATE_SETTINGS} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
     const fileInputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    expect(fileInputs).toHaveLength(2);
+    expect(container.textContent).not.toContain('رفع بانر العنوان');
+    expect(container.textContent).not.toContain('إطار القالب');
 
-    fireEvent.change(fileInputs[0], { target: { files: [new File(['banner'], 'trend-banner.jpg', { type: 'image/jpeg' })] } });
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showHeaderArtwork: true, headerArtwork: 'data:image/jpeg;base64,user-brand' })));
+    fireEvent.change(fileInputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,user-brand' })));
 
-    const afterBanner = onChange.mock.calls.at(-1)?.[0];
-    rerender(<UserTemplateSettings settings={afterBanner} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
-    fireEvent.change(container.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,user-brand', showHeaderArtwork: true })));
+    const afterLogo = onChange.mock.calls.at(-1)?.[0];
+    rerender(<UserTemplateSettings settings={afterLogo} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
+    fireEvent.change(container.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['footer'], 'trend-footer.jpg', { type: 'image/jpeg' })] } });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/jpeg;base64,user-brand', showStoreLogo: true })));
   });
 });

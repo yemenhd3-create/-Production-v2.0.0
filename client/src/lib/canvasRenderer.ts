@@ -38,13 +38,10 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   const geometry = createGeometry(template.size, width, height);
   ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, width, height);
-  if (template.showFrame) drawFrame(ctx, geometry.safe, layout.scale);
 
-  const headerTransform = getArtworkTransform(template, 'header');
   const logoTransform = getArtworkTransform(template, 'logo');
   const footerTransform = getArtworkTransform(template, 'footer');
-  if (template.showHeaderArtwork && template.headerArtwork) await drawArtwork(ctx, template.headerArtwork, toPixelBox(headerTransform, width, height), headerTransform.fit);
-  else drawTextHeader(ctx, details, template, geometry.header, layout);
+  drawTextHeader(ctx, details, template, geometry.header, layout);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
   await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
@@ -70,25 +67,16 @@ function resolveCanvasSize(size: TemplateSize, requestedWidth?: number, requeste
 function createGeometry(size: TemplateSize, width: number, height: number): Geometry {
   const box = (x: number, y: number, w: number, h: number): Box => ({ x: width * x, y: height * y, width: width * w, height: height * h });
   if (size === 'landscape') {
-    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), logo: box(.55, .10, .09, .17), hero: box(.07, .30, .48, .60), info: box(.61, .42, .14, .25), price: box(.79, .38, .15, .30), features: box(.60, .18, .34, .12), footer: box(.60, .75, .34, .15), badge: box(.06, .10, .11, .16) };
+    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), logo: box(.55, .10, .09, .17), hero: box(.07, .30, .48, .30), info: box(.61, .42, .14, .18), price: box(.79, .38, .15, .22), features: box(.60, .18, .34, .10), footer: box(0, .627, 1, .351), badge: box(.06, .10, .11, .16) };
   }
   const config: Record<Exclude<TemplateSize, 'landscape'>, { headerY: number; headerH: number; heroY: number; heroH: number; infoY: number; featureY: number; footerY: number; footerH: number }> = {
-    portrait: { headerY: .06, headerH: .13, heroY: .20, heroH: .52, infoY: .42, featureY: .75, footerY: .88, footerH: .08 },
-    square: { headerY: .06, headerH: .15, heroY: .22, heroH: .48, infoY: .43, featureY: .73, footerY: .87, footerH: .09 },
-    story: { headerY: .055, headerH: .10, heroY: .17, heroH: .58, infoY: .44, featureY: .78, footerY: .90, footerH: .065 },
-    whatsapp: { headerY: .06, headerH: .12, heroY: .19, heroH: .55, infoY: .43, featureY: .77, footerY: .885, footerH: .075 },
+    portrait: { headerY: .06, headerH: .13, heroY: .20, heroH: .52, infoY: .42, featureY: .75, footerY: .83, footerH: .147 },
+    square: { headerY: .06, headerH: .15, heroY: .22, heroH: .48, infoY: .43, featureY: .73, footerY: .793, footerH: .184 },
+    story: { headerY: .055, headerH: .10, heroY: .17, heroH: .58, infoY: .44, featureY: .78, footerY: .872, footerH: .103 },
+    whatsapp: { headerY: .06, headerH: .12, heroY: .19, heroH: .55, infoY: .43, featureY: .77, footerY: .84, footerH: .138 },
   };
   const c = config[size];
-  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), logo: box(.77, c.headerY + c.headerH * .08, .095, c.headerH * .58), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(.07, c.footerY, .86, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
-}
-
-function drawFrame(ctx: CanvasRenderingContext2D, box: Box, scale: number) {
-  ctx.save();
-  roundedRect(ctx, box.x, box.y, box.width, box.height, 28 * scale);
-  ctx.strokeStyle = '#D8D2C8';
-  ctx.lineWidth = 2 * scale;
-  ctx.stroke();
-  ctx.restore();
+  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), logo: box(.77, c.headerY + c.headerH * .08, .095, c.headerH * .58), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(0, c.footerY, 1, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
 }
 
 function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {

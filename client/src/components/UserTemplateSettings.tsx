@@ -12,7 +12,7 @@ interface UserTemplateSettingsProps {
   onAbout: () => void;
 }
 
-type ToggleKey = 'showProductName' | 'showHeadline' | 'showDiscount' | 'showQuantity' | 'showColors' | 'showFeatures' | 'showPrice' | 'showStoreInfo' | 'showFrame' | 'showQualityMark';
+type ToggleKey = 'showProductName' | 'showHeadline' | 'showDiscount' | 'showQuantity' | 'showColors' | 'showFeatures' | 'showPrice' | 'showStoreInfo' | 'showQualityMark';
 
 const toggles: Array<{ key: ToggleKey; title: string; description: string }> = [
   { key: 'showProductName', title: 'اسم المنتج', description: 'يظهر في أعلى القالب.' },
@@ -23,7 +23,6 @@ const toggles: Array<{ key: ToggleKey; title: string; description: string }> = [
   { key: 'showFeatures', title: 'الميزات', description: 'مثل خامة عالية الجودة وقطن ناعم.' },
   { key: 'showPrice', title: 'السعر', description: 'تظهر بطاقة السعر الحمراء عند إدخاله.' },
   { key: 'showStoreInfo', title: 'اسم المتجر والتواصل', description: 'يظهر الشريط السفلي عند إدخاله.' },
-  { key: 'showFrame', title: 'إطار القالب', description: 'الحد الرفيع المحيط بالإعلان.' },
   { key: 'showQualityMark', title: 'علامة الجودة', description: 'رمز التحقق البنفسجي في أعلى القالب.' },
 ];
 
@@ -44,19 +43,19 @@ const badgeOptions: Array<{ value: TemplateBadgeType; title: string; defaultText
   { value: 'quality', title: 'جودة', defaultText: 'جودة عالية' },
 ];
 
-const artworkRatios: Record<TemplateSize, { header: number; footer: number }> = {
-  portrait: { header: 5.8, footer: 9.2 },
-  square: { header: 6.4, footer: 8.2 },
-  story: { header: 5.3, footer: 7.5 },
-  whatsapp: { header: 5.5, footer: 8.8 },
-  landscape: { header: 5.5, footer: 9 },
+const artworkRatios: Record<TemplateSize, { footer: number }> = {
+  portrait: { footer: PRACTICAL_HEADER_RATIO },
+  square: { footer: PRACTICAL_HEADER_RATIO },
+  story: { footer: PRACTICAL_HEADER_RATIO },
+  whatsapp: { footer: PRACTICAL_HEADER_RATIO },
+  landscape: { footer: PRACTICAL_HEADER_RATIO },
 };
 
 export default function UserTemplateSettings({ settings, onChange, onBack, onAbout }: UserTemplateSettingsProps) {
   const [artworkError, setArtworkError] = useState('');
   const setToggle = (key: ToggleKey) => onChange({ ...settings, [key]: !settings[key] });
 
-  const selectArtwork = (kind: 'header' | 'footer' | 'logo', file?: File) => {
+  const selectArtwork = (kind: 'footer' | 'logo', file?: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/') || file.size > 1024 * 1024) {
       setArtworkError('اختر صورة PNG أو JPG أو WebP لا تتجاوز 1 ميجابايت.');
@@ -85,9 +84,7 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
       const reader = new FileReader();
       reader.onload = () => {
         const value = String(reader.result || '');
-        onChange(kind === 'header'
-          ? { ...settings, headerArtwork: value, showHeaderArtwork: true }
-          : { ...settings, footerArtwork: value, showFooterArtwork: true });
+        onChange({ ...settings, footerArtwork: value, showFooterArtwork: true });
         setArtworkError('');
       };
       reader.onerror = () => setArtworkError('تعذر قراءة صورة الطبقة. حاول اختيارها مرة أخرى.');
@@ -118,14 +115,13 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
       </section>
 
       <section className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white p-4">
-        <div className="mb-2 flex items-center gap-2 text-primary"><ImagePlus size={19} /><h3 className="font-black">طبقات مصممة اختيارية</h3></div>
-        <p className="text-xs leading-5 text-muted-foreground">يمكنك إبقاء العنوان والتذييل نصيين، أو رفع صورة مصممة لكل طبقة. يقبل التطبيق النسبة الصحيحة فقط حتى لا تتشوه.</p>
+        <div className="mb-2 flex items-center gap-2 text-primary"><ImagePlus size={19} /><h3 className="font-black">هوية المتجر: الشعار والتذييل</h3></div>
+        <p className="text-xs leading-5 text-muted-foreground">يكفي رفع شعار المتجر وتذييل مصمم. يظهر التذييل شريطاً عريضاً كاملاً في أسفل الإعلان، من اليمين إلى اليسار.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع بانر العنوان <span className="mt-1 block text-[11px] font-medium text-muted-foreground">المفضل 2688 × 494 · تقريباً {PRACTICAL_HEADER_RATIO.toFixed(2)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('header', event.target.files?.[0])} /></label>
           <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع شعار المتجر الدائري <span className="mt-1 block text-[11px] font-medium text-muted-foreground">PNG أو JPG أو WebP، يظهر داخل دائرة.</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('logo', event.target.files?.[0])} /></label>
-          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع بانر التذييل <span className="mt-1 block text-[11px] font-medium text-muted-foreground">تقريباً {artworkRatios[settings.size].footer.toFixed(1)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('footer', event.target.files?.[0])} /></label>
+          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع تذييل المتجر الكامل <span className="mt-1 block text-[11px] font-medium text-muted-foreground">المفضل 2688 × 494 · تقريباً {artworkRatios[settings.size].footer.toFixed(2)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('footer', event.target.files?.[0])} /></label>
         </div>
-        {(settings.headerArtwork || settings.storeLogoArtwork || settings.footerArtwork) && <div className="mt-4 rounded-xl bg-stone-50 p-3"><p className="mb-2 text-xs font-black text-foreground">معاينة الطبقات المحفوظة</p><div className="flex flex-wrap items-center gap-3">{settings.headerArtwork && <div className="max-w-36"><img src={settings.headerArtwork} alt="معاينة بانر العنوان" className="h-10 w-full rounded-lg border bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, headerArtwork: '', showHeaderArtwork: false })}>حذف بانر العنوان</button></div>}{settings.storeLogoArtwork && <div className="text-center"><img src={settings.storeLogoArtwork} alt="معاينة شعار المتجر" className="mx-auto h-12 w-12 rounded-full border-2 border-white bg-white object-cover shadow-sm" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, storeLogoArtwork: '', showStoreLogo: false })}>حذف الشعار</button></div>}{settings.footerArtwork && <div className="max-w-36"><img src={settings.footerArtwork} alt="معاينة بانر التذييل" className="h-8 w-full rounded-lg border bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, footerArtwork: '', showFooterArtwork: false })}>حذف بانر التذييل</button></div>}</div></div>}
+        {(settings.storeLogoArtwork || settings.footerArtwork) && <div className="mt-4 rounded-xl bg-stone-50 p-3"><p className="mb-2 text-xs font-black text-foreground">معاينة هوية المتجر</p><div className="flex flex-wrap items-center gap-3">{settings.storeLogoArtwork && <div className="text-center"><img src={settings.storeLogoArtwork} alt="معاينة شعار المتجر" className="mx-auto h-12 w-12 rounded-full border-2 border-white bg-white object-cover shadow-sm" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, storeLogoArtwork: '', showStoreLogo: false })}>حذف الشعار</button></div>}{settings.footerArtwork && <div className="w-full"><img src={settings.footerArtwork} alt="معاينة تذييل المتجر الكامل" className="h-auto w-full rounded-lg bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, footerArtwork: '', showFooterArtwork: false })}>حذف تذييل المتجر</button></div>}</div></div>}
         <ArtworkPositionEditor settings={settings} onChange={onChange} />
         {artworkError && <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold leading-5 text-red-800">{artworkError}</p>}
       </section>

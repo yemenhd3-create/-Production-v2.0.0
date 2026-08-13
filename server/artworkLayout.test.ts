@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { clampArtworkTransform, getArtworkTransform, getHeroZone } from '../shared/artworkLayout';
+import { clampArtworkTransform, getArtworkTransform, getDefaultArtworkTransform, getHeroZone } from '../shared/artworkLayout';
 import { DEFAULT_TEMPLATE_SETTINGS, type TemplateSize } from '../shared/types';
+import { PRACTICAL_HEADER_RATIO } from '../client/src/lib/brandArtworkSupport';
 
 describe('هندسة طبقات الهوية', () => {
   it('يبقي الشعار والبانر داخل حدود القالب عند السحب أو التحجيم', () => {
@@ -32,6 +33,18 @@ describe('هندسة طبقات الهوية', () => {
         const overlaps = result.x < hero.x + hero.width && result.x + result.width > hero.x && result.y < hero.y + hero.height && result.y + result.height > hero.y;
         expect(overlaps).toBe(false);
       });
+    });
+  });
+
+  it('يجعل تذييل المتجر شريطاً كاملاً في الأسفل وبنسبة بانر 2688×494 في المقاسات الخمسة', () => {
+    const dimensions: Record<TemplateSize, [number, number]> = { portrait: [1080, 1350], square: [1080, 1080], story: [1080, 1920], whatsapp: [1080, 1440], landscape: [1200, 628] };
+    (Object.keys(dimensions) as TemplateSize[]).forEach((size) => {
+      const footer = getDefaultArtworkTransform(size, 'footer');
+      const [width, height] = dimensions[size];
+      expect(footer.x).toBe(0);
+      expect(footer.width).toBe(1);
+      expect(footer.y + footer.height).toBeLessThanOrEqual(.98);
+      expect((width * footer.width) / (height * footer.height)).toBeCloseTo(PRACTICAL_HEADER_RATIO, 1);
     });
   });
 });

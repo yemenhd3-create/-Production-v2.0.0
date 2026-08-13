@@ -97,11 +97,11 @@ describe('Home Try-On workflow', () => {
     expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
   });
 
-  it('يمرر الشعار وبانر العنوان المحفوظين إلى معاينة الإعلان النهائية', async () => {
+  it('يمرر الشعار وتذييل المتجر الكامل المحفوظين إلى معاينة الإعلان النهائية', async () => {
     savedTemplateSettings = {
       ...DEFAULT_TEMPLATE_SETTINGS,
-      showHeaderArtwork: true,
-      headerArtwork: 'data:image/png;base64,header',
+      showFooterArtwork: true,
+      footerArtwork: 'data:image/png;base64,footer',
       showStoreLogo: true,
       storeLogoArtwork: 'data:image/png;base64,logo',
     };
@@ -111,13 +111,13 @@ describe('Home Try-On workflow', () => {
 
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' }),
+      expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/png;base64,footer', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' }),
       'blob:product-original',
       expect.anything()
     ));
   });
 
-  it('يحمل بانر وشعاراً من الإعدادات ثم يستخدمهما في الإعلان النهائي في التدفق نفسه', async () => {
+  it('يحمل شعاراً وتذييلاً كاملاً من الإعدادات ثم يستخدمهما في الإعلان النهائي في التدفق نفسه', async () => {
     vi.stubGlobal('Image', class {
       width = 2688;
       height = 494;
@@ -137,10 +137,10 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
     await screen.findByText('هندسة قالب الإعلان');
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-    fireEvent.change(inputs[0], { target: { files: [new File(['banner'], 'trend-banner.jpg', { type: 'image/jpeg' })] } });
-    await screen.findByAltText('معاينة بانر العنوان');
-    fireEvent.change(document.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
+    fireEvent.change(inputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
     await screen.findByAltText('معاينة شعار المتجر');
+    fireEvent.change(document.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['footer'], 'trend-footer.jpg', { type: 'image/jpeg' })] } });
+    await screen.findByAltText('معاينة تذييل المتجر الكامل');
     fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
     await screen.findByRole('button', { name: 'توليد الإعلان' });
@@ -148,7 +148,7 @@ describe('Home Try-On workflow', () => {
 
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ showHeaderArtwork: true, headerArtwork: 'data:image/jpeg;base64,trend-brand', showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,trend-brand' }),
+      expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/jpeg;base64,trend-brand', showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,trend-brand' }),
       'blob:product-original',
       expect.anything()
     ));

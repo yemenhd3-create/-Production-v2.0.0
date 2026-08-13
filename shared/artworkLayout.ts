@@ -1,13 +1,13 @@
 import type { ArtworkLayerKey, ArtworkLayerTransform, TemplateSettings, TemplateSize } from './types';
 
-export const artworkLayerKeys: ArtworkLayerKey[] = ['header', 'footer', 'logo'];
+export const artworkLayerKeys: ArtworkLayerKey[] = ['footer', 'logo'];
 
 const heroZones: Record<TemplateSize, { x: number; y: number; width: number; height: number }> = {
   portrait: { x: .17, y: .20, width: .66, height: .52 },
   square: { x: .17, y: .22, width: .66, height: .48 },
   story: { x: .17, y: .17, width: .66, height: .58 },
   whatsapp: { x: .17, y: .19, width: .66, height: .55 },
-  landscape: { x: .07, y: .30, width: .48, height: .60 },
+  landscape: { x: .07, y: .30, width: .48, height: .30 },
 };
 
 export function getHeroZone(size: TemplateSize) {
@@ -17,27 +17,27 @@ export function getHeroZone(size: TemplateSize) {
 const defaults: Record<TemplateSize, Record<ArtworkLayerKey, ArtworkLayerTransform>> = {
   portrait: {
     header: { x: .14, y: .06, width: .72, height: .13, fit: 'contain' },
-    footer: { x: .07, y: .88, width: .86, height: .08, fit: 'stretch' },
+    footer: { x: 0, y: .83, width: 1, height: .147, fit: 'stretch' },
     logo: { x: .77, y: .07, width: .095, height: .075, fit: 'cover' },
   },
   square: {
     header: { x: .14, y: .06, width: .72, height: .15, fit: 'contain' },
-    footer: { x: .07, y: .87, width: .86, height: .09, fit: 'stretch' },
+    footer: { x: 0, y: .793, width: 1, height: .184, fit: 'stretch' },
     logo: { x: .77, y: .072, width: .095, height: .087, fit: 'cover' },
   },
   story: {
     header: { x: .14, y: .055, width: .72, height: .10, fit: 'contain' },
-    footer: { x: .07, y: .90, width: .86, height: .065, fit: 'stretch' },
+    footer: { x: 0, y: .872, width: 1, height: .103, fit: 'stretch' },
     logo: { x: .77, y: .063, width: .095, height: .058, fit: 'cover' },
   },
   whatsapp: {
     header: { x: .14, y: .06, width: .72, height: .12, fit: 'contain' },
-    footer: { x: .07, y: .885, width: .86, height: .075, fit: 'stretch' },
+    footer: { x: 0, y: .84, width: 1, height: .138, fit: 'stretch' },
     logo: { x: .77, y: .07, width: .095, height: .07, fit: 'cover' },
   },
   landscape: {
     header: { x: .20, y: .10, width: .34, height: .20, fit: 'contain' },
-    footer: { x: .60, y: .75, width: .34, height: .15, fit: 'stretch' },
+    footer: { x: 0, y: .627, width: 1, height: .351, fit: 'stretch' },
     logo: { x: .55, y: .10, width: .09, height: .17, fit: 'cover' },
   },
 };

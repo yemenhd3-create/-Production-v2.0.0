@@ -8,8 +8,6 @@ const sizes: { key: TemplateSize; label: string }[] = [
 
 const previewSettings: TemplateSettings = {
   ...DEFAULT_TEMPLATE_SETTINGS,
-  showHeaderArtwork: true,
-  headerArtwork: '/manus-storage/trend-banner_97366a10.jpg',
   showStoreLogo: true,
   storeLogoArtwork: '/manus-storage/trend-logo_14e4740a.png',
   showFooterArtwork: true,
@@ -23,7 +21,7 @@ const usesMovedLayerCheck = params.get('moved') === '1';
 const initialPreviewSettings: TemplateSettings = {
   ...previewSettings,
   size: initialSize,
-  ...(usesMovedLayerCheck ? { artworkLayouts: { [initialSize]: { header: { x: .26, y: .38, width: .5, height: .16, fit: 'contain' }, logo: { x: .32, y: .42, width: .14, height: .14, fit: 'cover' }, footer: { x: .22, y: .48, width: .58, height: .16, fit: 'stretch' } } } } : {}),
+  ...(usesMovedLayerCheck ? { artworkLayouts: { [initialSize]: { logo: { x: .32, y: .42, width: .14, height: .14, fit: 'cover' }, footer: { x: .22, y: .48, width: .58, height: .16, fit: 'stretch' } } } } : {}),
 };
 
 export default function ArtworkEditorVisualCheck() {
