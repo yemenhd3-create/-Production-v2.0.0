@@ -45,6 +45,12 @@
 
 الكود `gr.Interface(...).launch(share=True)` لا ينشئ API دائماً مستقلاً؛ توثق Gradio أنه ينشئ نفقاً عاماً إلى التطبيق الذي يعمل محلياً. ينقطع الرابط عندما يتوقف التنفيذ أو يغلق جهاز التشغيل، ولذلك لا يصلح كمزود يعتمد عليه التطبيق أو هواتفك الأخرى. يصلح فقط لتجربة سريعة للصور أثناء التعلم. [10]
 
+## إزالة الخلفية المحلية داخل متصفح الهاتف
+
+يمكن تقنياً تشغيل نموذج ONNX داخل متصفح الهاتف عبر `onnxruntime-web` باستخدام WebAssembly كخيار عام وWebGPU على الأجهزة المدعومة. بعد تنزيل النموذج وتخزينه في ذاكرة المتصفح، يمكن أن يعمل الاستدلال بلا اتصال وأن تبقى الصورة على الجهاز. لكن هذه ليست إزالة «من دون نموذج»: يحتاج المستخدم إلى تنزيل النموذج مرة واحدة، ويجب أن يكون النموذج صغيراً بما يكفي لذاكرة وأداء الهاتف. [11]
+
+عرض IMG.LY يثبت إمكان إزالة الخلفية داخل المتصفح، لكنه يذكر أن أول تشغيل يتطلب تنزيل نموذج يقارب 40MB في النسخة المضغوطة، وأن السرعة تختلف بشدة وفق WebGPU والجهاز. كما أن مكتبته المفتوحة `@imgly/background-removal` مرخصة AGPL-3.0، لذلك لا تُضاف تلقائياً للمشروع حتى يوافق المستخدم على تبعات الترخيص أو يختار بديلاً بترخيص متوافق. [12] [13]
+
 ## الروابط التي تمت مراجعتها
 
 - https://huggingface.co/settings/tokens/6a7cf853ada481ff6f7c7ea4
@@ -63,3 +69,6 @@
 [8]: https://github.com/Zheng-Chong/CatVTON "CatVTON — Official Repository"
 [9]: https://github.com/danielgatis/rembg "rembg — Official Repository"
 [10]: https://gradio.app/guides/understanding-gradio-share-links "Gradio — Understanding Share Links"
+[11]: https://onnxruntime.ai/docs/tutorials/web/ "ONNX Runtime Web — Official Documentation"
+[12]: https://img.ly/blog/browser-background-removal-using-onnx-runtime-webgpu/ "IMG.LY — Browser Background Removal with ONNX Runtime"
+[13]: https://github.com/imgly/background-removal-js "IMG.LY Background Removal JS — Repository and AGPL License"
