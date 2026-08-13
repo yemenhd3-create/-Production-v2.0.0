@@ -21,7 +21,7 @@ function createContext() {
   const stroke = vi.fn();
   const fonts: string[] = [];
   const context = {
-    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop,
+    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop,
     arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
     moveTo: noop, lineTo: noop, closePath: noop,
     measureText: (text: string) => ({ width: text.length * 12 }),
@@ -105,5 +105,16 @@ describe('Canvas advertisement renderer', () => {
     expect(context.__stroke.mock.calls.length).toBeGreaterThan(strokesWithoutFrame);
     expect(context.__fillText).toHaveBeenCalledWith('✓', expect.any(Number), expect.any(Number));
     expect(context.__fonts).toContain('900 53px Cairo, Tahoma, Arial, sans-serif');
+  });
+
+  it('يرسم شعار المتجر الدائري وبانر العنوان كطبقات مستقلة عند تفعيلهما', async () => {
+    context.__drawImage.mockClear();
+    await renderAd(
+      { ...DEFAULT_AD_DETAILS, productName: 'قميص قطني' },
+      { ...DEFAULT_TEMPLATE_SETTINGS, showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' },
+      'blob:garment-image',
+      { width: 1080, height: 1350 }
+    );
+    expect(context.__drawImage).toHaveBeenCalledTimes(3);
   });
 });

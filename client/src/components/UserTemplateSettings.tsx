@@ -53,10 +53,20 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
   const [artworkError, setArtworkError] = useState('');
   const setToggle = (key: ToggleKey) => onChange({ ...settings, [key]: !settings[key] });
 
-  const selectArtwork = (kind: 'header' | 'footer', file?: File) => {
+  const selectArtwork = (kind: 'header' | 'footer' | 'logo', file?: File) => {
     if (!file) return;
     if (!file.type.startsWith('image/') || file.size > 1024 * 1024) {
       setArtworkError('اختر صورة PNG أو JPG أو WebP لا تتجاوز 1 ميجابايت.');
+      return;
+    }
+    if (kind === 'logo') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        onChange({ ...settings, storeLogoArtwork: String(reader.result || ''), showStoreLogo: true });
+        setArtworkError('');
+      };
+      reader.onerror = () => setArtworkError('تعذر قراءة شعار المتجر. حاول اختيار الصورة مرة أخرى.');
+      reader.readAsDataURL(file);
       return;
     }
     const objectUrl = URL.createObjectURL(file);
@@ -109,9 +119,10 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
         <p className="text-xs leading-5 text-muted-foreground">يمكنك إبقاء العنوان والتذييل نصيين، أو رفع صورة مصممة لكل طبقة. يقبل التطبيق النسبة الصحيحة فقط حتى لا تتشوه.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع بانر العنوان <span className="mt-1 block text-[11px] font-medium text-muted-foreground">تقريباً {artworkRatios[settings.size].header.toFixed(1)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('header', event.target.files?.[0])} /></label>
+          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع شعار المتجر الدائري <span className="mt-1 block text-[11px] font-medium text-muted-foreground">PNG أو JPG أو WebP، يظهر داخل دائرة.</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('logo', event.target.files?.[0])} /></label>
           <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع بانر التذييل <span className="mt-1 block text-[11px] font-medium text-muted-foreground">تقريباً {artworkRatios[settings.size].footer.toFixed(1)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('footer', event.target.files?.[0])} /></label>
         </div>
-        {(settings.headerArtwork || settings.footerArtwork) && <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-primary"><button type="button" onClick={() => onChange({ ...settings, headerArtwork: '', showHeaderArtwork: false })}>حذف بانر العنوان</button><button type="button" onClick={() => onChange({ ...settings, footerArtwork: '', showFooterArtwork: false })}>حذف بانر التذييل</button></div>}
+        {(settings.headerArtwork || settings.storeLogoArtwork || settings.footerArtwork) && <div className="mt-4 rounded-xl bg-stone-50 p-3"><p className="mb-2 text-xs font-black text-foreground">معاينة الطبقات المحفوظة</p><div className="flex flex-wrap items-center gap-3">{settings.headerArtwork && <div className="max-w-36"><img src={settings.headerArtwork} alt="معاينة بانر العنوان" className="h-10 w-full rounded-lg border bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, headerArtwork: '', showHeaderArtwork: false })}>حذف بانر العنوان</button></div>}{settings.storeLogoArtwork && <div className="text-center"><img src={settings.storeLogoArtwork} alt="معاينة شعار المتجر" className="mx-auto h-12 w-12 rounded-full border-2 border-white bg-white object-cover shadow-sm" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, storeLogoArtwork: '', showStoreLogo: false })}>حذف الشعار</button></div>}{settings.footerArtwork && <div className="max-w-36"><img src={settings.footerArtwork} alt="معاينة بانر التذييل" className="h-8 w-full rounded-lg border bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, footerArtwork: '', showFooterArtwork: false })}>حذف بانر التذييل</button></div>}</div></div>}
         {artworkError && <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold leading-5 text-red-800">{artworkError}</p>}
       </section>
 

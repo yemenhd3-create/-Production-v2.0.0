@@ -2,11 +2,13 @@
 import { createElement } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_TEMPLATE_SETTINGS, StorageKeys, type TemplateSettings } from '../shared/types';
 
 const mutateAsync = vi.fn();
 const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
+let savedTemplateSettings: TemplateSettings | undefined;
 
 vi.mock('../client/src/lib/trpc', () => ({
   trpc: {
@@ -19,7 +21,7 @@ vi.mock('../client/src/lib/trpc', () => ({
 }));
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd }));
 vi.mock('../client/src/lib/storage', () => ({
-  getFromStorage: () => undefined,
+  getFromStorage: (key: string) => key === StorageKeys.TEMPLATE_SETTINGS ? savedTemplateSettings : undefined,
   saveToStorage: vi.fn(),
   removeFromStorage,
 }));
@@ -39,6 +41,7 @@ const { default: Home } = await import('../client/src/pages/Home');
 describe('Home Try-On workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    savedTemplateSettings = undefined;
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
@@ -92,6 +95,26 @@ describe('Home Try-On workflow', () => {
     await screen.findByText(/تمت إزالة خلفية صورة الملابس/);
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'garment' })));
     expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
+  });
+
+  it('يمرر الشعار وبانر العنوان المحفوظين إلى معاينة الإعلان النهائية', async () => {
+    savedTemplateSettings = {
+      ...DEFAULT_TEMPLATE_SETTINGS,
+      showHeaderArtwork: true,
+      headerArtwork: 'data:image/png;base64,header',
+      showStoreLogo: true,
+      storeLogoArtwork: 'data:image/png;base64,logo',
+    };
+    mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
+
+    await startGeneration();
+
+    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' }),
+      'blob:product-original',
+      expect.anything()
+    ));
   });
 
   it('lets the user return to editing and clear the completed advertising session', async () => {

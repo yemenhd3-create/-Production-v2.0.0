@@ -71,6 +71,8 @@ export interface TemplateSettings {
   badgeText: string;
   showHeaderArtwork: boolean;
   headerArtwork?: string;
+  showStoreLogo: boolean;
+  storeLogoArtwork?: string;
   showFooterArtwork: boolean;
   footerArtwork?: string;
 }
@@ -292,6 +294,8 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   badgeText: '',
   showHeaderArtwork: false,
   headerArtwork: '',
+  showStoreLogo: false,
+  storeLogoArtwork: '',
   showFooterArtwork: false,
   footerArtwork: '',
 };

@@ -20,7 +20,7 @@ const COLORS = {
 
 const TEMPLATE_FONT_FAMILY = 'Cairo, Tahoma, Arial, sans-serif';
 type Box = { x: number; y: number; width: number; height: number };
-type Geometry = { safe: Box; header: Box; hero: Box; info: Box; price: Box; features: Box; footer: Box; badge: Box };
+type Geometry = { safe: Box; header: Box; logo: Box; hero: Box; info: Box; price: Box; features: Box; footer: Box; badge: Box };
 type Layout = { font: (weight: number, size: number) => string; width: number; height: number; scale: number };
 
 /** يرسم قالباً هندسياً مستقلاً لكل مقاس؛ الملابس دائماً أكبر منطقة بصرية. */
@@ -41,6 +41,7 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
 
   if (template.showHeaderArtwork && template.headerArtwork) await drawArtwork(ctx, template.headerArtwork, geometry.header);
   else drawTextHeader(ctx, details, template, geometry.header, layout);
+  if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, geometry.logo);
 
   await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
   drawBadge(ctx, details, template, geometry.badge, layout);
@@ -65,7 +66,7 @@ function resolveCanvasSize(size: TemplateSize, requestedWidth?: number, requeste
 function createGeometry(size: TemplateSize, width: number, height: number): Geometry {
   const box = (x: number, y: number, w: number, h: number): Box => ({ x: width * x, y: height * y, width: width * w, height: height * h });
   if (size === 'landscape') {
-    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), hero: box(.07, .30, .48, .60), info: box(.61, .42, .14, .25), price: box(.79, .38, .15, .30), features: box(.60, .18, .34, .12), footer: box(.60, .75, .34, .15), badge: box(.06, .10, .11, .16) };
+    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), logo: box(.55, .10, .09, .17), hero: box(.07, .30, .48, .60), info: box(.61, .42, .14, .25), price: box(.79, .38, .15, .30), features: box(.60, .18, .34, .12), footer: box(.60, .75, .34, .15), badge: box(.06, .10, .11, .16) };
   }
   const config: Record<Exclude<TemplateSize, 'landscape'>, { headerY: number; headerH: number; heroY: number; heroH: number; infoY: number; featureY: number; footerY: number; footerH: number }> = {
     portrait: { headerY: .06, headerH: .13, heroY: .20, heroH: .52, infoY: .42, featureY: .75, footerY: .88, footerH: .08 },
@@ -74,7 +75,7 @@ function createGeometry(size: TemplateSize, width: number, height: number): Geom
     whatsapp: { headerY: .06, headerH: .12, heroY: .19, heroH: .55, infoY: .43, featureY: .77, footerY: .885, footerH: .075 },
   };
   const c = config[size];
-  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(.07, c.footerY, .86, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
+  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), logo: box(.77, c.headerY + c.headerH * .08, .095, c.headerH * .58), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(.07, c.footerY, .86, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
 }
 
 function drawFrame(ctx: CanvasRenderingContext2D, box: Box, scale: number) {
@@ -95,8 +96,9 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   const isLandscape = layout.width > layout.height;
-  const titleCenter = template.showQualityMark ? box.x + box.width * .38 : box.x + box.width / 2;
-  const titleWidth = template.showQualityMark ? box.width * .68 : box.width * .88;
+  const hasSideLayer = template.showQualityMark || (template.showStoreLogo && Boolean(template.storeLogoArtwork));
+  const titleCenter = hasSideLayer ? box.x + box.width * .38 : box.x + box.width / 2;
+  const titleWidth = hasSideLayer ? box.width * .68 : box.width * .88;
   if (title) {
     ctx.font = font(900, isLandscape ? 38 : 53);
     drawWrappedText(ctx, title, titleCenter, box.y + box.height * .08, titleWidth, (isLandscape ? 45 : 62) * scale, 2);
@@ -208,6 +210,20 @@ async function drawArtwork(ctx: CanvasRenderingContext2D, source: string, box: B
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(image, box.x, box.y, box.width, box.height);
   ctx.restore();
+}
+
+async function drawCircularLogo(ctx: CanvasRenderingContext2D, source: string, box: Box) {
+  const image = await loadImage(source);
+  const diameter = Math.min(box.width, box.height);
+  const x = box.x + (box.width - diameter) / 2;
+  const y = box.y + (box.height - diameter) / 2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x + diameter / 2, y + diameter / 2, diameter / 2, 0, Math.PI * 2); ctx.clip();
+  const ratio = Math.max(diameter / image.width, diameter / image.height);
+  const drawWidth = image.width * ratio; const drawHeight = image.height * ratio;
+  ctx.drawImage(image, x + (diameter - drawWidth) / 2, y + (diameter - drawHeight) / 2, drawWidth, drawHeight);
+  ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(x + diameter / 2, y + diameter / 2, diameter / 2, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.94)'; ctx.lineWidth = Math.max(2, diameter * .055); ctx.stroke(); ctx.restore();
 }
 
 async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson') {
