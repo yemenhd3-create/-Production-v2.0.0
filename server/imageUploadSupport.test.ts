@@ -3,7 +3,9 @@ import { getImagePreparationErrorMessage } from '../client/src/lib/imageUploadSu
 
 describe('رسائل أخطاء رفع صور الهاتف', () => {
   it('يعرض إرشاداً خاصاً عند فشل موفر ملفات Android في القراءة', () => {
-    expect(getImagePreparationErrorMessage(new Error('FILE_READ_UNAVAILABLE'))).toContain('حفظ نسخة');
+    const message = getImagePreparationErrorMessage(new Error('FILE_READ_UNAVAILABLE'));
+    expect(message).toContain('حفظ نسخة');
+    expect(message).toContain('التقاط صورة');
   });
 
   it('يحافظ على رسالة آمنة وعامة للأخطاء الأخرى', () => {

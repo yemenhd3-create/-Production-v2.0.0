@@ -1,4 +1,5 @@
-import { Upload, X } from 'lucide-react';
+import { Camera, Upload, X } from 'lucide-react';
+import * as React from 'react';
 import { useRef, useState } from 'react';
 import { prepareSelectedFile, readImageWithFallback } from '@/lib/imageUploadFlow';
 import { getImagePreparationErrorMessage } from '@/lib/imageUploadSupport';
@@ -16,6 +17,7 @@ export default function ImageUploader({
   onImageRemove,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -141,15 +143,26 @@ export default function ImageUploader({
             الحد الأقصى للحجم: 10 ميجابايت
           </p>
 
-          {errorMessage && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800">{errorMessage}</p>}
+          {errorMessage && <div role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><p>{errorMessage}</p><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}>جرّب التقاط صورة الآن</button></div>}
 
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-            className="flex items-center gap-2 mx-auto"
-          >
-            {isLoading ? 'جاري التحميل...' : 'اختر صورة'}
-          </Button>
+          <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="flex min-h-12 items-center justify-center gap-2"
+            >
+              <Upload size={17} /> {isLoading ? 'جارٍ التحميل…' : 'من المعرض'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isLoading}
+              className="flex min-h-12 items-center justify-center gap-2 border-primary/20 bg-white text-primary"
+            >
+              <Camera size={17} /> التقاط صورة
+            </Button>
+          </div>
         </div>
       )}
 
@@ -157,7 +170,15 @@ export default function ImageUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         onChange={handleFileInputChange}
         className="hidden"
       />
