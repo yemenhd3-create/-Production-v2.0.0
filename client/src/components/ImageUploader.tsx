@@ -1,5 +1,7 @@
 import { Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { prepareSelectedFile, readImageWithFallback } from '@/lib/imageUploadFlow';
+import { getImagePreparationErrorMessage } from '@/lib/imageUploadSupport';
 import { Button } from './ui/button';
 
 interface ImageUploaderProps {
@@ -37,7 +39,7 @@ export default function ImageUploader({
       onImageSelect(imageUrl, file);
     } catch (error) {
       console.error('Failed to prepare image:', error);
-      setErrorMessage('تعذّر تجهيز هذه الصورة. جرّب نسخة JPG أو PNG محفوظة في معرض الهاتف، وتأكد أن المتصفح يملك إذن الوصول للصور.');
+      setErrorMessage(getImagePreparationErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -71,10 +73,13 @@ export default function ImageUploader({
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      // بعض موفري ملفات Android يلغون صلاحية القراءة عندما يُمسح الحقل فوراً.
+      // ننتظر اكتمال تجهيز الصورة بكل مساراته قبل السماح باختيار الملف نفسه ثانية.
+      await prepareSelectedFile(e.currentTarget, () => handleFileSelect(files[0]));
+      return;
     }
     // يسمح بإعادة اختيار الملف نفسه بعد تصحيح مشكلة أو تغيير أذونات الصور.
     e.currentTarget.value = '';
@@ -152,7 +157,7 @@ export default function ImageUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         onChange={handleFileInputChange}
         className="hidden"
       />
@@ -172,14 +177,11 @@ export default function ImageUploader({
 async function createOptimizedImage(file: File): Promise<string> {
   const sourceUrl = URL.createObjectURL(file);
   try {
-    try {
-      return await optimizeLoadedImage(await loadFileImage(sourceUrl), file.type);
-    } catch (objectUrlError) {
-      // بعض متصفحات Android تفشل أحياناً في فك ملف المختار عبر Blob URL رغم أن FileReader يستطيع قراءته.
-      console.warn('Blob URL image read failed; retrying through FileReader.', objectUrlError);
-      const dataUrl = await readFileAsDataUrl(file);
-      return await optimizeLoadedImage(await loadFileImage(dataUrl), file.type);
-    }
+    return await readImageWithFallback(
+      () => optimizeLoadedImageFromUrl(sourceUrl, file.type),
+      () => optimizeFileWithImageBitmap(file, file.type),
+      async () => optimizeLoadedImageFromUrl(await readFileAsDataUrl(file), file.type),
+    );
   } catch (error) {
     // لا نتابع إلى الإعلان بمصدر لا يمكن للـ Canvas رسمه، كي لا تظهر رسالة فشل متأخرة ومربكة.
     throw error;
@@ -188,7 +190,21 @@ async function createOptimizedImage(file: File): Promise<string> {
   }
 }
 
-async function optimizeLoadedImage(image: HTMLImageElement, mimeType: string): Promise<string> {
+async function optimizeLoadedImageFromUrl(sourceUrl: string, mimeType: string) {
+  return optimizeLoadedImage(await loadFileImage(sourceUrl), mimeType);
+}
+
+async function optimizeFileWithImageBitmap(file: File, mimeType: string): Promise<string> {
+  if (typeof createImageBitmap !== 'function') throw new Error('ImageBitmap is unavailable');
+  const bitmap = await createImageBitmap(file);
+  try {
+    return await optimizeLoadedImage(bitmap, mimeType);
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function optimizeLoadedImage(image: CanvasImageSource & { width: number; height: number; naturalWidth?: number; naturalHeight?: number }, mimeType: string): Promise<string> {
   const maxSide = 1600;
   const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
   const width = Math.max(1, Math.round((image.naturalWidth || image.width) * ratio));
@@ -209,7 +225,8 @@ async function optimizeLoadedImage(image: HTMLImageElement, mimeType: string): P
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('تعذرت قراءة ملف الصورة من الهاتف'));
+    reader.onerror = () => reject(new Error('FILE_READ_UNAVAILABLE'));
+    reader.onabort = () => reject(new Error('FILE_READ_UNAVAILABLE'));
     reader.onload = () => resolve(String(reader.result));
     reader.readAsDataURL(file);
   });
