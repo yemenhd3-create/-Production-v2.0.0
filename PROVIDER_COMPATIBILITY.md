@@ -51,6 +51,12 @@
 
 عرض IMG.LY يثبت إمكان إزالة الخلفية داخل المتصفح، لكنه يذكر أن أول تشغيل يتطلب تنزيل نموذج يقارب 40MB في النسخة المضغوطة، وأن السرعة تختلف بشدة وفق WebGPU والجهاز. كما أن مكتبته المفتوحة `@imgly/background-removal` مرخصة AGPL-3.0، لذلك لا تُضاف تلقائياً للمشروع حتى يوافق المستخدم على تبعات الترخيص أو يختار بديلاً بترخيص متوافق. [12] [13]
 
+### اختيار تجربة محلية: U2NetP ONNX
+
+النموذج المختار للتجربة هو `u2netp.onnx` من حزمة Heliosoph/U2Net ONNX. بطاقة النموذج تعلن ترخيص Apache-2.0 للكود والأوزان، وحجم يقارب 4.7MB، ومدخلات RGB بقياس `320×320` ومخرجات قناع saliency `d0` بقياس `320×320` يمكن استخدامه كقناة alpha. هذا يناسب تجربة هاتف محلية اختيارية أكثر من نموذج 40MB، لكنه نموذج عزل عنصر رئيسي عام وليس ضماناً لعزل كل الملابس المعقدة بدقة مثالية. [14]
+
+سيُحمّل النموذج فقط بعد طلب المستخدم للوضع المحلي، ويعمل WebAssembly على Chrome Android رسمياً؛ أما WebGPU فيستخدم عند دعمه لتحسين الأداء. تبقى Perfect Corp والصورة الخام بديلين عند فشل النموذج أو ضعف الجودة. [15]
+
 ## الروابط التي تمت مراجعتها
 
 - https://huggingface.co/settings/tokens/6a7cf853ada481ff6f7c7ea4
@@ -72,3 +78,5 @@
 [11]: https://onnxruntime.ai/docs/tutorials/web/ "ONNX Runtime Web — Official Documentation"
 [12]: https://img.ly/blog/browser-background-removal-using-onnx-runtime-webgpu/ "IMG.LY — Browser Background Removal with ONNX Runtime"
 [13]: https://github.com/imgly/background-removal-js "IMG.LY Background Removal JS — Repository and AGPL License"
+[14]: https://huggingface.co/Heliosoph/u2net-onnx "Heliosoph — U2Net ONNX model card"
+[15]: https://onnxruntime.ai/docs/get-started/with-javascript/web.html "ONNX Runtime Web — browser support"

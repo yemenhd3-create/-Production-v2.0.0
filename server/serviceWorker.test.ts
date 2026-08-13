@@ -10,7 +10,7 @@ function createWorkerHarness(fetchImpl: ReturnType<typeof vi.fn>) {
   const cache = { addAll: vi.fn().mockResolvedValue(undefined), put: vi.fn().mockResolvedValue(undefined) };
   const caches = {
     open: vi.fn().mockResolvedValue(cache),
-    keys: vi.fn().mockResolvedValue(['clothing-ad-generator-v2', 'clothing-ad-generator-v3']),
+    keys: vi.fn().mockResolvedValue(['clothing-ad-generator-v2', 'clothing-ad-generator-v3', 'clothing-ad-u2netp-v1']),
     delete: vi.fn().mockResolvedValue(true),
     match: vi.fn().mockResolvedValue(undefined),
   };
@@ -53,6 +53,16 @@ describe('PWA service worker behavior', () => {
     let offlineResponse: Promise<unknown> | undefined;
     offline.listeners.fetch({ request, respondWith: (promise: Promise<unknown>) => { offlineResponse = promise; } });
     await expect(offlineResponse).resolves.toBe('offline-shell');
+  });
+
+  it('يبقي نموذج الإزالة المحلية المخزن عند تفعيل إصدار جديد من العامل', async () => {
+    const harness = createWorkerHarness(vi.fn());
+    let activation: Promise<unknown> | undefined;
+    harness.listeners.activate({ waitUntil: (promise: Promise<unknown>) => { activation = promise; } });
+    await activation;
+
+    expect(harness.caches.delete).toHaveBeenCalledWith('clothing-ad-generator-v2');
+    expect(harness.caches.delete).not.toHaveBeenCalledWith('clothing-ad-u2netp-v1');
   });
 
   it('clears the runtime cache after a client CLEAR_CACHE message', async () => {

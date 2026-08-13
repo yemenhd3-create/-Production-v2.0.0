@@ -1,0 +1,142 @@
+import { LOCAL_BACKGROUND_MODEL_SIZE_BYTES, normalizeU2NetMask } from './localBackgroundRemovalSupport';
+
+const LOCAL_MODEL_URL = '/manus-storage/u2netp_9be3adec.onnx';
+const ORT_WASM_URL = '/manus-storage/ort-wasm-simd-threaded_4e38bda3.wasm';
+const ORT_WASM_MJS_URL = '/manus-storage/ort-wasm-simd-threaded_59eec8fe.mjs';
+const MODEL_CACHE_NAME = 'clothing-ad-u2netp-v1';
+const INPUT_SIZE = 320;
+const IMAGE_NET_MEAN = [0.485, 0.456, 0.406];
+const IMAGE_NET_STD = [0.229, 0.224, 0.225];
+
+export type LocalRemovalStage = 'downloading' | 'loading' | 'processing' | 'finishing';
+
+export type LocalBackgroundRemovalResult = {
+  imageUrl: string;
+  modelSizeBytes: number;
+};
+
+let sessionPromise: Promise<import('onnxruntime-web/wasm').InferenceSession> | null = null;
+
+/**
+ * يشغّل U2NetP على الهاتف عبر WebAssembly. لا يرسل الصورة إلى خادم أو API.
+ * يُحمّل النموذج ويخزّنه عند أول استخدام فقط، ثم يعاد استعمال جلسة الاستدلال في الجلسة نفسها.
+ */
+export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stage: LocalRemovalStage) => void): Promise<LocalBackgroundRemovalResult> {
+  if (typeof WebAssembly === 'undefined') throw new Error('WebAssembly is unavailable');
+  onStage?.('loading');
+  const session = await getSession(onStage);
+  onStage?.('processing');
+
+  const source = await loadImage(sourceUrl);
+  const inputCanvas = document.createElement('canvas');
+  inputCanvas.width = INPUT_SIZE;
+  inputCanvas.height = INPUT_SIZE;
+  const inputContext = inputCanvas.getContext('2d', { willReadFrequently: true });
+  if (!inputContext) throw new Error('Canvas is unavailable');
+  inputContext.drawImage(source, 0, 0, INPUT_SIZE, INPUT_SIZE);
+
+  const inputPixels = inputContext.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE).data;
+  const tensorData = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+  for (let pixelIndex = 0; pixelIndex < INPUT_SIZE * INPUT_SIZE; pixelIndex += 1) {
+    for (let channel = 0; channel < 3; channel += 1) {
+      const rgb = inputPixels[pixelIndex * 4 + channel] / 255;
+      tensorData[channel * INPUT_SIZE * INPUT_SIZE + pixelIndex] = (rgb - IMAGE_NET_MEAN[channel]) / IMAGE_NET_STD[channel];
+    }
+  }
+
+  const ort = await import('onnxruntime-web/wasm');
+  const input = new ort.Tensor('float32', tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+  const output = await session.run({ [session.inputNames[0]]: input });
+  const outputName = session.outputNames.includes('d0') ? 'd0' : session.outputNames[0];
+  const alphaValues = normalizeU2NetMask(output[outputName].data as Float32Array);
+
+  onStage?.('finishing');
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = INPUT_SIZE;
+  maskCanvas.height = INPUT_SIZE;
+  const maskContext = maskCanvas.getContext('2d');
+  if (!maskContext) throw new Error('Mask canvas is unavailable');
+  const maskImageData = maskContext.createImageData(INPUT_SIZE, INPUT_SIZE);
+  for (let index = 0; index < alphaValues.length; index += 1) {
+    const alpha = alphaValues[index];
+    const offset = index * 4;
+    maskImageData.data[offset] = alpha;
+    maskImageData.data[offset + 1] = alpha;
+    maskImageData.data[offset + 2] = alpha;
+    maskImageData.data[offset + 3] = 255;
+  }
+  maskContext.putImageData(maskImageData, 0, 0);
+
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = source.naturalWidth || source.width;
+  outputCanvas.height = source.naturalHeight || source.height;
+  const outputContext = outputCanvas.getContext('2d', { willReadFrequently: true });
+  if (!outputContext) throw new Error('Output canvas is unavailable');
+  outputContext.drawImage(source, 0, 0, outputCanvas.width, outputCanvas.height);
+  const finalPixels = outputContext.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
+  const scaledMaskCanvas = document.createElement('canvas');
+  scaledMaskCanvas.width = outputCanvas.width;
+  scaledMaskCanvas.height = outputCanvas.height;
+  const scaledMaskContext = scaledMaskCanvas.getContext('2d', { willReadFrequently: true });
+  if (!scaledMaskContext) throw new Error('Scaled mask canvas is unavailable');
+  scaledMaskContext.drawImage(maskCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
+  const scaledMaskPixels = scaledMaskContext.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
+  for (let offset = 0; offset < finalPixels.data.length; offset += 4) {
+    finalPixels.data[offset + 3] = scaledMaskPixels.data[offset];
+  }
+  outputContext.putImageData(finalPixels, 0, 0);
+
+  const blob = await canvasToBlob(outputCanvas);
+  return { imageUrl: URL.createObjectURL(blob), modelSizeBytes: LOCAL_BACKGROUND_MODEL_SIZE_BYTES };
+}
+
+async function getSession(onStage?: (stage: LocalRemovalStage) => void) {
+  if (!sessionPromise) {
+    sessionPromise = (async () => {
+      onStage?.('downloading');
+      const model = await getCachedModel();
+      const ort = await import('onnxruntime-web/wasm');
+      // لا نعتمد على رابط ملف Vite المؤقت، ونمنع العامل المتعدد لرفع توافق Chrome Android.
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.wasmPaths = { wasm: ORT_WASM_URL, mjs: ORT_WASM_MJS_URL };
+      onStage?.('loading');
+      return ort.InferenceSession.create(model, { executionProviders: ['wasm'] });
+    })().catch(error => {
+      sessionPromise = null;
+      throw error;
+    });
+  }
+  return sessionPromise;
+}
+
+async function getCachedModel(): Promise<ArrayBuffer> {
+  try {
+    const cache = 'caches' in window ? await caches.open(MODEL_CACHE_NAME) : null;
+    const cached = await cache?.match(LOCAL_MODEL_URL);
+    if (cached) return cached.arrayBuffer();
+
+    const response = await fetch(LOCAL_MODEL_URL, { cache: 'force-cache' });
+    if (!response.ok) throw new Error('MODEL_DOWNLOAD');
+    if (cache) await cache.put(LOCAL_MODEL_URL, response.clone());
+    return response.arrayBuffer();
+  } catch (error) {
+    if (error instanceof Error && error.message === 'MODEL_DOWNLOAD') throw error;
+    throw new Error('MODEL_DOWNLOAD');
+  }
+}
+
+function loadImage(sourceUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Unable to load product image locally'));
+    image.decoding = 'async';
+    image.src = sourceUrl;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Unable to export transparent image')), 'image/png');
+  });
+}

@@ -14,6 +14,8 @@ import {
 } from '@shared/adWorkflow';
 import ImageUploader from '@/components/ImageUploader';
 import { renderAd } from '@/lib/canvasRenderer';
+import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
+import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
@@ -61,6 +63,7 @@ export default function Home() {
     message: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(false);
   const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
   const tryOnMutation = trpc.tryOn.run.useMutation();
   const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
@@ -139,6 +142,34 @@ export default function Home() {
     });
 
     try {
+      if (useLocalBackgroundRemoval) {
+        try {
+          const localImage = await removeBackgroundLocally(productImage, stage => {
+            setTryOnResult({ status: 'processing', message: getLocalStageMessage(stage) });
+          });
+          setTryOnResult({
+            status: 'success',
+            imageUrl: localImage.imageUrl,
+            providerId: 'local-u2netp',
+            message: 'أزيلت خلفية الملابس محلياً على هذا الهاتف باستخدام U2NetP.',
+            isTransparent: true,
+            transparentSubject: 'garment',
+          });
+          const dimensions = getCanvasDimensions(templateSettings.size);
+          const output = await withTimeout(
+            renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment' }),
+            15_000,
+            'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
+          );
+          setGeneratedAd(output);
+          setMarketingText(buildMarketingText(adDetails));
+          return;
+        } catch (localError) {
+          toast.error(`${getLocalRemovalUnavailableMessage(localError)} سنجرب المسار السحابي الآن.`);
+          setTryOnResult({ status: 'processing', message: 'تعذرت الإزالة المحلية؛ جارٍ تجربة التلبيس أو إزالة الخلفية السحابية…' });
+        }
+      }
+
       const tryOnWorkflow = await resolveTryOnVisualSource(
         productImage,
         async () => {
@@ -334,6 +365,19 @@ export default function Home() {
 
             <React.Suspense fallback={<PageLoading label="جارٍ تجهيز حقول الإعلان…" />}><AdDetailsForm details={adDetails} onChange={setAdDetails} /></React.Suspense>
 
+            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-right transition active:scale-[0.99]">
+              <input
+                type="checkbox"
+                checked={useLocalBackgroundRemoval}
+                onChange={event => setUseLocalBackgroundRemoval(event.target.checked)}
+                className="mt-1 h-5 w-5 shrink-0 accent-emerald-700"
+              />
+              <span>
+                <span className="block text-sm font-black text-emerald-950">إزالة الخلفية محلياً على الهاتف</span>
+                <span className="mt-1 block text-xs leading-6 text-emerald-900">لا تُرسل الصورة إلى أي خدمة. التنزيل الأول يقارب {formatLocalFirstDownloadSize()} (نموذج U2NetP بحجم {formatLocalModelSize()} ومحرك التشغيل)، ثم يعمل دون إنترنت. ألغِ التحديد لاستخدام مسار Try-On وPerfect Corp المعتاد.</span>
+              </span>
+            </label>
+
             <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4">
               <div className="flex items-start gap-3">
                 <Wand2 size={19} className="mt-0.5 shrink-0 text-primary" />
@@ -428,6 +472,16 @@ export default function Home() {
 
 function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] bg-white p-8 text-center text-sm font-bold text-primary shadow-[0_16px_40px_rgba(37,35,95,0.08)]">{label}</div>;
+}
+
+function getLocalStageMessage(stage: LocalRemovalStage) {
+  const messages: Record<LocalRemovalStage, string> = {
+    downloading: `جارٍ تنزيل محرك ونموذج الإزالة المحلية (نحو ${formatLocalFirstDownloadSize()}) — يحدث مرة واحدة فقط…`,
+    loading: 'جارٍ تجهيز نموذج الإزالة المحلية على الهاتف…',
+    processing: 'جارٍ تحليل الملابس محلياً من دون إرسال الصورة…',
+    finishing: 'جارٍ إنشاء صورة PNG بخلفية شفافة…',
+  };
+  return messages[stage];
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {

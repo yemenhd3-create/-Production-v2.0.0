@@ -8,6 +8,7 @@ const CanvasVisualCheck = lazy(() => import('./components/CanvasVisualCheck'));
 const PersonalAccessGate = lazy(() => import('./components/PersonalAccessGate'));
 const AuthenticatedApplication = lazy(() => import('./components/AuthenticatedApplication'));
 const DeviceCompatibilityCheck = lazy(() => import('./pages/DeviceCompatibilityCheck'));
+const LocalBackgroundVisualCheck = lazy(() => import('./components/LocalBackgroundVisualCheck'));
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -28,6 +29,9 @@ function PersonalHome() {
   }
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('device-check')) {
     return <Suspense fallback={<LoadingScreen text="جارٍ فتح فحص توافق الهاتف…" />}><DeviceCompatibilityCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('local-background-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز فحص الإزالة المحلية…" />}><LocalBackgroundVisualCheck /></Suspense>;
   }
   return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
 }
