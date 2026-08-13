@@ -35,6 +35,16 @@
 
 سيقتصر الموصل على JPG وPNG دون 10MB وأطول ضلع لا يتجاوز 4096. سيعامل الأخطاء أو انقضاء مهلة الاستطلاع كفشل قابل للرجوع؛ وعندها يبقى قالب الإعلان عاملاً بالصورة الأصلية بدلاً من تعطيل المستخدم. [5]
 
+## CatVTON كخيار دراسة مستقبلي
+
+مشروع `Zheng-Chong/CatVTON` هو Try-On مفتوح المصدر أخف من IDM-VTON وفق وصف المستودع؛ يعلن أن الاستدلال بدقة 1024×768 يحتاج أقل من 8GB من VRAM. مع ذلك فهو يتطلب بيئة Python وGPU وخط معالجة مسبق للصور، وليس واجهة API سحابية ثابتة جاهزة للربط من تطبيق الهاتف. كما أن الكود والنماذج التجريبية تخضع لترخيص **CC BY-NC-SA 4.0**؛ لذا يصلح للتعلم والاستخدام الشخصي غير التجاري، لا كبديل مجاني جاهز للنشر أو للاعتماد على Spaces عامة عابرة. [8]
+
+## rembg وGradio في الاقتراح المرفق
+
+`rembg` مكتبة إزالة خلفية مفتوحة المصدر بترخيص MIT وتدعم التشغيل على CPU أو GPU عبر ONNX Runtime. يمكن أن تشكل مزوداً احتياطياً سريعاً عند امتلاك خادم Python دائم، لكنها لا تعمل داخل متصفح الهاتف نفسه ولا داخل بيئة الاستضافة الحالية من دون خدمة منفصلة وبنية تشغيل مستمرة. لذلك لا ينبغي استبدال Perfect Corp بها الآن؛ تصلح كتجربة تعليمية محلية أو كخادم شخصي لاحق. [9]
+
+الكود `gr.Interface(...).launch(share=True)` لا ينشئ API دائماً مستقلاً؛ توثق Gradio أنه ينشئ نفقاً عاماً إلى التطبيق الذي يعمل محلياً. ينقطع الرابط عندما يتوقف التنفيذ أو يغلق جهاز التشغيل، ولذلك لا يصلح كمزود يعتمد عليه التطبيق أو هواتفك الأخرى. يصلح فقط لتجربة سريعة للصور أثناء التعلم. [10]
+
 ## الروابط التي تمت مراجعتها
 
 - https://huggingface.co/settings/tokens/6a7cf853ada481ff6f7c7ea4
@@ -50,3 +60,6 @@
 [5]: https://docs.perfectcorp.com/reference/ai_background_removal.md "Perfect Corp — AI Photo Background Removal"
 [6]: https://docs.perfectcorp.com/reference/ai_background_removal/v1.0/paths/~1s2s~1v2.0~1task~1sod/post.md "Perfect Corp — Run SOD Task"
 [7]: https://docs.perfectcorp.com/reference/ai_background_removal/v1.0/paths/~1s2s~1v2.0~1task~1sod~1%7Btask_id%7D/get.md "Perfect Corp — Check SOD Task"
+[8]: https://github.com/Zheng-Chong/CatVTON "CatVTON — Official Repository"
+[9]: https://github.com/danielgatis/rembg "rembg — Official Repository"
+[10]: https://gradio.app/guides/understanding-gradio-share-links "Gradio — Understanding Share Links"
