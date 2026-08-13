@@ -53,6 +53,19 @@ export interface TryOnResult {
 
 export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
+export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
+export type ArtworkFitMode = 'contain' | 'cover' | 'stretch';
+
+/** موضع وحجم نسبيان داخل مساحة الإعلان، حتى يحفظان بصورة مستقلة لكل مقاس تصدير. */
+export interface ArtworkLayerTransform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fit: ArtworkFitMode;
+}
+
+export type ArtworkLayoutsBySize = Partial<Record<TemplateSize, Partial<Record<ArtworkLayerKey, ArtworkLayerTransform>>>>;
 
 /** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
 export interface TemplateSettings {
@@ -75,6 +88,7 @@ export interface TemplateSettings {
   storeLogoArtwork?: string;
   showFooterArtwork: boolean;
   footerArtwork?: string;
+  artworkLayouts?: ArtworkLayoutsBySize;
 }
 
 // ========== Store Settings ==========
@@ -298,6 +312,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   storeLogoArtwork: '',
   showFooterArtwork: false,
   footerArtwork: '',
+  artworkLayouts: {},
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

@@ -1,4 +1,5 @@
 import type { AdDetails, TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
+import { getArtworkTransform } from '@shared/artworkLayout';
 
 export interface RenderOptions {
   width?: number;
@@ -39,16 +40,19 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   ctx.fillRect(0, 0, width, height);
   if (template.showFrame) drawFrame(ctx, geometry.safe, layout.scale);
 
-  if (template.showHeaderArtwork && template.headerArtwork) await drawArtwork(ctx, template.headerArtwork, geometry.header);
+  const headerTransform = getArtworkTransform(template, 'header');
+  const logoTransform = getArtworkTransform(template, 'logo');
+  const footerTransform = getArtworkTransform(template, 'footer');
+  if (template.showHeaderArtwork && template.headerArtwork) await drawArtwork(ctx, template.headerArtwork, toPixelBox(headerTransform, width, height), headerTransform.fit);
   else drawTextHeader(ctx, details, template, geometry.header, layout);
-  if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, geometry.logo);
+  if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
   await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
   drawBadge(ctx, details, template, geometry.badge, layout);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout);
   if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), geometry.features, layout);
-  if (template.showFooterArtwork && template.footerArtwork) await drawArtwork(ctx, template.footerArtwork, geometry.footer);
+  if (template.showFooterArtwork && template.footerArtwork) await drawArtwork(ctx, template.footerArtwork, toPixelBox(footerTransform, width, height), footerTransform.fit);
   else if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) drawFooter(ctx, details, geometry.footer, layout);
 
   const blob = await canvasToBlob(canvas, 'image/png', options.quality || 0.92);
@@ -204,11 +208,24 @@ function drawFooter(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box,
   ctx.restore();
 }
 
-async function drawArtwork(ctx: CanvasRenderingContext2D, source: string, box: Box) {
+function toPixelBox(transform: { x: number; y: number; width: number; height: number }, width: number, height: number): Box {
+  return { x: transform.x * width, y: transform.y * height, width: transform.width * width, height: transform.height * height };
+}
+
+async function drawArtwork(ctx: CanvasRenderingContext2D, source: string, box: Box, fit: 'contain' | 'cover' | 'stretch') {
   const image = await loadImage(source);
   ctx.save();
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image, box.x, box.y, box.width, box.height);
+  if (fit === 'stretch') {
+    ctx.drawImage(image, box.x, box.y, box.width, box.height);
+    ctx.restore();
+    return;
+  }
+  if (fit === 'cover') { ctx.beginPath(); ctx.rect(box.x, box.y, box.width, box.height); ctx.clip(); }
+  const ratio = (fit === 'cover' ? Math.max : Math.min)(box.width / image.width, box.height / image.height);
+  const drawWidth = image.width * ratio;
+  const drawHeight = image.height * ratio;
+  ctx.drawImage(image, box.x + (box.width - drawWidth) / 2, box.y + (box.height - drawHeight) / 2, drawWidth, drawHeight);
   ctx.restore();
 }
 

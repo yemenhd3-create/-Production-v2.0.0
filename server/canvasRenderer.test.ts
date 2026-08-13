@@ -117,4 +117,17 @@ describe('Canvas advertisement renderer', () => {
     );
     expect(context.__drawImage).toHaveBeenCalledTimes(3);
   });
+
+  it('يطبق مواضع وتحجيم الطبقات المحفوظة داخل Canvas بدلاً من المواضع الافتراضية', async () => {
+    const base = { ...DEFAULT_TEMPLATE_SETTINGS, showHeaderArtwork: true, headerArtwork: 'data:image/png;base64,header', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' };
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, base, 'blob:garment-image', { width: 1080, height: 1350 });
+    const defaultHeaderX = context.__drawImage.mock.calls[0][1];
+    const defaultLogoX = context.__drawImage.mock.calls[1][1];
+
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, { ...base, artworkLayouts: { portrait: { header: { x: .28, y: .18, width: .42, height: .10, fit: 'contain' }, logo: { x: .12, y: .14, width: .12, height: .12, fit: 'cover' } } } }, 'blob:garment-image', { width: 1080, height: 1350 });
+    expect(context.__drawImage.mock.calls[0][1]).not.toBe(defaultHeaderX);
+    expect(context.__drawImage.mock.calls[1][1]).not.toBe(defaultLogoX);
+  });
 });
