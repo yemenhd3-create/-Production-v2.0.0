@@ -1,4 +1,4 @@
-import { LOCAL_BACKGROUND_MODEL_SIZE_BYTES, normalizeU2NetMask } from './localBackgroundRemovalSupport';
+import { LOCAL_BACKGROUND_MODEL_SIZE_BYTES, normalizeU2NetMask, withLocalRemovalTimeout } from './localBackgroundRemovalSupport';
 
 const LOCAL_MODEL_URL = '/manus-storage/u2netp_9be3adec.onnx';
 const ORT_WASM_URL = '/manus-storage/ort-wasm-simd-threaded_4e38bda3.wasm';
@@ -7,6 +7,10 @@ const MODEL_CACHE_NAME = 'clothing-ad-u2netp-v1';
 const INPUT_SIZE = 320;
 const IMAGE_NET_MEAN = [0.485, 0.456, 0.406];
 const IMAGE_NET_STD = [0.229, 0.224, 0.225];
+const SOURCE_IMAGE_TIMEOUT_MS = 12_000;
+const SESSION_INIT_TIMEOUT_MS = 35_000;
+const INFERENCE_TIMEOUT_MS = 30_000;
+const MODEL_DOWNLOAD_TIMEOUT_MS = 45_000;
 
 export type LocalRemovalStage = 'downloading' | 'loading' | 'processing' | 'finishing';
 
@@ -27,7 +31,7 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
   const session = await getSession(onStage);
   onStage?.('processing');
 
-  const source = await loadImage(sourceUrl);
+  const source = await withLocalRemovalTimeout(loadImage(sourceUrl), SOURCE_IMAGE_TIMEOUT_MS, 'SOURCE_IMAGE_TIMEOUT');
   const inputCanvas = document.createElement('canvas');
   inputCanvas.width = INPUT_SIZE;
   inputCanvas.height = INPUT_SIZE;
@@ -46,7 +50,7 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
 
   const ort = await import('onnxruntime-web/wasm');
   const input = new ort.Tensor('float32', tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-  const output = await session.run({ [session.inputNames[0]]: input });
+  const output = await withLocalRemovalTimeout(session.run({ [session.inputNames[0]]: input }), INFERENCE_TIMEOUT_MS, 'INFERENCE_TIMEOUT');
   const outputName = session.outputNames.includes('d0') ? 'd0' : session.outputNames[0];
   const alphaValues = normalizeU2NetMask(output[outputName].data as Float32Array);
 
@@ -100,7 +104,7 @@ async function getSession(onStage?: (stage: LocalRemovalStage) => void) {
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.wasmPaths = { wasm: ORT_WASM_URL, mjs: ORT_WASM_MJS_URL };
       onStage?.('loading');
-      return ort.InferenceSession.create(model, { executionProviders: ['wasm'] });
+      return withLocalRemovalTimeout(ort.InferenceSession.create(model, { executionProviders: ['wasm'] }), SESSION_INIT_TIMEOUT_MS, 'SESSION_INIT_TIMEOUT');
     })().catch(error => {
       sessionPromise = null;
       throw error;
@@ -115,12 +119,12 @@ async function getCachedModel(): Promise<ArrayBuffer> {
     const cached = await cache?.match(LOCAL_MODEL_URL);
     if (cached) return cached.arrayBuffer();
 
-    const response = await fetch(LOCAL_MODEL_URL, { cache: 'force-cache' });
+    const response = await withLocalRemovalTimeout(fetch(LOCAL_MODEL_URL, { cache: 'force-cache' }), MODEL_DOWNLOAD_TIMEOUT_MS, 'MODEL_DOWNLOAD_TIMEOUT');
     if (!response.ok) throw new Error('MODEL_DOWNLOAD');
     if (cache) await cache.put(LOCAL_MODEL_URL, response.clone());
     return response.arrayBuffer();
   } catch (error) {
-    if (error instanceof Error && error.message === 'MODEL_DOWNLOAD') throw error;
+    if (error instanceof Error && (error.message === 'MODEL_DOWNLOAD' || error.message === 'MODEL_DOWNLOAD_TIMEOUT')) throw error;
     throw new Error('MODEL_DOWNLOAD');
   }
 }

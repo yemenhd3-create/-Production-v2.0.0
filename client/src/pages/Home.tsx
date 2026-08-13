@@ -423,7 +423,7 @@ export default function Home() {
                     <Sparkles className="animate-pulse" size={28} />
                   </div>
                   <h3 className="text-lg font-black text-foreground">جارٍ توليد الإعلان</h3>
-                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">نرتب القالب ونحاول تجهيز تجربة الملابس. لا تغلق الصفحة الآن.</p>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">{tryOnResult.message || 'نرتب القالب ونجهز الصورة. لا تغلق الصفحة الآن.'}</p>
                 </div>
               )}
 

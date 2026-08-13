@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage, normalizeU2NetMask } from '../client/src/lib/localBackgroundRemovalSupport';
+import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage, normalizeU2NetMask, withLocalRemovalTimeout } from '../client/src/lib/localBackgroundRemovalSupport';
 
 describe('مساعدات إزالة الخلفية المحلية', () => {
   it('يحول قناع U2NetP إلى alpha يتدرج بين الشفافية والظهور', () => {
@@ -15,5 +15,10 @@ describe('مساعدات إزالة الخلفية المحلية', () => {
     expect(formatLocalFirstDownloadSize()).toBe('17.2MB');
     expect(getLocalRemovalUnavailableMessage(new Error('MODEL_DOWNLOAD'))).toContain('تنزيل');
     expect(getLocalRemovalUnavailableMessage(new Error('WebAssembly is unavailable'))).toContain('WebAssembly');
+    expect(getLocalRemovalUnavailableMessage(new Error('INFERENCE_TIMEOUT'))).toContain('استغرق تحليل الملابس');
+  });
+
+  it('يوقف العملية المعلقة برمز مهلة واضح', async () => {
+    await expect(withLocalRemovalTimeout(new Promise<never>(() => undefined), 1, 'INFERENCE_TIMEOUT')).rejects.toThrow('INFERENCE_TIMEOUT');
   });
 });
