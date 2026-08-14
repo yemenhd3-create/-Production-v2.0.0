@@ -44,12 +44,14 @@ export type MarketingTextTone = 'exciting' | 'persuasive' | 'formal' | 'playful'
 export type MarketingTextLength = 'short' | 'medium' | 'long';
 export type MarketingTextGoal = 'purchase' | 'inquiry' | 'showcase';
 export type MarketingTextEngine = 'local' | 'cloud';
+export type MarketingTextFormat = 'whatsapp' | 'plain';
 
 /** اختيارات توليد النص، وهي اختيارية حتى تبقى المسودات القديمة متوافقة. */
 export interface MarketingTextPreferences {
   tone: MarketingTextTone;
   length: MarketingTextLength;
   goal: MarketingTextGoal;
+  format: MarketingTextFormat;
 }
 
 export type AdWorkflowStep = 'upload' | 'details' | 'final';
@@ -345,6 +347,7 @@ export const DEFAULT_AD_DETAILS: AdDetails = {
     tone: 'persuasive',
     length: 'medium',
     goal: 'purchase',
+    format: 'whatsapp',
   },
   marketingTextEngine: 'local',
 };

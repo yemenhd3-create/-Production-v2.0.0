@@ -1,4 +1,4 @@
-import { generateLocalMarketingText, resolveMarketingTextPreferences, sanitizeMarketingText } from '../shared/marketingText';
+import { formatMarketingTextForWhatsApp, generateLocalMarketingText, resolveMarketingTextPreferences, sanitizeMarketingText } from '../shared/marketingText';
 import type { AdDetails, MarketingTextPreferences } from '../shared/types';
 import { invokeLLM } from './_core/llm';
 
@@ -69,7 +69,7 @@ export async function generateMarketingTextWithFallback(
     const parsed = JSON.parse(raw) as { text?: unknown };
     const text = typeof parsed.text === 'string' ? sanitizeMarketingText(parsed.text) : '';
     if (text.length < 8) throw new Error('لم يرجع النموذج نصاً صالحاً');
-    return { text, source: 'cloud' };
+    return { text: resolvedPreferences.format === 'whatsapp' ? formatMarketingTextForWhatsApp(details, text, resolvedPreferences) : text, source: 'cloud' };
   } catch {
     return {
       text: local.text,

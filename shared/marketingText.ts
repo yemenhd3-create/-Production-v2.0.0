@@ -1,5 +1,6 @@
 import type {
   AdDetails,
+  MarketingTextFormat,
   MarketingTextGoal,
   MarketingTextLength,
   MarketingTextPreferences,
@@ -10,6 +11,7 @@ export const DEFAULT_MARKETING_TEXT_PREFERENCES: MarketingTextPreferences = {
   tone: 'persuasive',
   length: 'medium',
   goal: 'purchase',
+  format: 'whatsapp',
 };
 
 export const MARKETING_TEXT_TONE_LABELS: Record<MarketingTextTone, string> = {
@@ -29,6 +31,11 @@ export const MARKETING_TEXT_GOAL_LABELS: Record<MarketingTextGoal, string> = {
   purchase: 'تشجيع الطلب',
   inquiry: 'تشجيع الاستفسار',
   showcase: 'عرض المنتج',
+};
+
+export const MARKETING_TEXT_FORMAT_LABELS: Record<MarketingTextFormat, string> = {
+  whatsapp: 'منسق لواتساب',
+  plain: 'نص بسيط',
 };
 
 export type LocalMarketingTextResult = {
@@ -54,6 +61,9 @@ export function resolveMarketingTextPreferences(
     goal: goal === 'purchase' || goal === 'inquiry' || goal === 'showcase'
       ? goal
       : DEFAULT_MARKETING_TEXT_PREFERENCES.goal,
+    format: preferences?.format === 'whatsapp' || preferences?.format === 'plain'
+      ? preferences.format
+      : DEFAULT_MARKETING_TEXT_PREFERENCES.format,
   };
 }
 
@@ -158,13 +168,64 @@ export function generateLocalMarketingText(
       ? [sentences[0], featureSentence || colorSentence || offerParts[0], contact.join(' '), sentences[sentences.length - 1]]
       : sentences;
 
+  const plainText = sanitizeMarketingText(selected.filter(Boolean).join(' '));
   return {
-    text: sanitizeMarketingText(selected.filter(Boolean).join(' ')),
+    text: preferences.format === 'whatsapp'
+      ? formatMarketingTextForWhatsApp(details, plainText, preferences)
+      : plainText,
     source: 'local',
   };
+}
+
+function escapeWhatsAppEmphasis(value: string): string {
+  return clean(value).replace(/[\*_~`]/g, '');
+}
+
+/** ينشئ نسخة سهلة النسخ في واتساب ولا يعرض إلا المعلومات التي أدخلها المستخدم. */
+export function formatMarketingTextForWhatsApp(
+  details: AdDetails,
+  text: string,
+  preferences?: Partial<MarketingTextPreferences>
+): string {
+  const resolved = resolveMarketingTextPreferences(preferences || details.marketingPreferences);
+  const product = escapeWhatsAppEmphasis(details.productName) || 'قطعة مميزة';
+  const headline = escapeWhatsAppEmphasis(details.headline);
+  const features = details.features.map(escapeWhatsAppEmphasis).filter(Boolean).slice(0, 3);
+  const colors = details.colors.map(escapeWhatsAppEmphasis).filter(Boolean).slice(0, 3);
+  const price = escapeWhatsAppEmphasis(details.price);
+  const currency = escapeWhatsAppEmphasis(details.currency);
+  const discount = escapeWhatsAppEmphasis(details.discount);
+  const quantity = escapeWhatsAppEmphasis(details.quantity);
+  const store = escapeWhatsAppEmphasis(details.storeName);
+  const phone = escapeWhatsAppEmphasis(details.storePhone);
+  const summary = sanitizeMarketingText(text, 340);
+  const lines = [
+    `✨ *${product}*`,
+    headline ? `🌟 ${headline}` : '',
+    summary ? `📝 ${summary}` : '',
+    features.length ? `✅ *المميزات*\n${features.map(feature => `• ${feature}`).join('\n')}` : '',
+    colors.length ? `🎨 *الألوان:* ${colors.join('، ')}` : '',
+    price ? `💰 *السعر:* ${price}${currency ? ` ${currency}` : ''}` : '',
+    discount ? `🏷️ *خصم:* ${discount}%` : '',
+    quantity ? `📦 *الكمية المتاحة:* ${quantity}` : '',
+    resolved.goal === 'inquiry' ? '💬 راسلنا للاستفسار والتفاصيل.' : resolved.goal === 'showcase' ? '👀 اكتشف التفاصيل واختر ما يناسبك.' : '🛍️ اطلب الآن قبل انتهاء التوفر.',
+    store ? `🏪 *${store}*` : '',
+    phone ? `📲 للتواصل: ${phone}` : '',
+  ].filter(Boolean);
+  return sanitizeWhatsAppText(lines.join('\n\n'), 620);
 }
 
 /** تحافظ على مخرجات قابلة للعرض والمشاركة ولا تسمح بنص طويل جداً أو أسطر زائدة. */
 export function sanitizeMarketingText(value: string, maxLength = 520): string {
   return clean(value).slice(0, maxLength).trim();
+}
+
+export function sanitizeWhatsAppText(value: string, maxLength = 620): string {
+  return value
+    .split('\n')
+    .map(line => clean(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .slice(0, maxLength)
+    .trim();
 }

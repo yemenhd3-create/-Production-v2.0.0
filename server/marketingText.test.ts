@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_AD_DETAILS } from '../shared/types';
-import { generateLocalMarketingText, sanitizeMarketingText } from '../shared/marketingText';
+import { formatMarketingTextForWhatsApp, generateLocalMarketingText, sanitizeMarketingText } from '../shared/marketingText';
 
 const invokeLLM = vi.fn();
 vi.mock('./_core/llm', () => ({ invokeLLM }));
@@ -49,6 +49,18 @@ describe('مولد النص التسويقي العربي', () => {
   it('ينظف الفراغات ويحد النص قبل عرضه أو مشاركته', () => {
     expect(sanitizeMarketingText('  نص   منظم\n وجميل  ')).toBe('نص منظم وجميل');
     expect(sanitizeMarketingText('س'.repeat(600))).toHaveLength(520);
+  });
+
+  it('ينسق نصاً قابلاً للنسخ في واتساب بالرموز مع حقول المنتج المدخلة فقط', () => {
+    const text = formatMarketingTextForWhatsApp(details, 'إطلالة مريحة بتفاصيل ناعمة.', { goal: 'purchase', format: 'whatsapp' });
+
+    expect(text).toContain('✨ *فستان صيفي*');
+    expect(text).toContain('✅ *المميزات*');
+    expect(text).toContain('💰 *السعر:* 5000 ريال');
+    expect(text).toContain('📲 للتواصل: 770976559');
+    expect(text).toContain('\n');
+    expect(text).not.toContain('شحن مجاني');
+    expect(text).not.toContain('ضمان');
   });
 
   it('يستخدم نص النموذج المنظم عند نجاح المسار السحابي', async () => {

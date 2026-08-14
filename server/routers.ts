@@ -140,19 +140,21 @@ export const appRouter = router({
             tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
             length: z.enum(['short', 'medium', 'long']),
             goal: z.enum(['purchase', 'inquiry', 'showcase']),
+            format: z.enum(['whatsapp', 'plain']).optional(),
           }).optional(),
         }),
         preferences: z.object({
           tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
           length: z.enum(['short', 'medium', 'long']),
           goal: z.enum(['purchase', 'inquiry', 'showcase']),
+          format: z.enum(['whatsapp', 'plain']),
         }),
         variant: z.number().int().min(0).max(20).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         await assertPersonalUserIsActive(ctx.user.id);
         return generateMarketingTextWithFallback(
-          { ...input.details, marketingText: '' },
+          { ...input.details, marketingText: '', marketingPreferences: undefined },
           input.preferences,
           input.variant
         );

@@ -4,6 +4,9 @@ const LOCAL_MODEL_URL = '/manus-storage/u2netp_9be3adec.onnx';
 const ORT_WASM_URL = '/manus-storage/ort-wasm-simd-threaded_4e38bda3.wasm';
 const ORT_WASM_MJS_URL = '/manus-storage/ort-wasm-simd-threaded_59eec8fe.mjs';
 const MODEL_CACHE_NAME = 'clothing-ad-u2netp-v1';
+const MODEL_IDB_NAME = 'clothing-ad-local-models-v1';
+const MODEL_IDB_STORE = 'models';
+const MODEL_IDB_KEY = 'u2netp-onnx';
 const INPUT_SIZE = 320;
 const IMAGE_NET_MEAN = [0.485, 0.456, 0.406];
 const IMAGE_NET_STD = [0.229, 0.224, 0.225];
@@ -116,18 +119,85 @@ export async function getCachedLocalModel(onCacheMiss?: () => void): Promise<Arr
   try {
     const cache = 'caches' in window ? await caches.open(MODEL_CACHE_NAME) : null;
     const cached = await cache?.match(LOCAL_MODEL_URL);
-    if (cached) return cached.arrayBuffer();
+    if (cached) {
+      const cachedBytes = await cached.arrayBuffer();
+      if (cachedBytes.byteLength > 0) {
+        void saveModelToIndexedDb(cachedBytes.slice(0));
+        return cachedBytes;
+      }
+    }
+
+    const persistedBytes = await loadModelFromIndexedDb();
+    if (persistedBytes?.byteLength) {
+      if (cache) void cache.put(LOCAL_MODEL_URL, new Response(persistedBytes.slice(0), { headers: { 'content-type': 'application/octet-stream' } }));
+      return persistedBytes;
+    }
 
     onCacheMiss?.();
     const response = await withLocalRemovalTimeout(fetch(LOCAL_MODEL_URL, { cache: 'force-cache' }), MODEL_DOWNLOAD_TIMEOUT_MS, 'MODEL_DOWNLOAD_TIMEOUT');
     if (!response.ok) throw new Error('MODEL_DOWNLOAD');
-    if (cache) await cache.put(LOCAL_MODEL_URL, response.clone());
+    const modelBytes = await response.arrayBuffer();
+    if (!modelBytes.byteLength) throw new Error('MODEL_DOWNLOAD');
+    if (cache) await cache.put(LOCAL_MODEL_URL, new Response(modelBytes.slice(0), { headers: { 'content-type': 'application/octet-stream' } }));
+    await saveModelToIndexedDb(modelBytes.slice(0));
     await requestPersistentModelStorage();
-    return response.arrayBuffer();
+    return modelBytes;
   } catch (error) {
     if (error instanceof Error && (error.message === 'MODEL_DOWNLOAD' || error.message === 'MODEL_DOWNLOAD_TIMEOUT')) throw error;
     throw new Error('MODEL_DOWNLOAD');
   }
+}
+
+function openModelDatabase(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise(resolve => {
+    try {
+      const request = indexedDB.open(MODEL_IDB_NAME, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(MODEL_IDB_STORE)) request.result.createObjectStore(MODEL_IDB_STORE);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function loadModelFromIndexedDb(): Promise<ArrayBuffer | null> {
+  const database = await openModelDatabase();
+  if (!database) return null;
+  return new Promise(resolve => {
+    try {
+      const request = database.transaction(MODEL_IDB_STORE, 'readonly').objectStore(MODEL_IDB_STORE).get(MODEL_IDB_KEY);
+      request.onsuccess = () => {
+        database.close();
+        const value = request.result as unknown;
+        resolve(value && typeof (value as { byteLength?: unknown }).byteLength === 'number' && typeof (value as { slice?: unknown }).slice === 'function' ? value as ArrayBuffer : null);
+      };
+      request.onerror = () => { database.close(); resolve(null); };
+    } catch {
+      database.close();
+      resolve(null);
+    }
+  });
+}
+
+async function saveModelToIndexedDb(model: ArrayBuffer): Promise<void> {
+  const database = await openModelDatabase();
+  if (!database) return;
+  await new Promise<void>(resolve => {
+    try {
+      const transaction = database.transaction(MODEL_IDB_STORE, 'readwrite');
+      transaction.objectStore(MODEL_IDB_STORE).put(model, MODEL_IDB_KEY);
+      transaction.oncomplete = () => { database.close(); resolve(); };
+      transaction.onerror = () => { database.close(); resolve(); };
+      transaction.onabort = () => { database.close(); resolve(); };
+    } catch {
+      database.close();
+      resolve();
+    }
+  });
 }
 
 /** يطلب من المتصفح الاحتفاظ بملفات النموذج؛ قد يرفض النظام الطلب عند امتلاء التخزين. */

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Bot, LoaderCircle, RefreshCw, Sparkles, WandSparkles } from 'lucide-react';
-import type { AdDetails, MarketingTextGoal, MarketingTextLength, MarketingTextPreferences, MarketingTextTone } from '@shared/types';
+import type { AdDetails, MarketingTextFormat, MarketingTextGoal, MarketingTextLength, MarketingTextPreferences, MarketingTextTone } from '@shared/types';
 import {
   DEFAULT_MARKETING_TEXT_PREFERENCES,
   MARKETING_TEXT_GOAL_LABELS,
+  MARKETING_TEXT_FORMAT_LABELS,
   MARKETING_TEXT_LENGTH_LABELS,
   MARKETING_TEXT_TONE_LABELS,
   generateLocalMarketingText,
@@ -20,6 +21,7 @@ interface MarketingTextComposerProps {
 const toneOptions = Object.entries(MARKETING_TEXT_TONE_LABELS) as Array<[MarketingTextTone, string]>;
 const lengthOptions = Object.entries(MARKETING_TEXT_LENGTH_LABELS) as Array<[MarketingTextLength, string]>;
 const goalOptions = Object.entries(MARKETING_TEXT_GOAL_LABELS) as Array<[MarketingTextGoal, string]>;
+const formatOptions = Object.entries(MARKETING_TEXT_FORMAT_LABELS) as Array<[MarketingTextFormat, string]>;
 
 export default function MarketingTextComposer({ details, onChange, generateCloudText }: MarketingTextComposerProps) {
   const preferences = resolveMarketingTextPreferences(details.marketingPreferences || DEFAULT_MARKETING_TEXT_PREFERENCES);
@@ -75,12 +77,13 @@ export default function MarketingTextComposer({ details, onChange, generateCloud
       <OptionGroup label="النبرة" options={toneOptions} value={preferences.tone} onChange={tone => updatePreferences({ tone })} />
       <OptionGroup label="الطول" options={lengthOptions} value={preferences.length} onChange={length => updatePreferences({ length })} />
       <OptionGroup label="الهدف" options={goalOptions} value={preferences.goal} onChange={goal => updatePreferences({ goal })} />
+      <OptionGroup label="تنسيق النص" options={formatOptions} value={preferences.format} onChange={format => updatePreferences({ format })} />
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button type="button" onClick={generateLocal} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground transition active:scale-[.98]"><Sparkles size={17} />{details.marketingText ? 'إعادة صياغة محلية' : 'توليد نص محلي'}</button>
         <button type="button" onClick={() => void generateCloud()} disabled={isCloudGenerating} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 text-sm font-black text-primary transition active:scale-[.98] disabled:opacity-60"><Bot size={17} />{isCloudGenerating ? <><LoaderCircle className="animate-spin" size={16} /> جارٍ التحسين…</> : 'تحسين بالذكاء السحابي'}</button>
       </div>
-      <p className="mt-2 text-center text-[11px] leading-5 text-muted-foreground">المسار المحلي هو الافتراضي ويعمل بلا إنترنت. المسار السحابي اختياري، وعند تعذره يعود تلقائياً للنص المحلي.</p>
+      <p className="mt-2 text-center text-[11px] leading-5 text-muted-foreground">تنسيق واتساب يضيف رموزاً وعناوين ونقاطاً قابلة للتحرير. المسار المحلي هو الافتراضي ويعمل بلا إنترنت.</p>
 
       <label className="mt-4 block space-y-2">
         <span className="flex items-center justify-between text-sm font-black text-foreground"><span>النص القابل للتحرير</span>{details.marketingText && <span className="text-[11px] font-bold text-emerald-700">جاهز للمشاركة</span>}</span>

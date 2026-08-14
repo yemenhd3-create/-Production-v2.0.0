@@ -602,7 +602,7 @@ function hasMeaningfulDraft(details: AdDetails) {
 
 function getLocalStageMessage(stage: LocalRemovalStage) {
   const messages: Record<LocalRemovalStage, string> = {
-    downloading: `جارٍ تنزيل محرك ونموذج الإزالة المحلية (نحو ${formatLocalFirstDownloadSize()}) — يحدث مرة واحدة فقط…`,
+    downloading: `جارٍ تنزيل نموذج الإزالة المحلية (نحو ${formatLocalModelSize()}) للمرة الأولى…`,
     loading: 'جارٍ تجهيز نموذج الإزالة المحلية على الهاتف…',
     processing: 'جارٍ تحليل الملابس محلياً من دون إرسال الصورة…',
     finishing: 'جارٍ إنشاء صورة PNG بخلفية شفافة…',
