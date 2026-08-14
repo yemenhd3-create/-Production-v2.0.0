@@ -330,6 +330,7 @@ export enum StorageKeys {
   LAST_AD_DETAILS = 'clothing_ad_last_ad_details',
   TEMPLATE_SETTINGS = 'clothing_ad_template_settings',
   LAST_WORKFLOW_STEP = 'clothing_ad_last_workflow_step',
+  LAST_APP_SECTION = 'clothing_ad_last_app_section',
 }
 
 // ========== Constants ==========

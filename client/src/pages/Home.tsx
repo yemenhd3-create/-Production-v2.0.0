@@ -38,7 +38,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   Wand2,
-  Wrench,
 } from 'lucide-react';
 
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
@@ -66,6 +65,13 @@ function isWorkflowStep(value: string | null): value is AdWorkflowStep {
   return value === 'upload' || value === 'details' || value === 'final';
 }
 
+type MainApplicationSection = 'create' | 'batch' | 'settings';
+type ActiveView = MainApplicationSection | 'about' | 'developer' | 'messages';
+
+function isMainApplicationSection(value: ActiveView): value is MainApplicationSection {
+  return value === 'create' || value === 'batch' || value === 'settings';
+}
+
 export default function Home({ devModelPreviewCheck = false }: { devModelPreviewCheck?: boolean }) {
   const [currentStep, setCurrentStep] = useState<AdWorkflowStep>(devModelPreviewCheck ? 'details' : 'upload');
   const [productImage, setProductImage] = useState(devModelPreviewCheck ? MODEL_PREVIEW_CHECK_GARMENT : '');
@@ -89,9 +95,14 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
   const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(false);
   const [backgroundAssessment, setBackgroundAssessment] = useState<BackgroundAssessment>('unknown');
   const [preferOriginalImage, setPreferOriginalImage] = useState(false);
+  const [isReviewingImage, setIsReviewingImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
-  const [activeView, setActiveView] = useState<'create' | 'batch' | 'settings' | 'about' | 'developer' | 'messages'>('create');
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    if (devModelPreviewCheck) return 'create';
+    const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
+    return saved === 'batch' || saved === 'settings' ? saved : 'create';
+  });
   const tryOnMutation = trpc.tryOn.run.useMutation();
   const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
@@ -123,6 +134,11 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
   }, [templateSettings, isStorageReady]);
 
   useEffect(() => {
+    if (!isStorageReady || !isMainApplicationSection(activeView)) return;
+    saveToStorage(StorageKeys.LAST_APP_SECTION, activeView);
+  }, [activeView, isStorageReady]);
+
+  useEffect(() => {
     return () => {
       if (productImage.startsWith('blob:')) URL.revokeObjectURL(productImage);
     };
@@ -152,14 +168,15 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     setLastVisualSource('');
     setLocalModelPreviewImage('');
     setTryOnResult({ status: 'idle', message: '' });
-    setCurrentStep('details');
+    setCurrentStep('upload');
+    setIsReviewingImage(true);
     setBackgroundAssessment('analyzing');
     setPreferOriginalImage(false);
     void assessImageBackground(imageUrl).then(result => {
       setBackgroundAssessment(result);
       if (result === 'simple') setPreferOriginalImage(true);
     });
-    toast.success('تمت إضافة الصورة. أكمل الحقول التي تريدها ثم ولّد الإعلان.');
+    toast.success('تمت إضافة الصورة. راجعها ثم تابع إلى بيانات الإعلان.');
   };
 
   const handleImageRemove = () => {
@@ -170,6 +187,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     setTryOnResult({ status: 'idle', message: '' });
     setBackgroundAssessment('unknown');
     setPreferOriginalImage(false);
+    setIsReviewingImage(false);
     setCurrentStep('upload');
   };
 
@@ -182,6 +200,11 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     }
     if (target === 'details' && !productImage) {
       setCurrentStep('upload');
+      return;
+    }
+    if (target === 'details' && isReviewingImage) {
+      setCurrentStep('upload');
+      toast.message('راجع الصورة أولاً ثم اضغط «متابعة إلى بيانات الإعلان».');
       return;
     }
     setCurrentStep(target);
@@ -197,6 +220,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     setModelPersonImage('');
     setLocalModelPreviewImage('');
     setMarketingText('');
+    setIsReviewingImage(false);
     resetDraftFields();
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('upload');
@@ -227,7 +251,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     setGeneratedAd('');
     setTryOnResult({
       status: 'processing',
-      message: 'جارٍ تجهيز الإعلان ومحاولة تجربة الملابس بالذكاء الاصطناعي…',
+      message: 'نجهّز الصورة والقالب للإعلان…',
     });
 
     let localFallbackMessage = '';
@@ -235,7 +259,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
     try {
       if (adDetails.modelPreview?.enabled && modelPersonImage) {
         try {
-          setTryOnResult({ status: 'processing', message: 'جارٍ تجهيز قطعة الملابس وتركيبها فوق العارض محلياً…' });
+          setTryOnResult({ status: 'processing', message: 'نجهّز قطعة الملابس وصورة العارض على الهاتف…' });
           const localGarment = await removeBackgroundLocally(productImage, stage => {
             setTryOnResult({ status: 'processing', message: `معاينة العارض: ${getLocalStageMessage(stage)}` });
           });
@@ -246,7 +270,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
             status: 'success',
             imageUrl: previewSource,
             providerId: 'local-model-preview',
-            message: 'أُنشئت معاينة عارض محلية. يمكنك تعديل موضع القطعة ثم إعادة التوليد.',
+            message: 'اكتملت معاينة العارض على الهاتف. يمكنك تعديل موضع القطعة ثم إعادة التوليد.',
             transparentSubject: 'person',
           });
           const dimensions = getCanvasDimensions(templateSettings.size);
@@ -259,7 +283,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
           setMarketingText(buildMarketingText(adDetails));
           return;
         } catch {
-          localFallbackMessage = 'تعذرت معاينة العارض محلياً؛ سنكمل بالقالب المعتاد من دون صورة العارض.';
+          localFallbackMessage = 'تعذر إعداد معاينة العارض؛ سنكمل بالقالب المعتاد من دونها.';
           toast.error(localFallbackMessage);
         }
       }
@@ -273,7 +297,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
             status: 'success',
             imageUrl: localImage.imageUrl,
             providerId: 'local-u2netp',
-            message: 'أزيلت خلفية الملابس محلياً على هذا الهاتف باستخدام U2NetP.',
+            message: 'تم تجهيز الملابس بخلفية شفافة على هذا الهاتف.',
             isTransparent: true,
             transparentSubject: 'garment',
           });
@@ -289,8 +313,8 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
           return;
         } catch (localError) {
           localFallbackMessage = getLocalRemovalUnavailableMessage(localError);
-          toast.error(`${localFallbackMessage} سنجرب المسار السحابي الآن.`);
-          setTryOnResult({ status: 'processing', message: 'تعذرت الإزالة المحلية؛ جارٍ تجربة التلبيس أو إزالة الخلفية السحابية…' });
+          toast.error(`${localFallbackMessage} سنكمل بطريقة بديلة.`);
+          setTryOnResult({ status: 'processing', message: 'تعذرت الإزالة المحلية؛ نكمل بطريقة بديلة للصورة…' });
         }
       }
 
@@ -476,6 +500,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
             onChange={setTemplateSettings}
             onBack={() => setActiveView('create')}
             onAbout={() => setActiveView('about')}
+            onDeveloper={() => setActiveView('developer')}
           /></React.Suspense>)}
 
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} modelPersonImage={adDetails.modelPreview?.enabled ? modelPersonImage : ''} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
@@ -505,18 +530,22 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
                 <ImagePlus size={15} /> المرحلة الأولى
               </span>
               <h2 className="text-2xl font-black text-foreground">ارفع صورة الملابس</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط. سنصغّرها تلقائياً للحفاظ على سرعة الهاتف ثم ننقلك إلى بيانات الإعلان.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط. سنجهزها للحفاظ على سرعة الهاتف، ثم تراجعها قبل إدخال بيانات الإعلان.</p>
             </div>
             {hasRestoredDraft && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-right">
               <RotateCcw size={19} className="mt-0.5 shrink-0 text-primary" />
               <div className="min-w-0 flex-1"><p className="text-sm font-black text-primary">استعدنا بيانات آخر مسودة</p><p className="mt-1 text-xs leading-5 text-muted-foreground">ارفع صورة القطعة لإكمالها، أو ابدأ حقولاً جديدة من دون مسح إعدادات القالب.</p></div>
               <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
             </div>}
-            <ImageUploader
-              onImageSelect={handleImageSelect}
-              currentImage={productImage}
-              onImageRemove={handleImageRemove}
-            />
+            {isReviewingImage && productImage ? (
+              <SingleImageReview image={productImage} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+            ) : (
+              <ImageUploader
+                onImageSelect={handleImageSelect}
+                currentImage={productImage}
+                onImageRemove={handleImageRemove}
+              />
+            )}
           </section>
         )}
 
@@ -547,9 +576,9 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
                 onChange={event => setUseLocalBackgroundRemoval(event.target.checked)}
                 className="mt-1 h-5 w-5 shrink-0 accent-emerald-700"
               />
-              <span>
-                <span className="block text-sm font-black text-emerald-950">إزالة الخلفية محلياً على الهاتف</span>
-                <span className="mt-1 block text-xs leading-6 text-emerald-900">لا تُرسل الصورة إلى أي خدمة. التنزيل الأول يقارب {formatLocalFirstDownloadSize()} (نموذج U2NetP بحجم {formatLocalModelSize()} ومحرك التشغيل)، ثم يعمل دون إنترنت. ألغِ التحديد لاستخدام مسار Try-On وPerfect Corp المعتاد.</span>
+                <span>
+                  <span className="block text-sm font-black text-emerald-950">إزالة الخلفية محلياً على الهاتف</span>
+                <span className="mt-1 block text-xs leading-6 text-emerald-900">لا تُرسل الصورة إلى أي خدمة. في أول استخدام فقط سيجهز التطبيق أداة الإزالة المحلية (نحو {formatLocalFirstDownloadSize()})، ثم تعمل دون إنترنت. ألغِ التحديد إذا أردت تجربة الطريقة البديلة المتاحة.</span>
               </span>
             </label>
 
@@ -584,7 +613,7 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm"><Palette size={18} /></div>
                 <p className="text-sm leading-6 text-primary">
-                  عند الضغط على زر التوليد سيحاول التطبيق التلبيس بالذكاء الاصطناعي تلقائياً. إذا لم تتوفر النتيجة، سيضع صورة القطعة داخل القالب مباشرة.
+                  عند الضغط على زر التوليد سيستخدم التطبيق أفضل طريقة متاحة لتجهيز الصورة. إذا لم تتوفر نتيجة مناسبة، سيضع صورة القطعة داخل القالب مباشرة.
                 </p>
               </div>
             </div>
@@ -662,11 +691,10 @@ export default function Home({ devModelPreviewCheck = false }: { devModelPreview
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/10 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
           <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Sparkles size={19} />إنشاء</button>
           <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={19} />دفعة</button>
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={19} />الإعدادات</button>
-          <button type="button" onClick={() => setActiveView('developer')} aria-current={activeView === 'developer' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'developer' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Wrench size={19} />المطور</button>
         </div>
       </nav>
     </div>
@@ -677,6 +705,16 @@ function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
 }
 
+function SingleImageReview({ image, onImageSelect, onImageRemove, onContinue }: { image: string; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
+  return <div className="space-y-5">
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div><h3 className="text-sm font-black text-emerald-950">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-emerald-900">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
+    </div>
+    <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
+    <button type="button" onClick={onContinue} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 text-base font-black text-accent-foreground shadow-lg shadow-red-200 transition active:scale-[0.98]"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
+  </div>;
+}
+
 function hasMeaningfulDraft(details: AdDetails) {
   const textFields = [details.productName, details.headline, details.discount, details.quantity, details.price, details.storeName, details.storePhone, details.marketingText];
   return textFields.some(value => value.trim().length > 0) || details.colors.length > 0;
@@ -684,10 +722,10 @@ function hasMeaningfulDraft(details: AdDetails) {
 
 function getLocalStageMessage(stage: LocalRemovalStage) {
   const messages: Record<LocalRemovalStage, string> = {
-    downloading: `جارٍ تنزيل نموذج الإزالة المحلية (نحو ${formatLocalModelSize()}) للمرة الأولى…`,
-    loading: 'جارٍ تجهيز نموذج الإزالة المحلية على الهاتف…',
-    processing: 'جارٍ تحليل الملابس محلياً من دون إرسال الصورة…',
-    finishing: 'جارٍ إنشاء صورة PNG بخلفية شفافة…',
+    downloading: `نجهّز أداة الإزالة المحلية للمرة الأولى (نحو ${formatLocalModelSize()})…`,
+    loading: 'نشغّل أداة الإزالة على الهاتف…',
+    processing: 'نفصل الملابس عن الخلفية…',
+    finishing: 'نجهّز الصورة للإعلان…',
   };
   return messages[stage];
 }

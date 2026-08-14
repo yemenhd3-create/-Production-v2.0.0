@@ -36,6 +36,7 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
   it('يقبل شعاراً مربعاً ثم تذييل ترند التربية 2688×494 ويحفظهما في الإعدادات', async () => {
     const onChange = vi.fn();
     const { container, rerender } = render(<UserTemplateSettings settings={DEFAULT_TEMPLATE_SETTINGS} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /هوية المتجر/ }));
     const fileInputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
     expect(fileInputs).toHaveLength(2);
     expect(container.textContent).not.toContain('رفع بانر العنوان');
@@ -56,6 +57,7 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
     const onChange = vi.fn();
     render(<UserTemplateSettings settings={DEFAULT_TEMPLATE_SETTINGS} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
 
+    fireEvent.click(screen.getByRole('button', { name: /شارات العرض/ }));
     fireEvent.click(screen.getByRole('button', { name: 'جديد' }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ badgeTypes: ['discount', 'new'] }));
 

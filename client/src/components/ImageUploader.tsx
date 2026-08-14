@@ -187,7 +187,7 @@ export default function ImageUploader({
       {currentImage && (
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm"><BadgeCheck size={19} /></div>
-          <p className="text-sm font-bold text-emerald-900">تم تجهيز الصورة بنجاح. انتقل الآن إلى بيانات الإعلان.</p>
+          <p className="text-sm font-bold text-emerald-900">تم تجهيز الصورة بنجاح. راجعها ثم اختر المتابعة عندما تكون جاهزة.</p>
         </div>
       )}
     </div>

@@ -87,9 +87,22 @@ describe('Home Try-On workflow', () => {
   async function startGeneration() {
     render(createElement(Home));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+    await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' });
+    fireEvent.click(screen.getByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
     await screen.findByRole('button', { name: 'توليد الإعلان' });
     fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
   }
+
+  it('يعرض مراجعة الصورة قبل فتح بيانات الإعلان ويواصل التدفق بعد تأكيد المستخدم', async () => {
+    render(createElement(Home));
+    fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+
+    expect(await screen.findByText('راجع الصورة قبل المتابعة')).toBeTruthy();
+    expect(screen.queryByText('نموذج بيانات الاختبار')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
+    expect(await screen.findByText('نموذج بيانات الاختبار')).toBeTruthy();
+  });
 
   it('falls back to the local garment canvas and explains the failure when Try-On rejects', async () => {
     mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
@@ -125,6 +138,7 @@ describe('Home Try-On workflow', () => {
   it('يركب القطعة محلياً فوق العارض ثم يمرر المعاينة إلى Canvas من دون استدعاء Try-On السحابي', async () => {
     render(createElement(Home));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
     await screen.findByRole('button', { name: 'تفعيل معاينة عارض الاختبار' });
     fireEvent.click(screen.getByRole('button', { name: 'تفعيل معاينة عارض الاختبار' }));
     fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
@@ -170,6 +184,7 @@ describe('Home Try-On workflow', () => {
   it('يسمح بالعودة إلى مرحلة مكتملة من شريط المراحل من دون القفز إلى مرحلة ناقصة', async () => {
     render(createElement(Home));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
     await screen.findByText('نموذج بيانات الاختبار');
 
     fireEvent.click(screen.getByRole('button', { name: 'رفع الملابس' }));
@@ -196,6 +211,7 @@ describe('Home Try-On workflow', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
     await screen.findByText('جهّز شكل إعلانك');
+    fireEvent.click(screen.getByRole('button', { name: /هوية المتجر/ }));
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
     fireEvent.change(inputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
     fireEvent.click(await screen.findByRole('button', { name: 'حفظ الشعار في المشروع' }));
@@ -205,6 +221,7 @@ describe('Home Try-On workflow', () => {
     await screen.findByAltText('معاينة تذييل المتجر الكامل');
     fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
     await screen.findByRole('button', { name: 'توليد الإعلان' });
     fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
 
@@ -223,6 +240,7 @@ describe('Home Try-On workflow', () => {
     const requestsBefore = mutateAsync.mock.calls.length;
 
     fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
+    fireEvent.click(await screen.findByRole('button', { name: /شارات العرض/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'بدون' }));
     fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
     renderAd.mockClear();
