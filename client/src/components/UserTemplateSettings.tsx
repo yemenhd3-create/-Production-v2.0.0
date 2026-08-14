@@ -2,8 +2,9 @@ import type { TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/
 import { Check, CheckCircle2, ImagePlus, MonitorSmartphone, SlidersHorizontal, Tag } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
-import { getArtworkRatioError, PRACTICAL_HEADER_RATIO } from '@/lib/brandArtworkSupport';
+import { PRACTICAL_HEADER_RATIO } from '@/lib/brandArtworkSupport';
 import ArtworkPositionEditor from './ArtworkPositionEditor';
+import ArtworkCropEditor from './ArtworkCropEditor';
 
 interface UserTemplateSettingsProps {
   settings: TemplateSettings;
@@ -54,6 +55,7 @@ const artworkRatios: Record<TemplateSize, { footer: number }> = {
 export default function UserTemplateSettings({ settings, onChange, onBack, onAbout }: UserTemplateSettingsProps) {
   const [artworkError, setArtworkError] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [pendingArtwork, setPendingArtwork] = useState<{ kind: 'logo' | 'footer'; source: string } | null>(null);
   const setToggle = (key: ToggleKey) => onChange({ ...settings, [key]: !settings[key] });
   const selectedBadges = settings.badgeTypes?.slice() || (settings.badgeType !== 'none' ? [settings.badgeType] : []);
   const toggleBadge = (type: Exclude<TemplateBadgeType, 'none'>) => {
@@ -68,44 +70,21 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
 
   const selectArtwork = (kind: 'footer' | 'logo', file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > 1024 * 1024) {
-      setArtworkError('اختر صورة PNG أو JPG أو WebP لا تتجاوز 1 ميجابايت.');
+    if (!file.type.startsWith('image/') || file.size > 8 * 1024 * 1024) {
+      setArtworkError('اختر صورة PNG أو JPG أو WebP لا تتجاوز 8 ميجابايت. ستضبطها داخل المحرر قبل الحفظ.');
       return;
     }
-    if (kind === 'logo') {
-      const reader = new FileReader();
-      reader.onload = () => {
-        onChange({ ...settings, storeLogoArtwork: String(reader.result || ''), showStoreLogo: true });
-        setArtworkError('');
-      };
-      reader.onerror = () => setArtworkError('تعذر قراءة شعار المتجر. حاول اختيار الصورة مرة أخرى.');
-      reader.readAsDataURL(file);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const actual = image.width / image.height;
-      const ratioError = getArtworkRatioError(kind, actual, artworkRatios[settings.size].footer);
-      if (ratioError) {
-        setArtworkError(ratioError);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const value = String(reader.result || '');
-        onChange({ ...settings, footerArtwork: value, showFooterArtwork: true });
-        setArtworkError('');
-      };
-      reader.onerror = () => setArtworkError('تعذر قراءة صورة الطبقة. حاول اختيارها مرة أخرى.');
-      reader.readAsDataURL(file);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      setArtworkError('الملف المحدد ليس صورة صالحة.');
-    };
-    image.src = objectUrl;
+    const reader = new FileReader();
+    reader.onload = () => { setPendingArtwork({ kind, source: String(reader.result || '') }); setArtworkError(''); };
+    reader.onerror = () => setArtworkError('تعذر قراءة الصورة. حاول اختيارها مرة أخرى أو استخدم نسخة محفوظة في الهاتف.');
+    reader.readAsDataURL(file);
+  };
+
+  const saveArtwork = (value: string) => {
+    if (!pendingArtwork) return;
+    onChange(pendingArtwork.kind === 'logo' ? { ...settings, storeLogoArtwork: value, showStoreLogo: true } : { ...settings, footerArtwork: value, showFooterArtwork: true });
+    setPendingArtwork(null);
+    setIsSaved(false);
   };
 
   return (
@@ -131,8 +110,8 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
         <div className="mb-2 flex items-center gap-2 text-primary"><ImagePlus size={19} /><h3 className="font-black">هوية المتجر: الشعار والتذييل</h3></div>
         <p className="text-xs leading-5 text-muted-foreground">يكفي رفع شعار المتجر وتذييل مصمم. يظهر التذييل شريطاً عريضاً كاملاً في أسفل الإعلان، من اليمين إلى اليسار.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع شعار المتجر الدائري <span className="mt-1 block text-[11px] font-medium text-muted-foreground">PNG أو JPG أو WebP، يظهر داخل دائرة.</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('logo', event.target.files?.[0])} /></label>
-          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">رفع تذييل المتجر الكامل <span className="mt-1 block text-[11px] font-medium text-muted-foreground">المفضل 2688 × 494 · تقريباً {artworkRatios[settings.size].footer.toFixed(2)} : 1</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('footer', event.target.files?.[0])} /></label>
+          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">اختيار شعار المتجر <span className="mt-1 block text-[11px] font-medium text-muted-foreground">أي نسبة مناسبة؛ اضبط القص والاحتواء قبل الحفظ.</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('logo', event.target.files?.[0])} /></label>
+          <label className="cursor-pointer rounded-xl bg-secondary/65 p-3 text-sm font-black text-primary">اختيار تذييل المتجر <span className="mt-1 block text-[11px] font-medium text-muted-foreground">أي نسبة مناسبة؛ اضبطه إلى 2688 × 494 قبل الحفظ.</span><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => selectArtwork('footer', event.target.files?.[0])} /></label>
         </div>
         {(settings.storeLogoArtwork || settings.footerArtwork) && <div className="mt-4 rounded-xl bg-stone-50 p-3"><p className="mb-2 text-xs font-black text-foreground">معاينة هوية المتجر</p><div className="flex flex-wrap items-center gap-3">{settings.storeLogoArtwork && <div className="text-center"><img src={settings.storeLogoArtwork} alt="معاينة شعار المتجر" className="mx-auto h-12 w-12 rounded-full border-2 border-white bg-white object-cover shadow-sm" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, storeLogoArtwork: '', showStoreLogo: false })}>حذف الشعار</button></div>}{settings.footerArtwork && <div className="w-full"><img src={settings.footerArtwork} alt="معاينة تذييل المتجر الكامل" className="h-auto w-full rounded-lg bg-white object-contain" /><button type="button" className="mt-1 text-[11px] font-bold text-red-700" onClick={() => onChange({ ...settings, footerArtwork: '', showFooterArtwork: false })}>حذف تذييل المتجر</button></div>}</div></div>}
         <ArtworkPositionEditor settings={settings} onChange={onChange} />
@@ -147,6 +126,7 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
       <button type="button" onClick={saveSettings} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition active:scale-[0.98] ${isSaved ? 'bg-emerald-600 text-white' : 'bg-primary text-primary-foreground'}`}><CheckCircle2 size={18} />{isSaved ? 'تم حفظ الإعدادات على هذا الهاتف' : 'حفظ الإعدادات'}</button>
       <button type="button" onClick={onAbout} className="mt-3 w-full rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 text-right text-sm font-black text-primary transition active:scale-[0.99]">حول التطبيق وبيانات المطور</button>
       <button type="button" onClick={onBack} className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-black text-primary-foreground transition active:scale-[0.98]">العودة إلى الإنشاء</button>
+      {pendingArtwork && <ArtworkCropEditor kind={pendingArtwork.kind} source={pendingArtwork.source} onSave={saveArtwork} onCancel={() => setPendingArtwork(null)} />}
     </section>
   );
 }

@@ -97,8 +97,7 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
 async function getSession(onStage?: (stage: LocalRemovalStage) => void) {
   if (!sessionPromise) {
     sessionPromise = (async () => {
-      onStage?.('downloading');
-      const model = await getCachedModel();
+      const model = await getCachedLocalModel(() => onStage?.('downloading'));
       const ort = await import('onnxruntime-web/wasm');
       // لا نعتمد على رابط ملف Vite المؤقت، ونمنع العامل المتعدد لرفع توافق Chrome Android.
       ort.env.wasm.numThreads = 1;
@@ -113,19 +112,30 @@ async function getSession(onStage?: (stage: LocalRemovalStage) => void) {
   return sessionPromise;
 }
 
-async function getCachedModel(): Promise<ArrayBuffer> {
+export async function getCachedLocalModel(onCacheMiss?: () => void): Promise<ArrayBuffer> {
   try {
     const cache = 'caches' in window ? await caches.open(MODEL_CACHE_NAME) : null;
     const cached = await cache?.match(LOCAL_MODEL_URL);
     if (cached) return cached.arrayBuffer();
 
+    onCacheMiss?.();
     const response = await withLocalRemovalTimeout(fetch(LOCAL_MODEL_URL, { cache: 'force-cache' }), MODEL_DOWNLOAD_TIMEOUT_MS, 'MODEL_DOWNLOAD_TIMEOUT');
     if (!response.ok) throw new Error('MODEL_DOWNLOAD');
     if (cache) await cache.put(LOCAL_MODEL_URL, response.clone());
+    await requestPersistentModelStorage();
     return response.arrayBuffer();
   } catch (error) {
     if (error instanceof Error && (error.message === 'MODEL_DOWNLOAD' || error.message === 'MODEL_DOWNLOAD_TIMEOUT')) throw error;
     throw new Error('MODEL_DOWNLOAD');
+  }
+}
+
+/** يطلب من المتصفح الاحتفاظ بملفات النموذج؛ قد يرفض النظام الطلب عند امتلاء التخزين. */
+async function requestPersistentModelStorage() {
+  try {
+    if (navigator.storage?.persist && !(await navigator.storage.persisted?.())) await navigator.storage.persist();
+  } catch {
+    // يبقى Cache Storage العادي مستخدماً عند عدم دعم التخزين المستمر.
   }
 }
 

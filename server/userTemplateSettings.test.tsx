@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import UserTemplateSettings from '../client/src/components/UserTemplateSettings';
 import { DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
 
+vi.mock('../client/src/components/ArtworkCropEditor', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: ({ kind, onSave }: { kind: 'logo' | 'footer'; onSave: (value: string) => void }) => h('button', { type: 'button', onClick: () => onSave('data:image/jpeg;base64,user-brand') }, kind === 'logo' ? 'حفظ الشعار في المشروع' : 'حفظ التذييل في المشروع'),
+  };
+});
+
 describe('طبقات هوية المتجر في الإعدادات', () => {
   beforeEach(() => {
     vi.stubGlobal('Image', class {
@@ -35,11 +42,13 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
     expect(container.textContent).not.toContain('إطار القالب');
 
     fireEvent.change(fileInputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'حفظ الشعار في المشروع' }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,user-brand' })));
 
     const afterLogo = onChange.mock.calls.at(-1)?.[0];
     rerender(<UserTemplateSettings settings={afterLogo} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
     fireEvent.change(container.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['footer'], 'trend-footer.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'حفظ التذييل في المشروع' }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/jpeg;base64,user-brand', showStoreLogo: true })));
   });
 

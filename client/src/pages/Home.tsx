@@ -60,6 +60,7 @@ export default function Home() {
   const [adDetails, setAdDetails] = useState<AdDetails>(DEFAULT_AD_DETAILS);
   const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
   const [generatedAd, setGeneratedAd] = useState('');
+  const [lastVisualSource, setLastVisualSource] = useState('');
   const [marketingText, setMarketingText] = useState('');
   const [tryOnResult, setTryOnResult] = useState<TryOnResult>({
     status: 'idle',
@@ -112,6 +113,7 @@ export default function Home() {
   const handleImageSelect = (imageUrl: string) => {
     setProductImage(imageUrl);
     setGeneratedAd('');
+    setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('details');
     setBackgroundAssessment('analyzing');
@@ -126,6 +128,7 @@ export default function Home() {
   const handleImageRemove = () => {
     setProductImage('');
     setGeneratedAd('');
+    setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setBackgroundAssessment('unknown');
     setPreferOriginalImage(false);
@@ -152,6 +155,7 @@ export default function Home() {
     if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
     setProductImage('');
     setGeneratedAd('');
+    setLastVisualSource('');
     setMarketingText('');
     resetDraftFields();
     setTryOnResult({ status: 'idle', message: '' });
@@ -203,6 +207,7 @@ export default function Home() {
             transparentSubject: 'garment',
           });
           const dimensions = getCanvasDimensions(templateSettings.size);
+          setLastVisualSource(localImage.imageUrl);
           const output = await withTimeout(
             renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment' }),
             15_000,
@@ -247,6 +252,7 @@ export default function Home() {
         fetchImageAsBlobUrl
       );
       const imageForCanvas = tryOnWorkflow.imageForCanvas;
+      setLastVisualSource(imageForCanvas);
       const resolvedResult = localFallbackMessage && tryOnWorkflow.result.status === 'fallback'
         ? { ...tryOnWorkflow.result, message: `${localFallbackMessage} ${tryOnWorkflow.result.message}` }
         : tryOnWorkflow.result;
@@ -267,6 +273,32 @@ export default function Home() {
         status: 'unavailable',
         message: 'تعذّر إنشاء الإعلان حالياً. تحقق من الصورة ثم حاول مرة أخرى.',
       });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const regenerateWithCurrentSettings = async () => {
+    const source = lastVisualSource || productImage;
+    if (!source) {
+      setCurrentStep('upload');
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratedAd('');
+    try {
+      const dimensions = getCanvasDimensions(templateSettings.size);
+      const output = await withTimeout(
+        renderAd(adDetails, templateSettings, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
+        15_000,
+        'انتهت مهلة إعادة بناء الإعلان. أعد المحاولة أو جرّب صورة أصغر.'
+      );
+      setGeneratedAd(output);
+      setMarketingText(buildMarketingText(adDetails));
+      toast.success('تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.');
+    } catch (error) {
+      console.error('Failed to regenerate advertisement with updated template:', error);
+      toast.error('تعذرت إعادة توليد الإعلان بالتغييرات الجديدة. حاول مرة أخرى.');
     } finally {
       setIsGenerating(false);
     }
@@ -484,13 +516,13 @@ export default function Home() {
                   <h2 className="mt-3 text-2xl font-black text-foreground">الإعلان النهائي</h2>
                   <p className="mt-1 text-sm text-muted-foreground">راجع النتيجة ثم نزّلها أو شاركها مباشرة.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep('details')}
-                  className="inline-flex items-center gap-1 rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary transition active:scale-95"
-                >
-                  <Pencil size={16} /> تعديل
-                </button>
+                <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isGenerating} onClick={regenerateWithCurrentSettings} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button><button
+                    type="button"
+                    onClick={() => setCurrentStep('details')}
+                    className="inline-flex items-center gap-1 rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary transition active:scale-95"
+                  >
+                    <Pencil size={16} /> تعديل
+                  </button></div>
               </div>
 
               {isGenerating && (

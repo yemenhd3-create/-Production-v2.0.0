@@ -40,6 +40,12 @@ vi.mock('../client/src/components/AdDetailsForm', async () => {
   const { createElement: h } = await import('react');
   return { default: () => h('div', null, 'نموذج بيانات الاختبار') };
 });
+vi.mock('../client/src/components/ArtworkCropEditor', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: ({ kind, onSave }: { kind: 'logo' | 'footer'; onSave: (value: string) => void }) => h('button', { type: 'button', onClick: () => onSave('data:image/jpeg;base64,trend-brand') }, kind === 'logo' ? 'حفظ الشعار في المشروع' : 'حفظ التذييل في المشروع'),
+  };
+});
 
 const { default: Home } = await import('../client/src/pages/Home');
 
@@ -165,8 +171,10 @@ describe('Home Try-On workflow', () => {
     await screen.findByText('هندسة قالب الإعلان');
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
     fireEvent.change(inputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'حفظ الشعار في المشروع' }));
     await screen.findByAltText('معاينة شعار المتجر');
     fireEvent.change(document.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['footer'], 'trend-footer.jpg', { type: 'image/jpeg' })] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'حفظ التذييل في المشروع' }));
     await screen.findByAltText('معاينة تذييل المتجر الكامل');
     fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
@@ -179,6 +187,27 @@ describe('Home Try-On workflow', () => {
       'blob:product-original',
       expect.anything()
     ));
+  });
+
+  it('يعيد توليد الإعلان النهائي بإعدادات القالب المعدلة من دون تكرار طلب Try-On', async () => {
+    mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
+    await startGeneration();
+    await screen.findByRole('button', { name: 'إعادة توليد بالتغييرات الجديدة' });
+    const requestsBefore = mutateAsync.mock.calls.length;
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'بدون' }));
+    fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
+    renderAd.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'إعادة توليد بالتغييرات الجديدة' }));
+
+    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ badgeType: 'none', badgeTypes: [] }),
+      'blob:product-original',
+      expect.anything()
+    ));
+    expect(mutateAsync.mock.calls).toHaveLength(requestsBefore);
   });
 
   it('lets the user return to editing and clear the completed advertising session', async () => {
