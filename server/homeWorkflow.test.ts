@@ -59,7 +59,7 @@ describe('Home Try-On workflow', () => {
     savedAdDetails = undefined;
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
-    removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
+    removeBackgroundLocally.mockRejectedValue(new Error('محرك الإزالة المحلي غير متاح في هذا الاختبار'));
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
@@ -80,8 +80,8 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
     await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' });
     fireEvent.click(screen.getByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
-    await screen.findByRole('button', { name: 'توليد الإعلان' });
-    fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
+    await screen.findByRole('button', { name: 'إنشاء الإعلان' });
+    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الإعلان' }));
   }
 
   it('يعرض مراجعة الصورة قبل فتح بيانات الإعلان ويواصل التدفق بعد تأكيد المستخدم', async () => {
@@ -93,6 +93,16 @@ describe('Home Try-On workflow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
     expect(await screen.findByText('نموذج بيانات الاختبار')).toBeTruthy();
+  });
+
+  it('يستخدم إزالة الخلفية المحلية تلقائياً قبل اللجوء إلى أي مسار بديل', async () => {
+    removeBackgroundLocally.mockResolvedValueOnce({ imageUrl: 'blob:transparent-garment' });
+
+    await startGeneration();
+
+    await screen.findByText('تم تجهيز الملابس بخلفية شفافة على هذا الهاتف.');
+    expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:transparent-garment', expect.objectContaining({ visualMode: 'garment' }));
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 
   it('falls back to the local garment canvas and explains the failure when Try-On rejects', async () => {
@@ -186,7 +196,7 @@ describe('Home Try-On workflow', () => {
     render(createElement(Home));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
-    await screen.findByText('جهّز شكل إعلانك');
+    await screen.findByText('عدّل شكل الإعلان عند الحاجة');
     fireEvent.click(screen.getByRole('button', { name: /هوية المتجر/ }));
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
     fireEvent.change(inputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
@@ -198,8 +208,8 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'العودة إلى الإنشاء' }));
     fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
     fireEvent.click(await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
-    await screen.findByRole('button', { name: 'توليد الإعلان' });
-    fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
+    await screen.findByRole('button', { name: 'إنشاء الإعلان' });
+    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الإعلان' }));
 
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
@@ -239,7 +249,7 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'تعديل' })[0]);
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /توليد الإعلان/ }));
+    fireEvent.click(screen.getByRole('button', { name: /إنشاء الإعلان/ }));
     await screen.findByRole('button', { name: /مسح جلسة الإعلان/ });
     fireEvent.click(screen.getByRole('button', { name: /مسح جلسة الإعلان/ }));
 
@@ -259,7 +269,7 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'تعديل' })[0]);
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /توليد الإعلان/ }));
+    fireEvent.click(screen.getByRole('button', { name: /إنشاء الإعلان/ }));
     await screen.findByRole('button', { name: 'مشاركة عبر WhatsApp' });
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     const openWindow = vi.spyOn(window, 'open').mockImplementation(() => null);

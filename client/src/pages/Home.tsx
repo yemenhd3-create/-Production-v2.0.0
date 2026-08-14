@@ -81,7 +81,7 @@ export default function Home() {
     message: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(false);
+  const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(true);
   const [backgroundAssessment, setBackgroundAssessment] = useState<BackgroundAssessment>('unknown');
   const [preferOriginalImage, setPreferOriginalImage] = useState(false);
   const [isReviewingImage, setIsReviewingImage] = useState(false);
@@ -490,7 +490,7 @@ export default function Home() {
               <div className="min-w-0 flex-1">
                 <span className="text-xs font-bold text-primary">الصورة جاهزة</span>
                 <h2 className="mt-1 text-xl font-black text-foreground">بيانات الإعلان</h2>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">جميع الحقول اختيارية؛ لن يتوقف الإعلان إن تركتها فارغة.</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">يكفي اسم المنتج والسعر إن وجدا. أضف تفاصيل أكثر فقط إذا احتجت.</p>
               </div>
               <button
                 type="button"
@@ -503,41 +503,33 @@ export default function Home() {
 
             <React.Suspense fallback={<PageLoading label="جارٍ تجهيز حقول الإعلان…" />}><AdDetailsForm details={adDetails} onChange={setAdDetails} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>
 
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-right transition active:scale-[0.99]">
-              <input
-                type="checkbox"
-                checked={useLocalBackgroundRemoval}
-                onChange={event => setUseLocalBackgroundRemoval(event.target.checked)}
-                className="mt-1 h-5 w-5 shrink-0 accent-emerald-700"
-              />
-                <span>
-                  <span className="block text-sm font-black text-emerald-950">إزالة الخلفية محلياً على الهاتف</span>
-                <span className="mt-1 block text-xs leading-6 text-emerald-900">لا تُرسل الصورة إلى أي خدمة. في أول استخدام فقط سيجهز التطبيق أداة الإزالة المحلية (نحو {formatLocalFirstDownloadSize()})، ثم تعمل دون إنترنت. ألغِ التحديد إذا أردت تجربة الطريقة البديلة المتاحة.</span>
-              </span>
-            </label>
+            <div className="reference-local-note mt-5"><BadgeCheck size={18} />سيجهّز التطبيق الخلفية والنص تلقائياً على الهاتف.</div>
 
-            {backgroundAssessment === 'analyzing' && <p className="mt-3 text-xs font-bold text-muted-foreground" aria-live="polite">جارٍ فحص خلفية الصورة بصورة محلية…</p>}
-            {backgroundAssessment === 'simple' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-right transition active:scale-[0.99]">
-              <input type="checkbox" checked={preferOriginalImage} onChange={event => setPreferOriginalImage(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-sky-700" />
-              <span><span className="block text-sm font-black text-sky-950">الخلفية تبدو بسيطة — احتفظ بالصورة عند تعذر التلبيس</span><span className="mt-1 block text-xs leading-6 text-sky-900">اقتراح محافظ فقط؛ يحمي الملابس البيضاء والفاتحة من قص غير مطلوب. ألغِه إذا أردت محاولة إزالة الخلفية السحابية عند تعذر Try-On.</span></span>
-            </label>}
-            {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيحاول التطبيق مسار Try-On ثم إزالة الخلفية عند الحاجة، إلا إذا فعّلت الإزالة المحلية أعلاه.</p>}
+            <details className="mt-4 rounded-2xl border border-dashed border-primary/20 bg-white px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-black text-primary marker:hidden">خيارات الصورة المتقدمة</summary>
+              <div className="mt-4 border-t border-primary/10 pt-4">
+                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-primary/10 bg-primary/[0.04] p-4 text-right transition active:scale-[0.99]">
+                  <input
+                    type="checkbox"
+                    checked={useLocalBackgroundRemoval}
+                    onChange={event => setUseLocalBackgroundRemoval(event.target.checked)}
+                    className="mt-1 h-5 w-5 shrink-0 accent-primary"
+                  />
+                  <span><span className="block text-sm font-black text-primary">إزالة الخلفية محلياً على الهاتف</span><span className="mt-1 block text-xs leading-6 text-muted-foreground">تعمل دون إرسال الصورة. ألغِ التحديد فقط عند رغبتك في تجربة الطريقة البديلة.</span></span>
+                </label>
 
-            <div className="mt-7 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm"><Palette size={18} /></div>
-                <p className="text-sm leading-6 text-primary">
-                  عند الضغط على زر التوليد سيستخدم التطبيق أفضل طريقة متاحة لتجهيز الصورة. إذا لم تتوفر نتيجة مناسبة، سيضع صورة القطعة داخل القالب مباشرة.
-                </p>
+                {backgroundAssessment === 'analyzing' && <p className="mt-3 text-xs font-bold text-muted-foreground" aria-live="polite">جارٍ فحص خلفية الصورة بصورة محلية…</p>}
+                {backgroundAssessment === 'simple' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-right transition active:scale-[0.99]"><input type="checkbox" checked={preferOriginalImage} onChange={event => setPreferOriginalImage(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-sky-700" /><span><span className="block text-sm font-black text-sky-950">احتفظ بالصورة إذا كانت الخلفية بسيطة</span><span className="mt-1 block text-xs leading-6 text-sky-900">خيار محافظ للملابس الفاتحة عند تعذر تجهيز الخلفية.</span></span></label>}
+                {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيختار التطبيق أفضل مسار تلقائياً إذا تعذر الإعداد المحلي.</p>}
               </div>
-            </div>
+            </details>
 
             <button
               type="button"
               onClick={generateAd}
               className="reference-primary mt-5 w-full"
             >
-              <Sparkles size={20} /> توليد الإعلان
+              <Sparkles size={20} /> إنشاء الإعلان
             </button>
           </section>
         )}

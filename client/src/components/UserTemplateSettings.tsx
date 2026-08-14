@@ -107,9 +107,9 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
 
   return <section className="space-y-4" dir="rtl">
     <div className="reference-card p-5 sm:p-7">
-      <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><Settings2 size={15} /> إعدادات القالب</span>
-      <h2 className="text-2xl font-black text-foreground">جهّز شكل إعلانك</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">افتح بطاقة واحدة في كل مرة. لا توجد مفاتيح تقنية هنا، وتبقى إعداداتك محفوظة على هذا الهاتف.</p>
+      <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><Settings2 size={15} /> إعدادات اختيارية</span>
+      <h2 className="text-2xl font-black text-foreground">عدّل شكل الإعلان عند الحاجة</h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">لإنشاء إعلانك الأول لا تحتاج إلى تغيير أي شيء هنا. افتح بطاقة واحدة فقط عندما تريد تعديل المقاس أو هوية المتجر، وستبقى اختياراتك محفوظة على هذا الهاتف.</p>
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-3 text-center"><div><span className="block text-[10px] font-bold text-muted-foreground">المقاس</span><span className="mt-1 block text-xs font-black text-primary">{sizeOptions.find(option => option.value === settings.size)?.title}</span></div><div className="border-x border-primary/10"><span className="block text-[10px] font-bold text-muted-foreground">العناصر</span><span className="mt-1 block text-sm font-black text-primary">{visibleCount} ظاهرة</span></div><div><span className="block text-[10px] font-bold text-muted-foreground">الشارات</span><span className="mt-1 block text-sm font-black text-primary">{selectedBadges.length || '—'}</span></div></div>
     </div>
 

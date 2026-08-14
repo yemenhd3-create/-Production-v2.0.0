@@ -33,7 +33,7 @@ export default function BatchWorkspace({ details, template, onDetailsChange, onB
   const [items, setItems] = useState<BatchAdItem[]>(previewItems);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [useLocalRemoval, setUseLocalRemoval] = useState(false);
+  const [useLocalRemoval, setUseLocalRemoval] = useState(true);
   const [marketingTextMode, setMarketingTextMode] = useState<BatchMarketingTextMode>('shared');
   const [notice, setNotice] = useState('اختر حتى 10 صور. ستُعالج واحدة تلو الأخرى للحفاظ على سرعة الهاتف.');
 

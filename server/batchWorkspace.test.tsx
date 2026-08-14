@@ -33,5 +33,7 @@ describe('batch workspace', () => {
     expect(html).toContain('سياسة النص التسويقي للدفعة');
     expect(html).toContain('نص مشترك');
     expect(html).toContain('نص مستقل لكل صورة');
+    expect(html).toContain('إزالة الخلفية محلياً لكل صورة');
+    expect(html).toContain('checked=""');
   });
 });
