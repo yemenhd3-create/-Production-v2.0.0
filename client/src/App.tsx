@@ -11,8 +11,6 @@ const DeviceCompatibilityCheck = lazy(() => import('./pages/DeviceCompatibilityC
 const LocalBackgroundVisualCheck = lazy(() => import('./components/LocalBackgroundVisualCheck'));
 const ArtworkEditorVisualCheck = lazy(() => import('./components/ArtworkEditorVisualCheck'));
 const BatchVisualCheck = lazy(() => import('./components/BatchVisualCheck'));
-const ModelPreviewVisualCheck = lazy(() => import('./components/ModelPreviewVisualCheck'));
-const ModelPreviewBatchFlowCheck = lazy(() => import('./components/ModelPreviewBatchFlowCheck'));
 const Home = lazy(() => import('./pages/Home'));
 
 function Router() {
@@ -43,15 +41,6 @@ function PersonalHome() {
   }
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('batch-visual-check')) {
     return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز مساحة الدفعة…" />}><BatchVisualCheck /></Suspense>;
-  }
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('model-preview-check')) {
-    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز معاينة العارض…" />}><ModelPreviewVisualCheck /></Suspense>;
-  }
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('model-preview-home-flow-check')) {
-    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز تدفق العارض…" />}><Home devModelPreviewCheck /></Suspense>;
-  }
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('model-preview-batch-flow-check')) {
-    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز تدفق دفعة العارض…" />}><ModelPreviewBatchFlowCheck /></Suspense>;
   }
   return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
 }

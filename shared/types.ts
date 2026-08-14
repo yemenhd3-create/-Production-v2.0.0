@@ -38,23 +38,6 @@ export interface AdDetails {
   marketingText: string;
   marketingPreferences?: MarketingTextPreferences;
   marketingTextEngine?: MarketingTextEngine;
-  /** إعدادات موضع قطعة الملابس في معاينة العارض المحلية؛ لا تحفظ صورة الشخص نفسها. */
-  modelPreview?: ModelPreviewSettings;
-}
-
-export interface ModelPreviewTransform {
-  /** مركز القطعة كنسبة من أبعاد صورة العارض. */
-  x: number;
-  y: number;
-  /** عرض القطعة كنسبة من عرض صورة العارض. */
-  scale: number;
-  /** ميل القطعة بالدرجات، ويقترحه كشف الكتفين عند توافره. */
-  rotation: number;
-}
-
-export interface ModelPreviewSettings {
-  enabled: boolean;
-  transform: ModelPreviewTransform;
 }
 
 export type MarketingTextTone = 'exciting' | 'persuasive' | 'formal' | 'playful';
@@ -368,10 +351,6 @@ export const DEFAULT_AD_DETAILS: AdDetails = {
     format: 'whatsapp',
   },
   marketingTextEngine: 'local',
-  modelPreview: {
-    enabled: false,
-    transform: { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 },
-  },
 };
 
 export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {

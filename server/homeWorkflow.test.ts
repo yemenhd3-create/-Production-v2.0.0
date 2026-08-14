@@ -9,7 +9,6 @@ const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
 const removeBackgroundLocally = vi.fn();
-const composeLocalModelPreview = vi.fn();
 let savedTemplateSettings: TemplateSettings | undefined;
 let savedAdDetails: AdDetails | undefined;
 
@@ -25,7 +24,6 @@ vi.mock('../client/src/lib/trpc', () => ({
 }));
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd }));
 vi.mock('../client/src/lib/localBackgroundRemoval', () => ({ removeBackgroundLocally }));
-vi.mock('../client/src/lib/localModelPreview', () => ({ composeLocalModelPreview }));
 vi.mock('../client/src/lib/storage', () => ({
   getFromStorage: (key: string) => {
     if (key === StorageKeys.TEMPLATE_SETTINGS) return savedTemplateSettings;
@@ -45,12 +43,6 @@ vi.mock('../client/src/components/AdDetailsForm', async () => {
   const { createElement: h } = await import('react');
   return { default: () => h('div', null, 'نموذج بيانات الاختبار') };
 });
-vi.mock('../client/src/components/LocalModelPreviewComposer', async () => {
-  const { createElement: h } = await import('react');
-  return {
-    default: ({ onEnabledChange, onPersonImageChange, onTransformChange }: { onEnabledChange: (value: boolean) => void; onPersonImageChange: (value: string) => void; onTransformChange: (value: { x: number; y: number; scale: number; rotation: number }) => void }) => h('button', { type: 'button', onClick: () => { onPersonImageChange('blob:person-model'); onTransformChange({ x: 0.5, y: 0.46, scale: 0.58, rotation: 0 }); onEnabledChange(true); } }, 'تفعيل معاينة عارض الاختبار'),
-  };
-});
 vi.mock('../client/src/components/ArtworkCropEditor', async () => {
   const { createElement: h } = await import('react');
   return {
@@ -68,7 +60,6 @@ describe('Home Try-On workflow', () => {
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
     removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
-    composeLocalModelPreview.mockResolvedValue('blob:local-model-preview');
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
@@ -133,21 +124,6 @@ describe('Home Try-On workflow', () => {
     await screen.findByText(/تمت إزالة خلفية صورة الملابس/);
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'garment' })));
     expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
-  });
-
-  it('يركب القطعة محلياً فوق العارض ثم يمرر المعاينة إلى Canvas من دون استدعاء Try-On السحابي', async () => {
-    render(createElement(Home));
-    fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'متابعة إلى بيانات الإعلان' }));
-    await screen.findByRole('button', { name: 'تفعيل معاينة عارض الاختبار' });
-    fireEvent.click(screen.getByRole('button', { name: 'تفعيل معاينة عارض الاختبار' }));
-    fireEvent.click(screen.getByRole('button', { name: 'توليد الإعلان' }));
-
-    await waitFor(() => expect(composeLocalModelPreview).toHaveBeenCalledWith('blob:person-model', 'blob:transparent-garment', { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 }));
-    expect(removeBackgroundLocally).toHaveBeenCalledWith('blob:product-original', expect.any(Function));
-    expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:local-model-preview', expect.objectContaining({ visualMode: 'modelPreview' }));
-    expect(mutateAsync).not.toHaveBeenCalled();
-    expect(await screen.findByRole('button', { name: 'حفظ التصميم PNG في الهاتف' })).toBeTruthy();
   });
 
   it('يمرر الشعار وتذييل المتجر الكامل المحفوظين إلى معاينة الإعلان النهائية', async () => {

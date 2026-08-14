@@ -10,17 +10,15 @@ const mocks = vi.hoisted(() => ({
   renderAd: vi.fn(),
   shareViaWebAPI: vi.fn(),
   generateCloudText: vi.fn(),
-  composeLocalModelPreview: vi.fn(),
   removeBackgroundLocally: vi.fn(),
 }));
-const { renderAd, shareViaWebAPI, generateCloudText, composeLocalModelPreview, removeBackgroundLocally } = mocks;
+const { renderAd, shareViaWebAPI, generateCloudText, removeBackgroundLocally } = mocks;
 
 vi.mock('../client/src/components/AdDetailsForm', async () => {
   const { createElement: h } = await import('react');
   return { default: () => h('div', null, 'نموذج الدفعة المختصر') };
 });
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd: mocks.renderAd }));
-vi.mock('../client/src/lib/localModelPreview', () => ({ composeLocalModelPreview: mocks.composeLocalModelPreview }));
 vi.mock('../client/src/lib/localBackgroundRemoval', () => ({ removeBackgroundLocally: mocks.removeBackgroundLocally }));
 vi.mock('../client/src/lib/batchStorage', () => ({
   cleanExpiredBatchDrafts: vi.fn(async () => undefined),
@@ -50,7 +48,7 @@ function readyItem(id: string): BatchAdItem {
   };
 }
 
-function renderBatch(details = DEFAULT_AD_DETAILS, modelPersonImage = '') {
+function renderBatch(details = DEFAULT_AD_DETAILS) {
   return render(createElement(BatchWorkspace, {
     details,
     template: DEFAULT_TEMPLATE_SETTINGS,
@@ -58,7 +56,6 @@ function renderBatch(details = DEFAULT_AD_DETAILS, modelPersonImage = '') {
     onDetailsChange: () => undefined,
     onBack: () => undefined,
     generateCloudText,
-    modelPersonImage,
   }));
 }
 
@@ -66,7 +63,6 @@ describe('نصوص الإعلان في وضع الدفعة', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     renderAd.mockResolvedValue('blob:batch-output');
-    composeLocalModelPreview.mockResolvedValue('blob:local-model-preview');
     removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
     vi.stubGlobal('fetch', vi.fn(async () => ({ blob: async () => new Blob(['output'], { type: 'image/png' }) })));
   });
@@ -109,32 +105,4 @@ describe('نصوص الإعلان في وضع الدفعة', () => {
     expect(screen.getByText('جاهز')).toBeTruthy();
   });
 
-  it('يركب عناصر الدفعة فوق العارض نفسه محلياً عندما يكون الوضع مفعلاً', async () => {
-    const details = {
-      ...DEFAULT_AD_DETAILS,
-      modelPreview: { enabled: true as const, transform: { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 } },
-    };
-    renderBatch(details, 'blob:shared-model');
-
-    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الدفعة' }));
-    await screen.findByLabelText('تعديل نص الإعلان 1');
-
-    expect(removeBackgroundLocally).toHaveBeenCalledWith(expect.stringContaining('data:image/png'));
-    expect(composeLocalModelPreview).toHaveBeenCalledWith('blob:shared-model', 'blob:transparent-garment', details.modelPreview.transform);
-    expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:local-model-preview', expect.objectContaining({ visualMode: 'modelPreview' }));
-  });
-
-  it('يعود لمسار القطعة المعتاد إذا لم تبق صورة العارض في الجلسة', async () => {
-    const details = {
-      ...DEFAULT_AD_DETAILS,
-      modelPreview: { enabled: true as const, transform: { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 } },
-    };
-    renderBatch(details);
-
-    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الدفعة' }));
-    await screen.findByLabelText('تعديل نص الإعلان 1');
-
-    expect(composeLocalModelPreview).not.toHaveBeenCalled();
-    expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.stringContaining('data:image/png'), expect.objectContaining({ visualMode: 'garment' }));
-  });
 });

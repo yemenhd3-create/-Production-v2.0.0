@@ -91,18 +91,6 @@ describe('Canvas advertisement renderer', () => {
     expect(personY).toBeGreaterThan(garmentY);
   });
 
-  it('يعامل معاينة العارض المحلية كصورة شخص عند التصدير ولا يغير القالب', async () => {
-    context.__drawImage.mockClear();
-    await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:local-model-preview', { width: 1080, height: 1350, visualMode: 'modelPreview' });
-    const previewY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
-
-    context.__drawImage.mockClear();
-    await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:transparent-person', { width: 1080, height: 1350, visualMode: 'transparentPerson' });
-    const personY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
-
-    expect(previewY).toBe(personY);
-  });
-
   it('لا يرسم إطاراً محيطاً بالإعلان حتى عند وجود إعداد قديم له ويحافظ على خط العنوان', async () => {
     const titledDetails = { ...DEFAULT_AD_DETAILS, productName: 'فستان بلوشي أنيق' };
     await renderAd(titledDetails, { ...DEFAULT_TEMPLATE_SETTINGS, showFrame: false, showQualityMark: false }, 'blob:garment-image', { width: 1080, height: 1350 });
