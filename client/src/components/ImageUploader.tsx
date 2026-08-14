@@ -37,7 +37,7 @@ export default function ImageUploader({
     setIsLoading(true);
 
     try {
-      const imageUrl = await createOptimizedImage(file);
+      const imageUrl = await prepareImageFile(file);
       onImageSelect(imageUrl, file);
     } catch (error) {
       console.error('Failed to prepare image:', error);
@@ -194,7 +194,7 @@ export default function ImageUploader({
   );
 }
 
-async function createOptimizedImage(file: File): Promise<string> {
+export async function prepareImageFile(file: File): Promise<string> {
   const sourceUrl = URL.createObjectURL(file);
   try {
     return await readImageWithFallback(

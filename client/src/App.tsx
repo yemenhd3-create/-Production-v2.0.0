@@ -10,6 +10,7 @@ const AuthenticatedApplication = lazy(() => import('./components/AuthenticatedAp
 const DeviceCompatibilityCheck = lazy(() => import('./pages/DeviceCompatibilityCheck'));
 const LocalBackgroundVisualCheck = lazy(() => import('./components/LocalBackgroundVisualCheck'));
 const ArtworkEditorVisualCheck = lazy(() => import('./components/ArtworkEditorVisualCheck'));
+const BatchVisualCheck = lazy(() => import('./components/BatchVisualCheck'));
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -36,6 +37,9 @@ function PersonalHome() {
   }
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('artwork-editor-check')) {
     return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز محرر الطبقات…" />}><ArtworkEditorVisualCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('batch-visual-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز مساحة الدفعة…" />}><BatchVisualCheck /></Suspense>;
   }
   return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
 }

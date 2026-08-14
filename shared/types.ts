@@ -51,6 +51,36 @@ export interface TryOnResult {
   transparentSubject?: 'person' | 'garment';
 }
 
+// ========== Batch advertisement workflow ==========
+export const BATCH_MAX_IMAGES = 10;
+export const BATCH_EXPIRY_MS = 24 * 60 * 60 * 1000;
+export type BatchItemStatus = 'ready' | 'preparing' | 'processing' | 'success' | 'failed' | 'stopped';
+
+/** بيانات عنصر واحد في دفعة محلية؛ تحفظ الصور نفسها في IndexedDB وليس localStorage. */
+export interface BatchAdItem {
+  id: string;
+  fileName: string;
+  sourceUrl: string;
+  thumbnailUrl: string;
+  status: BatchItemStatus;
+  outputUrl?: string;
+  error?: string;
+  usedLocalRemoval?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface BatchAdDraft {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number;
+  details: AdDetails;
+  template: TemplateSettings;
+  useLocalBackgroundRemoval: boolean;
+  items: BatchAdItem[];
+}
+
 export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';

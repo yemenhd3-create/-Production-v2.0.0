@@ -26,6 +26,7 @@ import {
   BadgeCheck,
   Check,
   ImagePlus,
+  Images,
   LoaderCircle,
   MessageCircle,
   Palette,
@@ -41,6 +42,7 @@ import {
 
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
 const AboutApp = React.lazy(() => import('@/components/AboutApp'));
+const BatchWorkspace = React.lazy(() => import('@/components/BatchWorkspace'));
 const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorkspace'));
 const AdDetailsForm = React.lazy(() => import('@/components/AdDetailsForm'));
 const PersonalMessageCenter = React.lazy(() => import('@/components/PersonalMessageCenter'));
@@ -78,7 +80,7 @@ export default function Home() {
   const [preferOriginalImage, setPreferOriginalImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
-  const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
+  const [activeView, setActiveView] = useState<'create' | 'batch' | 'settings' | 'about' | 'developer' | 'messages'>('create');
   const tryOnMutation = trpc.tryOn.run.useMutation();
   const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery();
@@ -413,6 +415,8 @@ export default function Home() {
             onAbout={() => setActiveView('about')}
           /></React.Suspense>)}
 
+        {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} /></React.Suspense>}
+
         {activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
 
         {activeView === 'about' && (
@@ -575,8 +579,9 @@ export default function Home() {
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/10 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
           <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Sparkles size={19} />إنشاء</button>
+          <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={19} />دفعة</button>
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={19} />الإعدادات</button>
           <button type="button" onClick={() => setActiveView('developer')} aria-current={activeView === 'developer' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'developer' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Wrench size={19} />المطور</button>
         </div>
