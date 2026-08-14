@@ -168,7 +168,7 @@ describe('Home Try-On workflow', () => {
     render(createElement(Home));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'الإعدادات' })[0]);
-    await screen.findByText('هندسة قالب الإعلان');
+    await screen.findByText('جهّز شكل إعلانك');
     const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
     fireEvent.change(inputs[0], { target: { files: [new File(['logo'], 'trend-logo.png', { type: 'image/png' })] } });
     fireEvent.click(await screen.findByRole('button', { name: 'حفظ الشعار في المشروع' }));
@@ -229,11 +229,11 @@ describe('Home Try-On workflow', () => {
   it('keeps the completed advertisement editable after system share or WhatsApp handoff', async () => {
     mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
     await startGeneration();
-    await screen.findByRole('button', { name: 'مشاركة' });
+    await screen.findByRole('button', { name: 'مشاركة أخرى' });
 
     const nativeShare = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'share', { configurable: true, value: nativeShare });
-    fireEvent.click(screen.getByRole('button', { name: 'مشاركة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'مشاركة أخرى' }));
     await waitFor(() => expect(nativeShare).toHaveBeenCalled());
     fireEvent.click(screen.getAllByRole('button', { name: 'تعديل' })[0]);
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();

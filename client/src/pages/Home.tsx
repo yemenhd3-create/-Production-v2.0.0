@@ -23,12 +23,17 @@ import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage'
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import {
+  BadgeCheck,
   Check,
   ImagePlus,
+  LoaderCircle,
   MessageCircle,
+  Palette,
   Pencil,
   RotateCcw,
+  Send,
   Settings,
+  SlidersHorizontal,
   Sparkles,
   Wand2,
   Wrench,
@@ -49,6 +54,7 @@ const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
   { id: 'details', label: 'بيانات الإعلان' },
   { id: 'final', label: 'الإعلان جاهز' },
 ];
+const WORKFLOW_STEP_ICONS = { upload: ImagePlus, details: SlidersHorizontal, final: Send } as const;
 
 function isWorkflowStep(value: string | null): value is AdWorkflowStep {
   return value === 'upload' || value === 'details' || value === 'final';
@@ -348,19 +354,19 @@ export default function Home() {
   const currentIndex = WORKFLOW_STEPS.findIndex(step => step.id === currentStep);
 
   return (
-    <div className="min-h-screen bg-[#fffaf4] text-foreground" dir="rtl">
-      <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#fffaf4]/95 backdrop-blur">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f4ebff_0%,_#fffaf4_34%,_#fffaf4_100%)] text-foreground" dir="rtl">
+      <header className="sticky top-0 z-20 border-b border-primary/10 bg-[#fffaf4]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <img src={LOGO_URL} alt="Marwan Designer" className="h-11 w-11 rounded-2xl object-contain shadow-sm" />
+            <div className="relative"><img src={LOGO_URL} alt="Marwan Designer" className="h-11 w-11 rounded-2xl border border-white object-contain shadow-sm" /><span className="absolute -bottom-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] text-accent-foreground"><Sparkles size={9} /></span></div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-primary">مولد إعلانات الملابس</h1>
-              <p className="text-xs text-muted-foreground">مشروع شخصي تعليمي</p>
+              <div className="flex items-center gap-1.5"><h1 className="text-lg font-black tracking-tight text-primary">استوديو إعلانات الملابس</h1><BadgeCheck size={15} className="text-accent" /></div>
+              <p className="text-[11px] font-bold text-muted-foreground">مساحة تعليمية لصناعة إعلانك</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={19} /></button>
-            <button type="button" onClick={() => setActiveView('settings')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary shadow-sm transition active:scale-95" aria-label="الإعدادات"><Settings size={20} /></button>
+            <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={19} /></button>
+            <button type="button" onClick={() => setActiveView('settings')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-95" aria-label="الإعدادات"><Settings size={19} /></button>
           </div>
         </div>
       </header>
@@ -368,7 +374,7 @@ export default function Home() {
       <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pt-9">
         {activeView === 'create' && <PwaInstallPrompt />}
 
-        {activeView === 'create' && <section className="mb-6 rounded-3xl bg-white p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
+        {activeView === 'create' && <section className="mb-6 rounded-3xl border border-primary/5 bg-white/95 p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
           <div className="mb-3 flex items-center justify-between px-1">
             <span className="text-xs font-black text-primary">خطوة {currentIndex + 1} من {WORKFLOW_STEPS.length}</span>
             <span className="text-[11px] font-medium text-muted-foreground">من صورة القطعة إلى إعلان جاهز</span>
@@ -377,8 +383,9 @@ export default function Home() {
             {WORKFLOW_STEPS.map((step, index) => {
               const isCurrent = step.id === currentStep;
               const isDone = index < currentIndex;
+              const StepIcon = WORKFLOW_STEP_ICONS[step.id];
               return (
-                <button key={step.id} type="button" onClick={() => handleStepNavigation(step.id)} disabled={index > currentIndex} aria-current={isCurrent ? 'step' : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-xl text-center transition ${index <= currentIndex ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'}`}>
+                <button key={step.id} type="button" onClick={() => handleStepNavigation(step.id)} disabled={index > currentIndex} aria-current={isCurrent ? 'step' : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl px-1 py-1 text-center transition ${isCurrent ? 'bg-primary/[.06]' : ''} ${index <= currentIndex ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'}`}>
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-black transition ${
                       isCurrent
@@ -388,7 +395,7 @@ export default function Home() {
                           : 'bg-secondary text-muted-foreground'
                     }`}
                   >
-                    {isDone ? <Check size={17} /> : index + 1}
+                    {isDone ? <Check size={17} /> : <StepIcon size={17} />}
                   </div>
                   <span className={`text-[11px] font-bold leading-tight sm:text-xs ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
                     {step.label}
@@ -486,9 +493,9 @@ export default function Home() {
             </label>}
             {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيحاول التطبيق مسار Try-On ثم إزالة الخلفية عند الحاجة، إلا إذا فعّلت الإزالة المحلية أعلاه.</p>}
 
-            <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4">
+            <div className="mt-7 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-4">
               <div className="flex items-start gap-3">
-                <Wand2 size={19} className="mt-0.5 shrink-0 text-primary" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm"><Palette size={18} /></div>
                 <p className="text-sm leading-6 text-primary">
                   عند الضغط على زر التوليد سيحاول التطبيق التلبيس بالذكاء الاصطناعي تلقائياً. إذا لم تتوفر النتيجة، سيضع صورة القطعة داخل القالب مباشرة.
                 </p>
@@ -567,11 +574,11 @@ export default function Home() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
-          <button type="button" onClick={() => setActiveView('create')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'create' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Sparkles size={20} />إنشاء</button>
-          <button type="button" onClick={() => setActiveView('settings')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'settings' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Settings size={20} />الإعدادات</button>
-          <button type="button" onClick={() => setActiveView('developer')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'developer' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Wrench size={20} />المطور</button>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/10 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
+        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+          <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Sparkles size={19} />إنشاء</button>
+          <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={19} />الإعدادات</button>
+          <button type="button" onClick={() => setActiveView('developer')} aria-current={activeView === 'developer' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'developer' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Wrench size={19} />المطور</button>
         </div>
       </nav>
     </div>
@@ -579,7 +586,7 @@ export default function Home() {
 }
 
 function PageLoading({ label }: { label: string }) {
-  return <div className="rounded-[28px] bg-white p-8 text-center text-sm font-bold text-primary shadow-[0_16px_40px_rgba(37,35,95,0.08)]">{label}</div>;
+  return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
 }
 
 function hasMeaningfulDraft(details: AdDetails) {

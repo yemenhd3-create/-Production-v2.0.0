@@ -1,4 +1,4 @@
-import { Camera, Upload, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Camera, ImageUp, LoaderCircle, ScanLine, Upload, X } from 'lucide-react';
 import * as React from 'react';
 import { useRef, useState } from 'react';
 import { prepareSelectedFile, readImageWithFallback } from '@/lib/imageUploadFlow';
@@ -135,17 +135,15 @@ export default function ImageUploader({
               : 'border-stone-200 bg-secondary/35 hover:border-primary/40'
           }`}
         >
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-primary shadow-sm"><Upload size={30} /></div>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"><ImageUp size={29} /></div>
 
           <h3 className="mb-2 text-lg font-black text-foreground">اختر صورة الملابس</h3>
           <p className="mb-3 text-sm leading-6 text-muted-foreground">من المعرض أو بالكاميرا. الأفضل أن تظهر القطعة وحدها بوضوح.</p>
 
-          <p className="mb-4 text-xs leading-5 text-muted-foreground">
-            JPG أو PNG أو WebP · حتى 10 ميجابايت · سيُحسّن التطبيق الحجم تلقائياً
-          </p>
+          <div className="mb-4 flex flex-wrap justify-center gap-2 text-[11px] font-bold text-muted-foreground"><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">قطعة واحدة واضحة</span><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">حتى 10 ميجابايت</span><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">يُحسَّن تلقائياً</span></div>
 
-          {isLoading && <div role="status" aria-live="polite" className="mb-4 rounded-2xl bg-primary/5 px-3 py-3 text-sm font-bold text-primary">جارٍ قراءة الصورة وتحسينها للهاتف…</div>}
-          {errorMessage && <div role="alert" className="mb-4 rounded-2xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><p>{errorMessage}</p><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}>جرّب التقاط صورة الآن</button></div>}
+          {isLoading && <div role="status" aria-live="polite" className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-primary/10 bg-primary/5 px-3 py-3 text-sm font-black text-primary"><LoaderCircle className="animate-spin" size={18} />جارٍ قراءة الصورة وتحسينها للهاتف…</div>}
+          {errorMessage && <div role="alert" className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={17} /><p>{errorMessage}</p></div><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}><Camera size={14} />جرّب التقاط صورة الآن</button></div>}
 
           <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
             <Button
@@ -153,7 +151,7 @@ export default function ImageUploader({
               disabled={isLoading}
               className="flex min-h-12 items-center justify-center gap-2"
             >
-              <Upload size={17} /> {isLoading ? 'جارٍ التحميل…' : 'من المعرض'}
+              <ImageUp size={17} /> {isLoading ? 'جارٍ التحميل…' : 'من المعرض'}
             </Button>
             <Button
               type="button"
@@ -162,7 +160,7 @@ export default function ImageUploader({
               disabled={isLoading}
               className="flex min-h-12 items-center justify-center gap-2 border-primary/20 bg-white text-primary"
             >
-              <Camera size={17} /> التقاط صورة
+              <Camera size={17} /> بالكاميرا
             </Button>
           </div>
         </div>
@@ -187,10 +185,9 @@ export default function ImageUploader({
 
       {/* Image Info */}
       {currentImage && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-bold text-emerald-900">
-            ✓ تم تحميل الصورة بنجاح. يمكنك الآن الانتقال للخطوة التالية.
-          </p>
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm"><BadgeCheck size={19} /></div>
+          <p className="text-sm font-bold text-emerald-900">تم تجهيز الصورة بنجاح. انتقل الآن إلى بيانات الإعلان.</p>
         </div>
       )}
     </div>
