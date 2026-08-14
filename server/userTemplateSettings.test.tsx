@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import UserTemplateSettings from '../client/src/components/UserTemplateSettings';
 import { DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
@@ -41,5 +41,16 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
     rerender(<UserTemplateSettings settings={afterLogo} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
     fireEvent.change(container.querySelectorAll<HTMLInputElement>('input[type="file"]')[1], { target: { files: [new File(['footer'], 'trend-footer.jpg', { type: 'image/jpeg' })] } });
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/jpeg;base64,user-brand', showStoreLogo: true })));
+  });
+
+  it('يسمح باختيار حتى ثلاث شارات مع تأكيد حفظ واضح للإعدادات', () => {
+    const onChange = vi.fn();
+    render(<UserTemplateSettings settings={DEFAULT_TEMPLATE_SETTINGS} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'جديد' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ badgeTypes: ['discount', 'new'] }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ الإعدادات' }));
+    expect(screen.getByRole('button', { name: 'تم حفظ الإعدادات على هذا الهاتف' })).toBeTruthy();
   });
 });

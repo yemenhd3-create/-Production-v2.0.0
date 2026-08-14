@@ -56,6 +56,12 @@ export async function resolveTryOnVisualSource(
   try {
     const cloudResult = await runCloudTryOn();
     const imageForCanvas = await prepareResultImage(cloudResult.imageUrl);
+    if (cloudResult.providerId === 'original-image') {
+      return {
+        imageForCanvas,
+        result: { ...createLocalFallbackResult(cloudResult.message), imageUrl: cloudResult.imageUrl },
+      };
+    }
     return {
       imageForCanvas,
       result: {

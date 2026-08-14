@@ -81,6 +81,8 @@ export interface TemplateSettings {
   showFrame: boolean;
   showQualityMark: boolean;
   badgeType: TemplateBadgeType;
+  /** قائمة الشارات المختارة؛ يبقى badgeType لقراءة الإعدادات القديمة. */
+  badgeTypes?: Array<Exclude<TemplateBadgeType, 'none'>>;
   badgeText: string;
   showHeaderArtwork: boolean;
   headerArtwork?: string;
@@ -305,6 +307,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showFrame: false,
   showQualityMark: true,
   badgeType: 'discount',
+  badgeTypes: ['discount'],
   badgeText: '',
   showHeaderArtwork: false,
   headerArtwork: '',

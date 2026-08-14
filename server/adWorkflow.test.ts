@@ -80,6 +80,18 @@ describe('three-step advertisement workflow defaults', () => {
     expect(workflow.result).toMatchObject({ status: 'success', imageUrl: '/manus-storage/tryon-result.png', providerId: 'provider-1' });
   });
 
+  it('keeps an intentionally selected original image as a fallback rather than a false Try-On success', async () => {
+    const workflow = await resolveTryOnVisualSource(
+      'blob:raw-product',
+      async () => ({ imageUrl: 'blob:raw-product', providerId: 'original-image', message: 'احتفظنا بصورة القطعة كما هي لأن الخلفية تبدو بسيطة.' }),
+      async url => url
+    );
+
+    expect(workflow.imageForCanvas).toBe('blob:raw-product');
+    expect(workflow.result.status).toBe('fallback');
+    expect(workflow.result.message).toContain('الخلفية تبدو بسيطة');
+  });
+
   it('does not repeat the call to action when the price is omitted', () => {
     const text = buildMarketingText(DEFAULT_AD_DETAILS);
     expect(text.match(/اطلبها الآن قبل نفاد الكمية/g)).toHaveLength(1);

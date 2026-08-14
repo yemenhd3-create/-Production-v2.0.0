@@ -1,5 +1,5 @@
 import type { TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
-import { Check, ImagePlus, MonitorSmartphone, SlidersHorizontal, Tag } from 'lucide-react';
+import { Check, CheckCircle2, ImagePlus, MonitorSmartphone, SlidersHorizontal, Tag } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
 import { getArtworkRatioError, PRACTICAL_HEADER_RATIO } from '@/lib/brandArtworkSupport';
@@ -53,7 +53,18 @@ const artworkRatios: Record<TemplateSize, { footer: number }> = {
 
 export default function UserTemplateSettings({ settings, onChange, onBack, onAbout }: UserTemplateSettingsProps) {
   const [artworkError, setArtworkError] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
   const setToggle = (key: ToggleKey) => onChange({ ...settings, [key]: !settings[key] });
+  const selectedBadges = settings.badgeTypes?.slice() || (settings.badgeType !== 'none' ? [settings.badgeType] : []);
+  const toggleBadge = (type: Exclude<TemplateBadgeType, 'none'>) => {
+    const next = selectedBadges.includes(type) ? selectedBadges.filter(value => value !== type) : [...selectedBadges, type].slice(0, 3);
+    onChange({ ...settings, badgeTypes: next, badgeType: next[0] || 'none', badgeText: next.length === 1 ? settings.badgeText || badgeOptions.find(option => option.value === next[0])?.defaultText || '' : '' });
+    setIsSaved(false);
+  };
+  const saveSettings = () => {
+    onChange({ ...settings });
+    setIsSaved(true);
+  };
 
   const selectArtwork = (kind: 'footer' | 'logo', file?: File) => {
     if (!file) return;
@@ -109,9 +120,11 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
       </section>
 
       <section className="mt-6 rounded-2xl border border-primary/10 bg-primary/[0.03] p-4">
-        <div className="mb-3 flex items-center gap-2 text-primary"><Tag size={19} /><h3 className="font-black">أيقونة العرض</h3></div>
-        <div className="flex flex-wrap gap-2">{badgeOptions.map(option => <button key={option.value} type="button" onClick={() => onChange({ ...settings, badgeType: option.value, badgeText: option.value === 'none' ? '' : settings.badgeText || option.defaultText })} className={`rounded-xl px-3 py-2 text-xs font-black ${settings.badgeType === option.value ? 'bg-primary text-white' : 'bg-white text-primary shadow-sm'}`}>{option.title}</button>)}</div>
-        {settings.badgeType !== 'none' && <input value={settings.badgeText} onChange={event => onChange({ ...settings, badgeText: event.target.value })} className="mt-3 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold" placeholder="النص فوق الأيقونة" />}
+        <div className="mb-3 flex items-center gap-2 text-primary"><Tag size={19} /><h3 className="font-black">شارات العرض</h3></div>
+        <p className="mb-3 text-xs leading-5 text-muted-foreground">اختر حتى ثلاث شارات. يضعها القالب في صف ثابت أعلى الإعلان حتى لا تغطي الملابس أو السعر.</p>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { onChange({ ...settings, badgeTypes: [], badgeType: 'none', badgeText: '' }); setIsSaved(false); }} className={`rounded-xl px-3 py-2 text-xs font-black ${selectedBadges.length === 0 ? 'bg-primary text-white' : 'bg-white text-primary shadow-sm'}`}>بدون</button>{badgeOptions.filter(option => option.value !== 'none').map(option => <button key={option.value} type="button" onClick={() => toggleBadge(option.value as Exclude<TemplateBadgeType, 'none'>)} className={`rounded-xl px-3 py-2 text-xs font-black ${selectedBadges.includes(option.value as Exclude<TemplateBadgeType, 'none'>) ? 'bg-primary text-white' : 'bg-white text-primary shadow-sm'}`}>{option.title}</button>)}</div>
+        {selectedBadges.length === 1 && <input value={settings.badgeText} onChange={event => { onChange({ ...settings, badgeText: event.target.value }); setIsSaved(false); }} className="mt-3 h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold" placeholder="نص مخصص للشارة الوحيدة" />}
+        {selectedBadges.length > 1 && <p className="mt-3 text-xs font-bold text-muted-foreground">تستخدم الشارات المتعددة عناوينها الافتراضية كي تبقى واضحة داخل الإعلان.</p>}
       </section>
 
       <section className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white p-4">
@@ -131,7 +144,8 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
         return <button key={item.key} type="button" onClick={() => setToggle(item.key)} className="flex w-full items-center gap-3 rounded-2xl border border-stone-100 p-4 text-right transition hover:border-primary/20 active:scale-[0.99]"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>{active && <Check size={16} />}</span><span className="min-w-0 flex-1"><span className="block text-sm font-black text-foreground">{item.title}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.description}</span></span><span className={`text-xs font-bold ${active ? 'text-primary' : 'text-muted-foreground'}`}>{active ? 'ظاهر' : 'مخفي'}</span></button>;
       })}</div>
 
-      <button type="button" onClick={onAbout} className="mt-5 w-full rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 text-right text-sm font-black text-primary transition active:scale-[0.99]">حول التطبيق وبيانات المطور</button>
+      <button type="button" onClick={saveSettings} className={`mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition active:scale-[0.98] ${isSaved ? 'bg-emerald-600 text-white' : 'bg-primary text-primary-foreground'}`}><CheckCircle2 size={18} />{isSaved ? 'تم حفظ الإعدادات على هذا الهاتف' : 'حفظ الإعدادات'}</button>
+      <button type="button" onClick={onAbout} className="mt-3 w-full rounded-2xl border border-primary/15 bg-primary/5 px-4 py-4 text-right text-sm font-black text-primary transition active:scale-[0.99]">حول التطبيق وبيانات المطور</button>
       <button type="button" onClick={onBack} className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary text-base font-black text-primary-foreground transition active:scale-[0.98]">العودة إلى الإنشاء</button>
     </section>
   );

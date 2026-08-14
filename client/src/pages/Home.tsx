@@ -13,9 +13,11 @@ import {
   resolveTryOnVisualSource,
 } from '@shared/adWorkflow';
 import ImageUploader from '@/components/ImageUploader';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import { renderAd } from '@/lib/canvasRenderer';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
 import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
+import { assessImageBackground, type BackgroundAssessment } from '@/lib/backgroundAssessment';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
@@ -65,6 +67,8 @@ export default function Home() {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(false);
+  const [backgroundAssessment, setBackgroundAssessment] = useState<BackgroundAssessment>('unknown');
+  const [preferOriginalImage, setPreferOriginalImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
@@ -110,6 +114,12 @@ export default function Home() {
     setGeneratedAd('');
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('details');
+    setBackgroundAssessment('analyzing');
+    setPreferOriginalImage(false);
+    void assessImageBackground(imageUrl).then(result => {
+      setBackgroundAssessment(result);
+      if (result === 'simple') setPreferOriginalImage(true);
+    });
     toast.success('تمت إضافة الصورة. أكمل الحقول التي تريدها ثم ولّد الإعلان.');
   };
 
@@ -117,7 +127,23 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setTryOnResult({ status: 'idle', message: '' });
+    setBackgroundAssessment('unknown');
+    setPreferOriginalImage(false);
     setCurrentStep('upload');
+  };
+
+  const handleStepNavigation = (target: AdWorkflowStep) => {
+    const targetIndex = WORKFLOW_STEPS.findIndex(step => step.id === target);
+    const currentIndex = WORKFLOW_STEPS.findIndex(step => step.id === currentStep);
+    if (targetIndex > currentIndex) {
+      toast.message('أكمل المرحلة الحالية أولاً ثم انتقل تلقائياً للمرحلة التالية.');
+      return;
+    }
+    if (target === 'details' && !productImage) {
+      setCurrentStep('upload');
+      return;
+    }
+    setCurrentStep(target);
   };
 
   const clearAdSession = () => {
@@ -203,6 +229,13 @@ export default function Home() {
               aspectRatio,
             });
           } catch (tryOnError) {
+            if (preferOriginalImage) {
+              return {
+                imageUrl: productImage,
+                providerId: 'original-image',
+                message: 'احتفظنا بصورة القطعة كما هي لأن الخلفية تبدو بسيطة، لتجنب قص الملابس الفاتحة.',
+              };
+            }
             const rawCutout = await backgroundRemoveMutation.mutateAsync({ productImageData });
             return {
               ...rawCutout,
@@ -301,6 +334,8 @@ export default function Home() {
       </header>
 
       <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pt-9">
+        {activeView === 'create' && <PwaInstallPrompt />}
+
         {activeView === 'create' && <section className="mb-6 rounded-3xl bg-white p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
           <div className="mb-3 flex items-center justify-between px-1">
             <span className="text-xs font-black text-primary">خطوة {currentIndex + 1} من {WORKFLOW_STEPS.length}</span>
@@ -311,7 +346,7 @@ export default function Home() {
               const isCurrent = step.id === currentStep;
               const isDone = index < currentIndex;
               return (
-                <div key={step.id} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                <button key={step.id} type="button" onClick={() => handleStepNavigation(step.id)} disabled={index > currentIndex} aria-current={isCurrent ? 'step' : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-xl text-center transition ${index <= currentIndex ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'}`}>
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-black transition ${
                       isCurrent
@@ -326,7 +361,7 @@ export default function Home() {
                   <span className={`text-[11px] font-bold leading-tight sm:text-xs ${isCurrent ? 'text-primary' : 'text-muted-foreground'}`}>
                     {step.label}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -411,6 +446,13 @@ export default function Home() {
                 <span className="mt-1 block text-xs leading-6 text-emerald-900">لا تُرسل الصورة إلى أي خدمة. التنزيل الأول يقارب {formatLocalFirstDownloadSize()} (نموذج U2NetP بحجم {formatLocalModelSize()} ومحرك التشغيل)، ثم يعمل دون إنترنت. ألغِ التحديد لاستخدام مسار Try-On وPerfect Corp المعتاد.</span>
               </span>
             </label>
+
+            {backgroundAssessment === 'analyzing' && <p className="mt-3 text-xs font-bold text-muted-foreground" aria-live="polite">جارٍ فحص خلفية الصورة بصورة محلية…</p>}
+            {backgroundAssessment === 'simple' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-right transition active:scale-[0.99]">
+              <input type="checkbox" checked={preferOriginalImage} onChange={event => setPreferOriginalImage(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-sky-700" />
+              <span><span className="block text-sm font-black text-sky-950">الخلفية تبدو بسيطة — احتفظ بالصورة عند تعذر التلبيس</span><span className="mt-1 block text-xs leading-6 text-sky-900">اقتراح محافظ فقط؛ يحمي الملابس البيضاء والفاتحة من قص غير مطلوب. ألغِه إذا أردت محاولة إزالة الخلفية السحابية عند تعذر Try-On.</span></span>
+            </label>}
+            {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيحاول التطبيق مسار Try-On ثم إزالة الخلفية عند الحاجة، إلا إذا فعّلت الإزالة المحلية أعلاه.</p>}
 
             <div className="mt-7 rounded-2xl border border-primary/10 bg-primary/5 p-4">
               <div className="flex items-start gap-3">

@@ -134,6 +134,16 @@ describe('Home Try-On workflow', () => {
     await waitFor(() => expect(screen.queryByText('استعدنا بيانات آخر مسودة')).toBeNull());
   });
 
+  it('يسمح بالعودة إلى مرحلة مكتملة من شريط المراحل من دون القفز إلى مرحلة ناقصة', async () => {
+    render(createElement(Home));
+    fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+    await screen.findByText('نموذج بيانات الاختبار');
+
+    fireEvent.click(screen.getByRole('button', { name: 'رفع الملابس' }));
+    expect(await screen.findByRole('button', { name: 'رفع صورة اختبار' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /الإعلان جاهز/ }).disabled).toBe(true);
+  });
+
   it('يحمل شعاراً وتذييلاً كاملاً من الإعدادات ثم يستخدمهما في الإعلان النهائي في التدفق نفسه', async () => {
     vi.stubGlobal('Image', class {
       width = 2688;

@@ -45,7 +45,7 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
   await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
-  drawBadge(ctx, details, template, geometry.badge, layout);
+  drawBadges(ctx, details, template, geometry.badge, layout);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout);
   if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), geometry.features, layout);
@@ -119,11 +119,26 @@ async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Bo
   await drawImageContain(ctx, imageSrc, box.x + padding, box.y + padding, box.width - padding * 2, box.height - padding * 2, visualMode);
 }
 
-function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
-  const type = template.badgeType || (template.showDiscount && details.discount.trim() ? 'discount' : 'none');
-  if (type === 'none') return;
+function getBadgeTypes(template: TemplateSettings, details: AdDetails): Array<Exclude<TemplateBadgeType, 'none'>> {
+  const configured = template.badgeTypes?.slice() || [];
+  if (configured.length) return configured.slice(0, 3);
+  if (template.badgeType && template.badgeType !== 'none') return [template.badgeType];
+  return template.showDiscount && details.discount.trim() ? ['discount'] : [];
+}
+
+function drawBadges(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+  const types = getBadgeTypes(template, details);
+  if (!types.length) return;
+  const gap = box.width * .08;
+  const diameter = Math.min(box.width * (types.length === 1 ? .95 : .58), box.height * .78);
+  const totalWidth = diameter * types.length + gap * (types.length - 1);
+  const startX = box.x + Math.max(0, (box.width - totalWidth) / 2);
+  types.forEach((type, index) => drawBadge(ctx, details, template, type, { x: startX + index * (diameter + gap), y: box.y + (box.height - diameter) / 2, width: diameter, height: diameter }, layout, types.length === 1));
+}
+
+function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, type: Exclude<TemplateBadgeType, 'none'>, box: Box, layout: Layout, canUseCustomText: boolean) {
   const labels: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: details.discount.trim() ? `خصم\n${details.discount.trim()}%` : 'خصم', new: 'جديد', offer: 'عرض', price: 'سعر', quality: 'جودة' };
-  const text = template.badgeText.trim() || labels[type];
+  const text = canUseCustomText && template.badgeText.trim() ? template.badgeText.trim() : labels[type];
   const colors: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: COLORS.red, new: COLORS.purple, offer: '#F07B16', price: COLORS.redDark, quality: '#198754' };
   const radius = Math.min(box.width, box.height) / 2;
   const cx = box.x + radius;
