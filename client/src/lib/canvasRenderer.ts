@@ -5,7 +5,7 @@ export interface RenderOptions {
   width?: number;
   height?: number;
   quality?: number;
-  visualMode?: 'garment' | 'transparentPerson';
+  visualMode?: 'garment' | 'transparentPerson' | 'modelPreview';
 }
 
 const COLORS = {
@@ -113,7 +113,7 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
   ctx.restore();
 }
 
-async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson') {
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson' | 'modelPreview') {
   // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
   const padding = Math.min(box.width, box.height) * .015;
   await drawImageContain(ctx, imageSrc, box.x + padding, box.y + padding, box.width - padding * 2, box.height - padding * 2, visualMode);
@@ -246,15 +246,16 @@ async function drawCircularLogo(ctx: CanvasRenderingContext2D, source: string, b
   ctx.save(); ctx.beginPath(); ctx.arc(x + diameter / 2, y + diameter / 2, diameter / 2, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.94)'; ctx.lineWidth = Math.max(2, diameter * .055); ctx.stroke(); ctx.restore();
 }
 
-async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson') {
+async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson' | 'modelPreview') {
   const image = await loadImage(imageSrc);
-  const widthLimit = visualMode === 'transparentPerson' ? maxWidth * .94 : maxWidth;
-  const heightLimit = visualMode === 'transparentPerson' ? maxHeight * .985 : maxHeight;
+  const usesPersonPlacement = visualMode === 'transparentPerson' || visualMode === 'modelPreview';
+  const widthLimit = usesPersonPlacement ? maxWidth * .94 : maxWidth;
+  const heightLimit = usesPersonPlacement ? maxHeight * .985 : maxHeight;
   const ratio = Math.min(widthLimit / image.width, heightLimit / image.height);
   const drawWidth = Math.max(1, image.width * ratio); const drawHeight = Math.max(1, image.height * ratio);
   ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const drawX = x + (maxWidth - drawWidth) / 2;
-  const drawY = visualMode === 'transparentPerson' ? y + maxHeight - drawHeight - maxHeight * .012 : y + (maxHeight - drawHeight) / 2;
+  const drawY = usesPersonPlacement ? y + maxHeight - drawHeight - maxHeight * .012 : y + (maxHeight - drawHeight) / 2;
   ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight); ctx.restore();
 }
 

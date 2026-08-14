@@ -6,6 +6,7 @@
 const CACHE_NAME = 'clothing-ad-generator-v3';
 const RUNTIME_CACHE = 'clothing-ad-runtime-v3';
 const LOCAL_BACKGROUND_MODEL_CACHE = 'clothing-ad-u2netp-v1';
+const LOCAL_POSE_MODEL_CACHE = 'clothing-ad-pose-landmarker-lite-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -34,7 +35,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE && cacheName !== LOCAL_BACKGROUND_MODEL_CACHE) {
+          if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE && cacheName !== LOCAL_BACKGROUND_MODEL_CACHE && cacheName !== LOCAL_POSE_MODEL_CACHE) {
             return caches.delete(cacheName);
           }
         })

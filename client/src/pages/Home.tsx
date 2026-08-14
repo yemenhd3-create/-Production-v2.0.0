@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import type { AdDetails, AdWorkflowStep, TemplateSettings, TryOnResult } from '@shared/types';
+import type { AdDetails, AdWorkflowStep, ModelPreviewTransform, TemplateSettings, TryOnResult } from '@shared/types';
 import {
   DEFAULT_AD_DETAILS,
   DEFAULT_TEMPLATE_SETTINGS,
@@ -16,6 +16,7 @@ import ImageUploader from '@/components/ImageUploader';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import { renderAd } from '@/lib/canvasRenderer';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
+import { composeLocalModelPreview } from '@/lib/localModelPreview';
 import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
 import { assessImageBackground, type BackgroundAssessment } from '@/lib/backgroundAssessment';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
@@ -41,10 +42,13 @@ import {
 } from 'lucide-react';
 
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
+const MODEL_PREVIEW_CHECK_PERSON = '/manus-storage/model-preview-visual-check_7f7efbe1.svg';
+const MODEL_PREVIEW_CHECK_GARMENT = '/manus-storage/model-preview-garment-check_f3a95eeb.svg';
 const AboutApp = React.lazy(() => import('@/components/AboutApp'));
 const BatchWorkspace = React.lazy(() => import('@/components/BatchWorkspace'));
 const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorkspace'));
 const AdDetailsForm = React.lazy(() => import('@/components/AdDetailsForm'));
+const LocalModelPreviewComposer = React.lazy(() => import('@/components/LocalModelPreviewComposer'));
 const PersonalMessageCenter = React.lazy(() => import('@/components/PersonalMessageCenter'));
 const SharePanel = React.lazy(() => import('@/components/SharePanel'));
 const TryOnStatusNotice = React.lazy(() => import('@/components/TryOnStatusNotice').then(module => ({ default: module.TryOnStatusNotice })));
@@ -62,10 +66,17 @@ function isWorkflowStep(value: string | null): value is AdWorkflowStep {
   return value === 'upload' || value === 'details' || value === 'final';
 }
 
-export default function Home() {
-  const [currentStep, setCurrentStep] = useState<AdWorkflowStep>('upload');
-  const [productImage, setProductImage] = useState('');
-  const [adDetails, setAdDetails] = useState<AdDetails>(DEFAULT_AD_DETAILS);
+export default function Home({ devModelPreviewCheck = false }: { devModelPreviewCheck?: boolean }) {
+  const [currentStep, setCurrentStep] = useState<AdWorkflowStep>(devModelPreviewCheck ? 'details' : 'upload');
+  const [productImage, setProductImage] = useState(devModelPreviewCheck ? MODEL_PREVIEW_CHECK_GARMENT : '');
+  const [modelPersonImage, setModelPersonImage] = useState(devModelPreviewCheck ? MODEL_PREVIEW_CHECK_PERSON : '');
+  const [localModelPreviewImage, setLocalModelPreviewImage] = useState('');
+  const [adDetails, setAdDetails] = useState<AdDetails>(() => devModelPreviewCheck ? {
+    ...DEFAULT_AD_DETAILS,
+    productName: 'قميص قطني توضيحي',
+    features: ['خامة مريحة', 'قصة عملية'],
+    modelPreview: { enabled: true, transform: { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 } },
+  } : DEFAULT_AD_DETAILS);
   const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
   const [generatedAd, setGeneratedAd] = useState('');
   const [lastVisualSource, setLastVisualSource] = useState('');
@@ -87,6 +98,10 @@ export default function Home() {
   const announcementQuery = trpc.personal.announcement.useQuery();
 
   useEffect(() => {
+    if (devModelPreviewCheck) {
+      setIsStorageReady(true);
+      return;
+    }
     const savedDetails = getFromStorage<AdDetails>(StorageKeys.LAST_AD_DETAILS);
     const savedTemplate = getFromStorage<TemplateSettings>(StorageKeys.TEMPLATE_SETTINGS);
 
@@ -94,7 +109,7 @@ export default function Home() {
     if (savedTemplate) setTemplateSettings({ ...DEFAULT_TEMPLATE_SETTINGS, ...savedTemplate });
     setHasRestoredDraft(Boolean(savedDetails && hasMeaningfulDraft(savedDetails)));
     setIsStorageReady(true);
-  }, []);
+  }, [devModelPreviewCheck]);
 
   useEffect(() => {
     if (!isStorageReady) return;
@@ -115,6 +130,18 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
+      if (modelPersonImage.startsWith('blob:')) URL.revokeObjectURL(modelPersonImage);
+    };
+  }, [modelPersonImage]);
+
+  useEffect(() => {
+    return () => {
+      if (localModelPreviewImage.startsWith('blob:')) URL.revokeObjectURL(localModelPreviewImage);
+    };
+  }, [localModelPreviewImage]);
+
+  useEffect(() => {
+    return () => {
       if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
     };
   }, [generatedAd]);
@@ -123,6 +150,7 @@ export default function Home() {
     setProductImage(imageUrl);
     setGeneratedAd('');
     setLastVisualSource('');
+    setLocalModelPreviewImage('');
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('details');
     setBackgroundAssessment('analyzing');
@@ -138,6 +166,7 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setLastVisualSource('');
+    setLocalModelPreviewImage('');
     setTryOnResult({ status: 'idle', message: '' });
     setBackgroundAssessment('unknown');
     setPreferOriginalImage(false);
@@ -165,6 +194,8 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setLastVisualSource('');
+    setModelPersonImage('');
+    setLocalModelPreviewImage('');
     setMarketingText('');
     resetDraftFields();
     setTryOnResult({ status: 'idle', message: '' });
@@ -202,6 +233,37 @@ export default function Home() {
     let localFallbackMessage = '';
 
     try {
+      if (adDetails.modelPreview?.enabled && modelPersonImage) {
+        try {
+          setTryOnResult({ status: 'processing', message: 'جارٍ تجهيز قطعة الملابس وتركيبها فوق العارض محلياً…' });
+          const localGarment = await removeBackgroundLocally(productImage, stage => {
+            setTryOnResult({ status: 'processing', message: `معاينة العارض: ${getLocalStageMessage(stage)}` });
+          });
+          const previewSource = await composeLocalModelPreview(modelPersonImage, localGarment.imageUrl, adDetails.modelPreview.transform);
+          setLastVisualSource(previewSource);
+          setLocalModelPreviewImage(previewSource);
+          setTryOnResult({
+            status: 'success',
+            imageUrl: previewSource,
+            providerId: 'local-model-preview',
+            message: 'أُنشئت معاينة عارض محلية. يمكنك تعديل موضع القطعة ثم إعادة التوليد.',
+            transparentSubject: 'person',
+          });
+          const dimensions = getCanvasDimensions(templateSettings.size);
+          const output = await withTimeout(
+            renderAd(adDetails, templateSettings, previewSource, { ...dimensions, visualMode: 'modelPreview' }),
+            15_000,
+            'انتهت مهلة إنشاء إعلان العارض. جرّب صورة عارض أو قطعة أصغر.'
+          );
+          setGeneratedAd(output);
+          setMarketingText(buildMarketingText(adDetails));
+          return;
+        } catch {
+          localFallbackMessage = 'تعذرت معاينة العارض محلياً؛ سنكمل بالقالب المعتاد من دون صورة العارض.';
+          toast.error(localFallbackMessage);
+        }
+      }
+
       if (useLocalBackgroundRemoval) {
         try {
           const localImage = await removeBackgroundLocally(productImage, stage => {
@@ -416,7 +478,7 @@ export default function Home() {
             onAbout={() => setActiveView('about')}
           /></React.Suspense>)}
 
-        {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
+        {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} modelPersonImage={adDetails.modelPreview?.enabled ? modelPersonImage : ''} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 
         {activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
 
@@ -497,6 +559,26 @@ export default function Home() {
               <span><span className="block text-sm font-black text-sky-950">الخلفية تبدو بسيطة — احتفظ بالصورة عند تعذر التلبيس</span><span className="mt-1 block text-xs leading-6 text-sky-900">اقتراح محافظ فقط؛ يحمي الملابس البيضاء والفاتحة من قص غير مطلوب. ألغِه إذا أردت محاولة إزالة الخلفية السحابية عند تعذر Try-On.</span></span>
             </label>}
             {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيحاول التطبيق مسار Try-On ثم إزالة الخلفية عند الحاجة، إلا إذا فعّلت الإزالة المحلية أعلاه.</p>}
+
+            <React.Suspense fallback={<PageLoading label="جارٍ تجهيز معاينة العارض…" />}>
+              <LocalModelPreviewComposer
+                garmentImage={productImage}
+                enabled={Boolean(adDetails.modelPreview?.enabled)}
+                personImage={modelPersonImage}
+                previewImage={localModelPreviewImage}
+                transform={adDetails.modelPreview?.transform || { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 }}
+                onEnabledChange={enabled => setAdDetails(current => ({
+                  ...current,
+                  modelPreview: { enabled, transform: current.modelPreview?.transform || { x: 0.5, y: 0.46, scale: 0.58, rotation: 0 } },
+                }))}
+                onPersonImageChange={setModelPersonImage}
+                onTransformChange={(transform: ModelPreviewTransform) => setAdDetails(current => ({
+                  ...current,
+                  modelPreview: { enabled: current.modelPreview?.enabled ?? true, transform },
+                }))}
+                onPreviewChange={setLocalModelPreviewImage}
+              />
+            </React.Suspense>
 
             <div className="mt-7 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-4">
               <div className="flex items-start gap-3">
