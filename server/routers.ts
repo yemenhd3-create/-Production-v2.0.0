@@ -8,6 +8,7 @@ import { authenticateDeveloper } from "./developerAuth";
 import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSession, issueDeveloperSession } from './developerSession';
 import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
 import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
+import { generateMarketingTextWithFallback } from './marketingText';
 import {
   createUserMessage,
   getActiveAnnouncement,
@@ -117,6 +118,44 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertPersonalUserIsActive(ctx.user.id);
         return removeBackgroundFromProduct(input.productImageData);
+      }),
+  }),
+
+  marketingText: router({
+    generate: protectedProcedure
+      .input(z.object({
+        details: z.object({
+          productName: z.string().max(160),
+          headline: z.string().max(220),
+          discount: z.string().max(32),
+          quantity: z.string().max(80),
+          colors: z.array(z.string().max(80)).max(8),
+          price: z.string().max(80),
+          currency: z.string().max(32),
+          features: z.array(z.string().max(160)).max(8),
+          storeName: z.string().max(160),
+          storePhone: z.string().max(80),
+          marketingText: z.string().max(520),
+          marketingPreferences: z.object({
+            tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
+            length: z.enum(['short', 'medium', 'long']),
+            goal: z.enum(['purchase', 'inquiry', 'showcase']),
+          }).optional(),
+        }),
+        preferences: z.object({
+          tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
+          length: z.enum(['short', 'medium', 'long']),
+          goal: z.enum(['purchase', 'inquiry', 'showcase']),
+        }),
+        variant: z.number().int().min(0).max(20).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return generateMarketingTextWithFallback(
+          { ...input.details, marketingText: '' },
+          input.preferences,
+          input.variant
+        );
       }),
   }),
 

@@ -1,18 +1,19 @@
-import type { AdDetails } from '@shared/types';
+import type { AdDetails, MarketingTextPreferences } from '@shared/types';
 import { Plus, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
+import MarketingTextComposer from './MarketingTextComposer';
 
 interface AdDetailsFormProps {
   details: AdDetails;
   onChange: (details: AdDetails) => void;
+  generateCloudText?: (details: AdDetails, preferences: MarketingTextPreferences, variant: number) => Promise<{ text: string; source?: string; message?: string }>;
 }
 
 const fieldClass =
   'h-12 rounded-2xl border-stone-200 bg-white px-4 text-right text-base shadow-none focus-visible:border-primary';
 
-export default function AdDetailsForm({ details, onChange }: AdDetailsFormProps) {
+export default function AdDetailsForm({ details, onChange, generateCloudText }: AdDetailsFormProps) {
   const [featureDraft, setFeatureDraft] = useState('');
 
   const update = <K extends keyof AdDetails>(key: K, value: AdDetails[K]) => {
@@ -175,6 +176,8 @@ export default function AdDetailsForm({ details, onChange }: AdDetailsFormProps)
         </div>
       </section>
 
+      <MarketingTextComposer details={details} onChange={onChange} generateCloudText={generateCloudText} />
+
       <details className="rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-3">
         <summary className="cursor-pointer list-none font-bold text-primary marker:hidden">معلومات إضافية</summary>
         <div className="mt-5 space-y-4 border-t border-stone-100 pt-4">
@@ -185,15 +188,6 @@ export default function AdDetailsForm({ details, onChange }: AdDetailsFormProps)
               value={details.headline}
               onChange={event => update('headline', event.target.value)}
               placeholder="أناقة ناعمة لكل يوم"
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-bold text-foreground">نص تسويقي خاص</span>
-            <Textarea
-              className="min-h-24 rounded-2xl border-stone-200 bg-white p-4 text-right text-base shadow-none"
-              value={details.marketingText}
-              onChange={event => update('marketingText', event.target.value)}
-              placeholder="اتركه فارغاً ليصنع التطبيق نصاً محلياً قصيراً."
             />
           </label>
         </div>

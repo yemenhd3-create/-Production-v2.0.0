@@ -36,6 +36,20 @@ export interface AdDetails {
   storeName: string;
   storePhone: string;
   marketingText: string;
+  marketingPreferences?: MarketingTextPreferences;
+  marketingTextEngine?: MarketingTextEngine;
+}
+
+export type MarketingTextTone = 'exciting' | 'persuasive' | 'formal' | 'playful';
+export type MarketingTextLength = 'short' | 'medium' | 'long';
+export type MarketingTextGoal = 'purchase' | 'inquiry' | 'showcase';
+export type MarketingTextEngine = 'local' | 'cloud';
+
+/** اختيارات توليد النص، وهي اختيارية حتى تبقى المسودات القديمة متوافقة. */
+export interface MarketingTextPreferences {
+  tone: MarketingTextTone;
+  length: MarketingTextLength;
+  goal: MarketingTextGoal;
 }
 
 export type AdWorkflowStep = 'upload' | 'details' | 'final';
@@ -66,6 +80,8 @@ export interface BatchAdItem {
   outputUrl?: string;
   error?: string;
   usedLocalRemoval?: boolean;
+  /** نص مستقل اختياري لهذا الإعلان عند اعتماد وضع النصوص الفردية. */
+  marketingText?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -78,8 +94,11 @@ export interface BatchAdDraft {
   details: AdDetails;
   template: TemplateSettings;
   useLocalBackgroundRemoval: boolean;
+  marketingTextMode?: BatchMarketingTextMode;
   items: BatchAdItem[];
 }
+
+export type BatchMarketingTextMode = 'shared' | 'perItem';
 
 export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
@@ -322,6 +341,12 @@ export const DEFAULT_AD_DETAILS: AdDetails = {
   storeName: '',
   storePhone: '',
   marketingText: '',
+  marketingPreferences: {
+    tone: 'persuasive',
+    length: 'medium',
+    goal: 'purchase',
+  },
+  marketingTextEngine: 'local',
 };
 
 export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {

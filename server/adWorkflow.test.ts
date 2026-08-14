@@ -92,9 +92,10 @@ describe('three-step advertisement workflow defaults', () => {
     expect(workflow.result.message).toContain('الخلفية تبدو بسيطة');
   });
 
-  it('does not repeat the call to action when the price is omitted', () => {
+  it('keeps the local call to action concise when the price is omitted', () => {
     const text = buildMarketingText(DEFAULT_AD_DETAILS);
-    expect(text.match(/اطلبها الآن قبل نفاد الكمية/g)).toHaveLength(1);
+    expect(text).toContain('أضف');
+    expect(text).not.toContain('نفاد الكمية');
   });
 
   it('maps export sizes and calculates an old price only for valid discounts', () => {

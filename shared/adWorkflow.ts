@@ -4,30 +4,11 @@ import type {
   TemplateSettings,
   TryOnResult,
 } from './types';
+import { generateLocalMarketingText } from './marketingText';
 
 export function buildMarketingText(details: AdDetails): string {
   if (details.marketingText.trim()) return details.marketingText.trim();
-
-  const product = details.productName.trim() || 'قطعة مميزة';
-  const headline = details.headline.trim();
-  const features = details.features.filter(Boolean).slice(0, 2).join('، ');
-  const price = details.price.trim() ? ` بسعر ${details.price.trim()} ${details.currency}` : '';
-  const store = details.storeName.trim();
-  const phone = details.storePhone.trim();
-  const callToAction = price
-    ? `${price}. اطلبها الآن قبل نفاد الكمية.`
-    : 'اطلبها الآن قبل نفاد الكمية.';
-
-  return [
-    product,
-    headline,
-    features ? `تتميز بـ ${features}` : '',
-    callToAction,
-    store ? `متوفر لدى ${store}` : '',
-    phone ? `للطلب: ${phone}` : '',
-  ]
-    .filter(Boolean)
-    .join(' — ');
+  return generateLocalMarketingText(details).text;
 }
 
 export function createLocalFallbackResult(reason?: string): TryOnResult {
