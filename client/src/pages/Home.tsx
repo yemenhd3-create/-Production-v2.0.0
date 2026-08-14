@@ -22,13 +22,14 @@ import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import {
   Check,
-  ChevronRight,
   ImagePlus,
   MessageCircle,
   Pencil,
+  RotateCcw,
   Settings,
   Sparkles,
   Wand2,
+  Wrench,
 } from 'lucide-react';
 
 const LOGO_URL = '/manus-storage/marwan-designer-logo_df9b28d4.png';
@@ -64,6 +65,8 @@ export default function Home() {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [isStorageReady, setIsStorageReady] = useState(false);
   const [activeView, setActiveView] = useState<'create' | 'settings' | 'about' | 'developer' | 'messages'>('create');
   const tryOnMutation = trpc.tryOn.run.useMutation();
   const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
@@ -75,15 +78,20 @@ export default function Home() {
 
     if (savedDetails) setAdDetails({ ...DEFAULT_AD_DETAILS, ...savedDetails });
     if (savedTemplate) setTemplateSettings({ ...DEFAULT_TEMPLATE_SETTINGS, ...savedTemplate });
+    setHasRestoredDraft(Boolean(savedDetails && hasMeaningfulDraft(savedDetails)));
+    setIsStorageReady(true);
   }, []);
 
   useEffect(() => {
-    saveToStorage(StorageKeys.LAST_AD_DETAILS, adDetails);
-  }, [adDetails]);
+    if (!isStorageReady) return;
+    if (hasMeaningfulDraft(adDetails)) saveToStorage(StorageKeys.LAST_AD_DETAILS, adDetails);
+    else removeFromStorage(StorageKeys.LAST_AD_DETAILS);
+  }, [adDetails, isStorageReady]);
 
   useEffect(() => {
+    if (!isStorageReady) return;
     saveToStorage(StorageKeys.TEMPLATE_SETTINGS, templateSettings);
-  }, [templateSettings]);
+  }, [templateSettings, isStorageReady]);
 
   useEffect(() => {
     return () => {
@@ -102,6 +110,7 @@ export default function Home() {
     setGeneratedAd('');
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('details');
+    toast.success('تمت إضافة الصورة. أكمل الحقول التي تريدها ثم ولّد الإعلان.');
   };
 
   const handleImageRemove = () => {
@@ -118,13 +127,23 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setMarketingText('');
-    setAdDetails(EMPTY_AD_DETAILS);
+    resetDraftFields();
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('upload');
     setActiveView('create');
-    removeFromStorage(StorageKeys.LAST_AD_DETAILS);
     removeFromStorage(StorageKeys.LAST_WORKFLOW_STEP);
     toast.success('تم مسح جلسة الإعلان. يمكنك بدء تصميم جديد الآن.');
+  };
+
+  const resetDraftFields = () => {
+    setAdDetails(EMPTY_AD_DETAILS);
+    setHasRestoredDraft(false);
+    removeFromStorage(StorageKeys.LAST_AD_DETAILS);
+  };
+
+  const discardRestoredDraft = () => {
+    resetDraftFields();
+    toast.success('بدأت مسودة بيانات جديدة. إعدادات القالب والشعار والتذييل بقيت محفوظة.');
   };
 
   const generateAd = async () => {
@@ -140,6 +159,8 @@ export default function Home() {
       status: 'processing',
       message: 'جارٍ تجهيز الإعلان ومحاولة تجربة الملابس بالذكاء الاصطناعي…',
     });
+
+    let localFallbackMessage = '';
 
     try {
       if (useLocalBackgroundRemoval) {
@@ -165,7 +186,8 @@ export default function Home() {
           setMarketingText(buildMarketingText(adDetails));
           return;
         } catch (localError) {
-          toast.error(`${getLocalRemovalUnavailableMessage(localError)} سنجرب المسار السحابي الآن.`);
+          localFallbackMessage = getLocalRemovalUnavailableMessage(localError);
+          toast.error(`${localFallbackMessage} سنجرب المسار السحابي الآن.`);
           setTryOnResult({ status: 'processing', message: 'تعذرت الإزالة المحلية؛ جارٍ تجربة التلبيس أو إزالة الخلفية السحابية…' });
         }
       }
@@ -192,11 +214,14 @@ export default function Home() {
         fetchImageAsBlobUrl
       );
       const imageForCanvas = tryOnWorkflow.imageForCanvas;
-      setTryOnResult(tryOnWorkflow.result);
+      const resolvedResult = localFallbackMessage && tryOnWorkflow.result.status === 'fallback'
+        ? { ...tryOnWorkflow.result, message: `${localFallbackMessage} ${tryOnWorkflow.result.message}` }
+        : tryOnWorkflow.result;
+      setTryOnResult(resolvedResult);
 
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: tryOnWorkflow.result.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
+        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: resolvedResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
         15_000,
         'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
       );
@@ -277,6 +302,10 @@ export default function Home() {
 
       <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pt-9">
         {activeView === 'create' && <section className="mb-6 rounded-3xl bg-white p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <span className="text-xs font-black text-primary">خطوة {currentIndex + 1} من {WORKFLOW_STEPS.length}</span>
+            <span className="text-[11px] font-medium text-muted-foreground">من صورة القطعة إلى إعلان جاهز</span>
+          </div>
           <div className="flex items-start justify-between gap-1">
             {WORKFLOW_STEPS.map((step, index) => {
               const isCurrent = step.id === currentStep;
@@ -335,8 +364,13 @@ export default function Home() {
                 <ImagePlus size={15} /> المرحلة الأولى
               </span>
               <h2 className="text-2xl font-black text-foreground">ارفع صورة الملابس</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط، وسننقلك مباشرة إلى بيانات الإعلان.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط. سنصغّرها تلقائياً للحفاظ على سرعة الهاتف ثم ننقلك إلى بيانات الإعلان.</p>
             </div>
+            {hasRestoredDraft && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-right">
+              <RotateCcw size={19} className="mt-0.5 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1"><p className="text-sm font-black text-primary">استعدنا بيانات آخر مسودة</p><p className="mt-1 text-xs leading-5 text-muted-foreground">ارفع صورة القطعة لإكمالها، أو ابدأ حقولاً جديدة من دون مسح إعدادات القالب.</p></div>
+              <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
+            </div>}
             <ImageUploader
               onImageSelect={handleImageSelect}
               currentImage={productImage}
@@ -423,7 +457,7 @@ export default function Home() {
                     <Sparkles className="animate-pulse" size={28} />
                   </div>
                   <h3 className="text-lg font-black text-foreground">جارٍ توليد الإعلان</h3>
-                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">{tryOnResult.message || 'نرتب القالب ونجهز الصورة. لا تغلق الصفحة الآن.'}</p>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground" aria-live="polite">{tryOnResult.message || 'نرتب القالب ونجهز الصورة. لا تغلق الصفحة الآن.'}</p>
                 </div>
               )}
 
@@ -439,7 +473,7 @@ export default function Home() {
               )}
 
               {!isGenerating && tryOnResult.status === 'unavailable' && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center" role="alert">
                   <p className="font-bold text-red-900">{tryOnResult.message}</p>
                   <button type="button" onClick={generateAd} className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button>
                 </div>
@@ -463,7 +497,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-md grid-cols-3 gap-1">
           <button type="button" onClick={() => setActiveView('create')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'create' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Sparkles size={20} />إنشاء</button>
           <button type="button" onClick={() => setActiveView('settings')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'settings' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Settings size={20} />الإعدادات</button>
-          <button type="button" onClick={() => setActiveView('developer')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'developer' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><ChevronRight size={20} />المطور</button>
+          <button type="button" onClick={() => setActiveView('developer')} className={`flex flex-col items-center gap-1 rounded-xl py-2 text-xs ${activeView === 'developer' ? 'font-bold text-primary' : 'font-medium text-muted-foreground'}`}><Wrench size={20} />المطور</button>
         </div>
       </nav>
     </div>
@@ -472,6 +506,11 @@ export default function Home() {
 
 function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] bg-white p-8 text-center text-sm font-bold text-primary shadow-[0_16px_40px_rgba(37,35,95,0.08)]">{label}</div>;
+}
+
+function hasMeaningfulDraft(details: AdDetails) {
+  const textFields = [details.productName, details.headline, details.discount, details.quantity, details.price, details.storeName, details.storePhone, details.marketingText];
+  return textFields.some(value => value.trim().length > 0) || details.colors.length > 0;
 }
 
 function getLocalStageMessage(stage: LocalRemovalStage) {

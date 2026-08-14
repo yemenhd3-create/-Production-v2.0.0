@@ -19,4 +19,12 @@ describe('Try-On status presentation', () => {
     expect(html).toContain('استخدمنا صورة القطعة الأصلية داخل القالب.');
     expect(html).toContain('amber');
   });
+
+  it('shows an actionable red notice when no final result can be created', () => {
+    const html = renderToStaticMarkup(createElement(TryOnStatusNotice, { result: { status: 'unavailable', message: 'تعذّر تجهيز الإعلان حالياً. تحقق من الصورة ثم أعد المحاولة.' } }));
+
+    expect(html).toContain('data-tryon-status="unavailable"');
+    expect(html).toContain('تحقق من الصورة');
+    expect(html).toContain('red');
+  });
 });

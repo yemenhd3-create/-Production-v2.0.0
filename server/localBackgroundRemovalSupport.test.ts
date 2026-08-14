@@ -16,6 +16,8 @@ describe('مساعدات إزالة الخلفية المحلية', () => {
     expect(getLocalRemovalUnavailableMessage(new Error('MODEL_DOWNLOAD'))).toContain('تنزيل');
     expect(getLocalRemovalUnavailableMessage(new Error('WebAssembly is unavailable'))).toContain('WebAssembly');
     expect(getLocalRemovalUnavailableMessage(new Error('INFERENCE_TIMEOUT'))).toContain('استغرق تحليل الملابس');
+    expect(getLocalRemovalUnavailableMessage(new Error('Unable to load product image locally'))).toContain('التقطها بالكاميرا');
+    expect(getLocalRemovalUnavailableMessage(new Error('Canvas is unavailable'))).toContain('المسار البديل');
   });
 
   it('يوقف العملية المعلقة برمز مهلة واضح', async () => {

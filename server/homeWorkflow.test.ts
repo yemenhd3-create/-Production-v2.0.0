@@ -2,13 +2,14 @@
 import { createElement } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_TEMPLATE_SETTINGS, StorageKeys, type TemplateSettings } from '../shared/types';
+import { DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, StorageKeys, type AdDetails, type TemplateSettings } from '../shared/types';
 
 const mutateAsync = vi.fn();
 const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
 let savedTemplateSettings: TemplateSettings | undefined;
+let savedAdDetails: AdDetails | undefined;
 
 vi.mock('../client/src/lib/trpc', () => ({
   trpc: {
@@ -21,7 +22,11 @@ vi.mock('../client/src/lib/trpc', () => ({
 }));
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd }));
 vi.mock('../client/src/lib/storage', () => ({
-  getFromStorage: (key: string) => key === StorageKeys.TEMPLATE_SETTINGS ? savedTemplateSettings : undefined,
+  getFromStorage: (key: string) => {
+    if (key === StorageKeys.TEMPLATE_SETTINGS) return savedTemplateSettings;
+    if (key === StorageKeys.LAST_AD_DETAILS) return savedAdDetails;
+    return undefined;
+  },
   saveToStorage: vi.fn(),
   removeFromStorage,
 }));
@@ -42,6 +47,7 @@ describe('Home Try-On workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     savedTemplateSettings = undefined;
+    savedAdDetails = undefined;
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
@@ -115,6 +121,17 @@ describe('Home Try-On workflow', () => {
       'blob:product-original',
       expect.anything()
     ));
+  });
+
+  it('يُظهر بيانات المسودة المستعادة ويتيح بدء بيانات جديدة من دون حذف إعدادات القالب', async () => {
+    savedAdDetails = { ...DEFAULT_AD_DETAILS, productName: 'فستان محفوظ', storeName: 'متجر محفوظ' };
+    render(createElement(Home));
+
+    expect(await screen.findByText('استعدنا بيانات آخر مسودة')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'بدء جديد' }));
+
+    expect(removeFromStorage).toHaveBeenCalledWith(StorageKeys.LAST_AD_DETAILS);
+    await waitFor(() => expect(screen.queryByText('استعدنا بيانات آخر مسودة')).toBeNull());
   });
 
   it('يحمل شعاراً وتذييلاً كاملاً من الإعدادات ثم يستخدمهما في الإعلان النهائي في التدفق نفسه', async () => {

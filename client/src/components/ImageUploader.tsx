@@ -92,19 +92,21 @@ export default function ImageUploader({
       {/* Image Preview */}
       {currentImage ? (
         <div className="relative">
-          <div className="w-full bg-gray-100 rounded-lg overflow-hidden">
+          <div className="w-full overflow-hidden rounded-3xl border border-primary/10 bg-secondary/60">
             <img
               src={currentImage}
-              alt="Product"
-              className="w-full h-auto max-h-96 object-cover"
+              alt="معاينة صورة الملابس المختارة"
+              className="h-auto max-h-96 w-full object-cover"
             />
           </div>
 
           {/* Remove Button */}
           {onImageRemove && (
             <button
+              type="button"
               onClick={onImageRemove}
-              className="absolute top-2 left-2 bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition-colors"
+              className="absolute left-3 top-3 rounded-xl bg-red-600 p-2 text-white shadow-sm transition active:scale-95"
+              aria-label="حذف صورة الملابس"
             >
               <X size={20} />
             </button>
@@ -112,8 +114,9 @@ export default function ImageUploader({
 
           {/* Change Button */}
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-2 left-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-sm transition active:scale-95"
           >
             <Upload size={18} />
             تغيير الصورة
@@ -126,24 +129,23 @@ export default function ImageUploader({
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          className={`rounded-3xl border-2 border-dashed p-7 text-center transition-colors ${
             isDragging
-              ? 'border-red-600 bg-red-50'
-              : 'border-gray-300 bg-gray-50 hover:border-red-600'
+              ? 'border-primary bg-primary/5'
+              : 'border-stone-200 bg-secondary/35 hover:border-primary/40'
           }`}
         >
-          <Upload size={48} className="mx-auto mb-4 text-gray-400" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-primary shadow-sm"><Upload size={30} /></div>
 
-          <h3 className="text-lg font-semibold mb-2">اسحب الصورة هنا</h3>
-          <p className="text-gray-600 mb-4">أو اضغط لاختيار صورة من جهازك</p>
+          <h3 className="mb-2 text-lg font-black text-foreground">اختر صورة الملابس</h3>
+          <p className="mb-3 text-sm leading-6 text-muted-foreground">من المعرض أو بالكاميرا. الأفضل أن تظهر القطعة وحدها بوضوح.</p>
 
-          <p className="text-sm text-gray-500 mb-4">
-            الصيغ المدعومة: JPG, PNG, WebP
-            <br />
-            الحد الأقصى للحجم: 10 ميجابايت
+          <p className="mb-4 text-xs leading-5 text-muted-foreground">
+            JPG أو PNG أو WebP · حتى 10 ميجابايت · سيُحسّن التطبيق الحجم تلقائياً
           </p>
 
-          {errorMessage && <div role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><p>{errorMessage}</p><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}>جرّب التقاط صورة الآن</button></div>}
+          {isLoading && <div role="status" aria-live="polite" className="mb-4 rounded-2xl bg-primary/5 px-3 py-3 text-sm font-bold text-primary">جارٍ قراءة الصورة وتحسينها للهاتف…</div>}
+          {errorMessage && <div role="alert" className="mb-4 rounded-2xl bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><p>{errorMessage}</p><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}>جرّب التقاط صورة الآن</button></div>}
 
           <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
             <Button
@@ -185,8 +187,8 @@ export default function ImageUploader({
 
       {/* Image Info */}
       {currentImage && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm font-bold text-emerald-900">
             ✓ تم تحميل الصورة بنجاح. يمكنك الآن الانتقال للخطوة التالية.
           </p>
         </div>

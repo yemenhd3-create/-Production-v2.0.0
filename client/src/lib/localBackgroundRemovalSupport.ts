@@ -25,6 +25,9 @@ export function getLocalRemovalUnavailableMessage(error: unknown) {
   if (detail.includes('SESSION_INIT_TIMEOUT')) return 'تعذر تجهيز محرك الإزالة المحلية في الوقت المتوقع. جرّب تحديث Chrome أو استخدم Perfect Corp كبديل.';
   if (detail.includes('INFERENCE_TIMEOUT')) return 'استغرق تحليل الملابس محلياً وقتاً طويلاً. جرّب صورة أصغر أو استخدم المسار السحابي.';
   if (detail.includes('SOURCE_IMAGE_TIMEOUT')) return 'تعذّر تجهيز صورة الملابس محلياً في الوقت المتوقع. جرّب التقاط صورة جديدة أو صورة أصغر.';
+  if (detail.includes('Unable to load product image locally')) return 'تعذّر فتح صورة الملابس داخل محرك الإزالة المحلية. جرّب صورة أخرى أو التقطها بالكاميرا مباشرة.';
+  if (detail.includes('Canvas')) return 'لا يستطيع هذا المتصفح معالجة الصورة محلياً الآن. ألغِ الخيار ليستخدم التطبيق المسار البديل.';
+  if (detail.includes('Unable to export transparent image')) return 'تعذّر حفظ القصاصة الشفافة محلياً. سنستخدم المسار البديل أو صورة الملابس الأصلية.';
   return 'تعذّرت إزالة الخلفية محلياً. سنحاول البديل المتاح أو نستخدم صورة الملابس الأصلية.';
 }
 
