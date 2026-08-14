@@ -72,7 +72,7 @@ describe('نصوص الإعلان في وضع الدفعة', () => {
   it('يحفظ النص المشترك مع النتيجة ويستخدمه عند المشاركة', async () => {
     renderBatch({ ...DEFAULT_AD_DETAILS, productName: 'فستان اختباري', marketingText: 'نص مشترك للمشاركة' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الدفعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'بدء تجهيز الصور' }));
     const field = await screen.findByLabelText('تعديل نص الإعلان 1');
     expect((field as HTMLTextAreaElement).value).toBe('نص مشترك للمشاركة');
 
@@ -84,7 +84,7 @@ describe('نصوص الإعلان في وضع الدفعة', () => {
     renderBatch({ ...DEFAULT_AD_DETAILS, productName: 'جاكيت قطني', features: ['ناعم ومريح'], marketingText: '', marketingTextEngine: 'local' });
 
     fireEvent.click(screen.getByRole('button', { name: 'نص مستقل لكل صورة' }));
-    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الدفعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'بدء تجهيز الصور' }));
 
     const field = await screen.findByLabelText('تعديل نص الإعلان 1');
     expect((field as HTMLTextAreaElement).value).toContain('جاكيت قطني');
@@ -96,7 +96,7 @@ describe('نصوص الإعلان في وضع الدفعة', () => {
     renderBatch({ ...DEFAULT_AD_DETAILS, productName: 'قميص رسمي', marketingText: '', marketingTextEngine: 'cloud' });
 
     fireEvent.click(screen.getByRole('button', { name: 'نص مستقل لكل صورة' }));
-    fireEvent.click(screen.getByRole('button', { name: 'إنشاء الدفعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'بدء تجهيز الصور' }));
 
     const field = await screen.findByLabelText('تعديل نص الإعلان 1');
     expect(generateCloudText).toHaveBeenCalledTimes(1);

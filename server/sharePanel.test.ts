@@ -8,9 +8,9 @@ describe('final advertisement share panel', () => {
     const action = vi.fn();
     const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onEdit: action, onClear: action }));
 
-    expect(html).toContain('حفظ التصميم PNG في الهاتف');
+    expect(html).toContain('حفظ في الهاتف');
     expect(html).toContain('مشاركة أخرى');
-    expect(html).toContain('واتساب');
+    expect(html).toContain('WhatsApp');
     expect(html).toContain('تعديل');
     expect(html).toContain('مسح جلسة الإعلان');
   });

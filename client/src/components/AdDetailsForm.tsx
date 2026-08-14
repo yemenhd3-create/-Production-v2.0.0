@@ -1,5 +1,5 @@
 import type { AdDetails, MarketingTextPreferences } from '@shared/types';
-import { Plus, Sparkles, X } from 'lucide-react';
+import { CircleDollarSign, Package, Palette, Percent, Phone, Plus, Sparkles, Store, Tag, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { Input } from './ui/input';
 import MarketingTextComposer from './MarketingTextComposer';
@@ -11,7 +11,11 @@ interface AdDetailsFormProps {
 }
 
 const fieldClass =
-  'h-12 rounded-2xl border-stone-200 bg-white px-4 text-right text-base shadow-none focus-visible:border-primary';
+  'h-14 rounded-2xl border-[#e6e1eb] bg-white px-4 text-right text-base shadow-none focus-visible:border-primary';
+
+function FieldLabel({ icon: Icon, title, note }: { icon: React.ComponentType<{ size?: number }>; title: string; note: string }) {
+  return <span className="flex items-center gap-2 text-sm font-black text-foreground"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><Icon size={16} /></span><span>{title} <span className="font-normal text-muted-foreground">{note}</span></span></span>;
+}
 
 export default function AdDetailsForm({ details, onChange, generateCloudText }: AdDetailsFormProps) {
   const [featureDraft, setFeatureDraft] = useState('');
@@ -36,7 +40,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
     <div className="space-y-5" dir="rtl">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">اسم المنتج <span className="font-normal text-muted-foreground">اختياري</span></span>
+          <FieldLabel icon={Tag} title="اسم المنتج" note="اختياري" />
           <Input
             className={fieldClass}
             value={details.productName}
@@ -46,7 +50,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">السعر <span className="font-normal text-muted-foreground">اختياري</span></span>
+          <FieldLabel icon={CircleDollarSign} title="السعر" note="اختياري" />
           <div className="flex gap-2">
             <Input
               className={fieldClass}
@@ -65,7 +69,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">نسبة الخصم <span className="font-normal text-muted-foreground">اختياري</span></span>
+          <FieldLabel icon={Percent} title="نسبة الخصم" note="اختياري" />
           <div className="relative">
             <Input
               className={`${fieldClass} pl-10`}
@@ -79,7 +83,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">الكمية <span className="font-normal text-muted-foreground">اختياري</span></span>
+          <FieldLabel icon={Package} title="الكمية" note="اختياري" />
           <Input
             className={fieldClass}
             inputMode="numeric"
@@ -90,7 +94,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">اسم المتجر <span className="font-normal text-muted-foreground">يظهر أسفل الإعلان</span></span>
+          <FieldLabel icon={Store} title="اسم المتجر" note="يظهر أسفل الإعلان" />
           <Input
             className={fieldClass}
             value={details.storeName}
@@ -100,7 +104,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-bold text-foreground">رقم التواصل <span className="font-normal text-muted-foreground">يظهر أسفل الإعلان</span></span>
+          <FieldLabel icon={Phone} title="رقم التواصل" note="يظهر أسفل الإعلان" />
           <Input
             className={fieldClass}
             dir="ltr"
@@ -113,7 +117,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
       </div>
 
       <label className="block space-y-2">
-        <span className="text-sm font-bold text-foreground">الألوان <span className="font-normal text-muted-foreground">اختياري — افصل بينها بفاصلة</span></span>
+        <FieldLabel icon={Palette} title="الألوان" note="اختياري — افصل بينها بفاصلة" />
         <Input
           className={fieldClass}
           value={details.colors.join('، ')}
@@ -130,7 +134,7 @@ export default function AdDetailsForm({ details, onChange, generateCloudText }: 
         />
       </label>
 
-      <section className="rounded-2xl bg-secondary/60 p-4">
+      <section className="rounded-[24px] border border-[#e8e3ed] bg-secondary/45 p-4">
         <div className="mb-3 flex items-center gap-2">
           <Sparkles size={18} className="text-accent" />
           <h3 className="font-bold text-foreground">ميزات قصيرة</h3>

@@ -260,10 +260,10 @@ describe('Home Try-On workflow', () => {
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /توليد الإعلان/ }));
-    await screen.findByRole('button', { name: 'واتساب' });
+    await screen.findByRole('button', { name: 'مشاركة عبر WhatsApp' });
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     const openWindow = vi.spyOn(window, 'open').mockImplementation(() => null);
-    fireEvent.click(screen.getByRole('button', { name: 'واتساب' }));
+    fireEvent.click(screen.getByRole('button', { name: 'مشاركة عبر WhatsApp' }));
     await waitFor(() => expect(openWindow).toHaveBeenCalled());
     fireEvent.click(screen.getAllByRole('button', { name: 'تعديل' })[0]);
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();

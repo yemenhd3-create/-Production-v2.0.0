@@ -55,7 +55,7 @@ const artworkRatios: Record<TemplateSize, { footer: number }> = {
 };
 
 function SettingsCard({ id, icon: Icon, title, summary, open, onToggle, children }: { id: string; icon: React.ComponentType<{ size?: number }>; title: string; summary: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
-  return <section className="overflow-hidden rounded-3xl border border-primary/10 bg-white shadow-[0_10px_26px_rgba(37,35,95,0.05)]">
+  return <section className="reference-card overflow-hidden">
     <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`settings-card-${id}`} className="flex min-h-20 w-full items-center gap-3 p-4 text-right transition hover:bg-primary/[0.025] active:scale-[0.99]">
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Icon size={20} /></span>
       <span className="min-w-0 flex-1"><span className="block text-sm font-black text-foreground">{title}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{summary}</span></span>
@@ -106,7 +106,7 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
   };
 
   return <section className="space-y-4" dir="rtl">
-    <div className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+    <div className="reference-card p-5 sm:p-7">
       <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><Settings2 size={15} /> إعدادات القالب</span>
       <h2 className="text-2xl font-black text-foreground">جهّز شكل إعلانك</h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">افتح بطاقة واحدة في كل مرة. لا توجد مفاتيح تقنية هنا، وتبقى إعداداتك محفوظة على هذا الهاتف.</p>

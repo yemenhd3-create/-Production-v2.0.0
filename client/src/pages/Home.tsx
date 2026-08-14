@@ -380,27 +380,19 @@ export default function Home() {
   const currentIndex = WORKFLOW_STEPS.findIndex(step => step.id === currentStep);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f4ebff_0%,_#fffaf4_34%,_#fffaf4_100%)] text-foreground" dir="rtl">
-      <header className="sticky top-0 z-20 border-b border-primary/10 bg-[#fffaf4]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="relative"><img src={LOGO_URL} alt="Marwan Designer" className="h-11 w-11 rounded-2xl border border-white object-contain shadow-sm" /><span className="absolute -bottom-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] text-accent-foreground"><Sparkles size={9} /></span></div>
-            <div>
-              <div className="flex items-center gap-1.5"><h1 className="text-lg font-black tracking-tight text-primary">استوديو إعلانات الملابس</h1><BadgeCheck size={15} className="text-accent" /></div>
-              <p className="text-[11px] font-bold text-muted-foreground">مساحة تعليمية لصناعة إعلانك</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={19} /></button>
-            <button type="button" onClick={() => setActiveView('settings')} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-95" aria-label="الإعدادات"><Settings size={19} /></button>
-          </div>
+    <div className="reference-shell min-h-screen text-foreground" dir="rtl">
+      <header className="sticky top-0 z-20 bg-[#fdfbf8]/92 backdrop-blur-xl">
+        <div className="mx-auto grid max-w-2xl grid-cols-[44px_minmax(0,1fr)_48px] items-center gap-3 px-5 py-4">
+          <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={20} /></button>
+          <div className="min-w-0 text-center"><h1 className="text-[15px] font-black leading-5 tracking-tight text-primary sm:text-xl">استوديو إعلانات الملابس</h1><p className="mt-0.5 text-[10px] font-bold text-muted-foreground">صمّم إعلانك بخطوات سهلة</p></div>
+          <button type="button" onClick={() => setActiveView('settings')} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1.5 shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="الإعدادات"><img src={LOGO_URL} alt="شعار التطبيق" className="h-full w-full object-contain" /></button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pt-9">
+      <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-5 sm:pt-8">
         {activeView === 'create' && <PwaInstallPrompt />}
 
-        {activeView === 'create' && <section className="mb-6 rounded-3xl border border-primary/5 bg-white/95 p-4 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
+        {activeView === 'create' && <section className={`reference-card mb-6 p-4 ${currentStep === 'upload' ? 'hidden' : ''}`}>
           <div className="mb-3 flex items-center justify-between px-1">
             <span className="text-xs font-black text-primary">خطوة {currentIndex + 1} من {WORKFLOW_STEPS.length}</span>
             <span className="text-[11px] font-medium text-muted-foreground">من صورة القطعة إلى إعلان جاهز</span>
@@ -413,9 +405,9 @@ export default function Home() {
               return (
                 <button key={step.id} type="button" onClick={() => handleStepNavigation(step.id)} disabled={index > currentIndex} aria-current={isCurrent ? 'step' : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl px-1 py-1 text-center transition ${isCurrent ? 'bg-primary/[.06]' : ''} ${index <= currentIndex ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'}`}>
                   <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-black transition ${
-                      isCurrent
-                        ? 'bg-accent text-accent-foreground shadow-lg shadow-red-200'
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-black transition ${
+                    isCurrent
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                         : isDone
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary text-muted-foreground'
@@ -461,13 +453,18 @@ export default function Home() {
         )}
 
         {activeView === 'create' && currentStep === 'upload' && (
-          <section className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+          <section className="reference-card p-5 sm:p-7">
             <div className="mb-6">
-              <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                <ImagePlus size={15} /> المرحلة الأولى
-              </span>
-              <h2 className="text-2xl font-black text-foreground">ارفع صورة الملابس</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر صورة واضحة للقطعة فقط. سنجهزها للحفاظ على سرعة الهاتف، ثم تراجعها قبل إدخال بيانات الإعلان.</p>
+              <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><ImagePlus size={15} />الخطوة الأولى</span>
+              <h2 className="text-2xl font-black text-primary">جاهز لصناعة إعلانك؟</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر طريقة العمل ثم ارفع صورة واضحة للقطعة.</p>
+            </div>
+            <div className="mb-6">
+              <h3 className="mb-3 text-sm font-black text-primary">اختر طريقة العمل</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setActiveView('create')} aria-pressed className="rounded-[24px] border-2 border-primary bg-primary/[0.045] p-4 text-right shadow-sm transition active:scale-[0.98]"><span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-primary shadow-sm"><ImagePlus size={25} /></span><span className="block text-base font-black text-primary">إعلان فردي</span><span className="mt-1 block text-xs text-muted-foreground">قطعة واحدة</span><span className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span></button>
+                <button type="button" onClick={() => setActiveView('batch')} className="rounded-[24px] border border-[#e8e4ed] bg-white p-4 text-right shadow-sm transition hover:border-primary/30 active:scale-[0.98]"><span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Images size={25} /></span><span className="block text-base font-black text-primary">إنشاء دفعة</span><span className="mt-1 block text-xs text-muted-foreground">حتى 10 صور</span></button>
+              </div>
             </div>
             {hasRestoredDraft && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-right">
               <RotateCcw size={19} className="mt-0.5 shrink-0 text-primary" />
@@ -487,11 +484,11 @@ export default function Home() {
         )}
 
         {activeView === 'create' && currentStep === 'details' && (
-          <section className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
-            <div className="mb-6 flex gap-4 rounded-2xl bg-secondary/60 p-3">
+          <section className="reference-card p-5 sm:p-7">
+            <div className="mb-6 flex gap-4 rounded-[22px] border border-[#e9e5ef] bg-white p-3 shadow-sm">
               <img src={productImage} alt="صورة القطعة المختارة" className="h-16 w-16 rounded-xl object-cover" />
               <div className="min-w-0 flex-1">
-                <span className="text-xs font-bold text-primary">المرحلة الثانية</span>
+                <span className="text-xs font-bold text-primary">الصورة جاهزة</span>
                 <h2 className="mt-1 text-xl font-black text-foreground">بيانات الإعلان</h2>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">جميع الحقول اختيارية؛ لن يتوقف الإعلان إن تركتها فارغة.</p>
               </div>
@@ -538,7 +535,7 @@ export default function Home() {
             <button
               type="button"
               onClick={generateAd}
-              className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 text-base font-black text-accent-foreground shadow-lg shadow-red-200 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="reference-primary mt-5 w-full"
             >
               <Sparkles size={20} /> توليد الإعلان
             </button>
@@ -547,13 +544,11 @@ export default function Home() {
 
         {activeView === 'create' && currentStep === 'final' && (
           <section className="space-y-5">
-            <div className="rounded-[28px] bg-white p-5 shadow-[0_16px_40px_rgba(37,35,95,0.08)] sm:p-7">
+            <div className="reference-card p-5 sm:p-7">
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                    <Sparkles size={15} /> المرحلة الثالثة
-                  </span>
-                  <h2 className="mt-3 text-2xl font-black text-foreground">الإعلان النهائي</h2>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"><BadgeCheck size={15} /> الإعلان جاهز</span>
+                  <h2 className="mt-3 text-2xl font-black text-primary">إعلانك أصبح جاهزاً</h2>
                   <p className="mt-1 text-sm text-muted-foreground">راجع النتيجة ثم نزّلها أو شاركها مباشرة.</p>
                 </div>
                 <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isGenerating} onClick={regenerateWithCurrentSettings} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button><button
@@ -607,11 +602,11 @@ export default function Home() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-primary/10 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#ece8f0] bg-[#fdfbf8]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
         <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
-          <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Sparkles size={19} />إنشاء</button>
-          <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={19} />دفعة</button>
-          <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={19} />الإعدادات</button>
+          <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={20} />الإعدادات</button>
+          <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={20} />دفعات</button>
+          <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><span className={`flex h-9 w-9 items-center justify-center rounded-full ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-white text-muted-foreground'}`}><Sparkles size={19} /></span>إنشاء</button>
         </div>
       </nav>
     </div>
@@ -624,11 +619,11 @@ function PageLoading({ label }: { label: string }) {
 
 function SingleImageReview({ image, onImageSelect, onImageRemove, onContinue }: { image: string; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
   return <div className="space-y-5">
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-      <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div><h3 className="text-sm font-black text-emerald-950">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-emerald-900">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
+    <div className="rounded-2xl border border-primary/10 bg-primary/[0.045] p-4">
+      <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
-    <button type="button" onClick={onContinue} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 text-base font-black text-accent-foreground shadow-lg shadow-red-200 transition active:scale-[0.98]"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
+    <button type="button" onClick={onContinue} className="reference-primary w-full"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
   </div>;
 }
 

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.987 0.008 92);
+  --color-background: oklch(0.985 0.006 88);
   --color-foreground: oklch(0.23 0.035 285);
   --color-card: oklch(1 0 0);
   --color-card-foreground: oklch(0.23 0.035 285);
@@ -9,11 +9,11 @@
   --color-popover-foreground: oklch(0.23 0.035 285);
   --color-primary: oklch(0.33 0.16 295);
   --color-primary-foreground: oklch(0.985 0.01 92);
-  --color-secondary: oklch(0.95 0.015 90);
+  --color-secondary: oklch(0.955 0.018 292);
   --color-secondary-foreground: oklch(0.23 0.035 285);
-  --color-muted: oklch(0.94 0.012 90);
+  --color-muted: oklch(0.955 0.012 290);
   --color-muted-foreground: oklch(0.52 0.025 285);
-  --color-accent: oklch(0.62 0.22 25);
+  --color-accent: oklch(0.37 0.17 295);
   --color-accent-foreground: oklch(1 0 0);
   --color-destructive: oklch(0.58 0.22 27);
   --color-destructive-foreground: oklch(1 0 0);
@@ -25,15 +25,15 @@
 /* ========== Arabic Fonts & RTL Setup ========== */
 @layer base {
   :root {
-    --background: oklch(0.987 0.008 92);
+    --background: oklch(0.985 0.006 88);
     --foreground: oklch(0.23 0.035 285);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.23 0.035 285);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.23 0.035 285);
-    --muted: oklch(0.94 0.012 90);
+    --muted: oklch(0.955 0.012 290);
     --muted-foreground: oklch(0.52 0.025 285);
-    --accent: oklch(0.62 0.22 25);
+    --accent: oklch(0.37 0.17 295);
     --accent-foreground: oklch(1 0 0);
     --destructive: oklch(0.58 0.22 27);
     --destructive-foreground: oklch(1 0 0);
@@ -67,7 +67,7 @@
   }
 
   body {
-    @apply bg-white text-gray-900;
+    @apply bg-background text-gray-900;
     margin: 0;
     line-height: 1.6;
     min-height: 100%;
@@ -111,6 +111,30 @@
 
 /* ========== Tailwind Components ========== */
 @layer components {
+  .reference-shell {
+    background: radial-gradient(circle at 50% -10%, rgba(242, 237, 255, 0.92) 0%, rgba(253, 251, 248, 0) 37%), #fdfbf8;
+  }
+
+  .reference-card {
+    @apply rounded-[28px] border border-[#ebe7f0] bg-white shadow-[0_10px_28px_rgba(50,34,99,0.055)];
+  }
+
+  .reference-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary;
+  }
+
+  .reference-primary {
+    @apply inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-black text-primary-foreground shadow-[0_10px_22px_rgba(57,34,124,0.18)] transition hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .reference-outline {
+    @apply inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-white px-5 text-base font-black text-primary transition hover:bg-primary/5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .reference-local-note {
+    @apply flex items-center justify-center gap-2 rounded-2xl bg-primary/[0.055] px-4 py-3 text-center text-xs font-bold text-primary/80;
+  }
+
   /* Buttons */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;

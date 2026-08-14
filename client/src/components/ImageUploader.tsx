@@ -92,7 +92,7 @@ export default function ImageUploader({
       {/* Image Preview */}
       {currentImage ? (
         <div className="relative">
-          <div className="w-full overflow-hidden rounded-3xl border border-primary/10 bg-secondary/60">
+          <div className="w-full overflow-hidden rounded-[28px] border border-[#e8e4ee] bg-[#fbfaff] shadow-sm">
             <img
               src={currentImage}
               alt="معاينة صورة الملابس المختارة"
@@ -105,7 +105,7 @@ export default function ImageUploader({
             <button
               type="button"
               onClick={onImageRemove}
-              className="absolute left-3 top-3 rounded-xl bg-red-600 p-2 text-white shadow-sm transition active:scale-95"
+              className="absolute left-3 top-3 rounded-xl bg-primary p-2 text-primary-foreground shadow-sm transition active:scale-95"
               aria-label="حذف صورة الملابس"
             >
               <X size={20} />
@@ -116,7 +116,7 @@ export default function ImageUploader({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-sm transition active:scale-95"
+              className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-sm transition active:scale-95"
           >
             <Upload size={18} />
             تغيير الصورة
@@ -129,10 +129,10 @@ export default function ImageUploader({
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className={`rounded-3xl border-2 border-dashed p-7 text-center transition-colors ${
+          className={`rounded-[28px] border-2 border-dashed p-7 text-center transition-colors ${
             isDragging
               ? 'border-primary bg-primary/5'
-              : 'border-stone-200 bg-secondary/35 hover:border-primary/40'
+              : 'border-[#ddd7e8] bg-[#fcfbff] hover:border-primary/40'
           }`}
         >
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"><ImageUp size={29} /></div>
@@ -149,7 +149,7 @@ export default function ImageUploader({
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading}
-              className="flex min-h-12 items-center justify-center gap-2"
+              className="reference-primary min-h-14 w-full"
             >
               <ImageUp size={17} /> {isLoading ? 'جارٍ التحميل…' : 'من المعرض'}
             </Button>
@@ -158,7 +158,7 @@ export default function ImageUploader({
               variant="outline"
               onClick={() => cameraInputRef.current?.click()}
               disabled={isLoading}
-              className="flex min-h-12 items-center justify-center gap-2 border-primary/20 bg-white text-primary"
+              className="reference-outline min-h-14 w-full"
             >
               <Camera size={17} /> بالكاميرا
             </Button>
@@ -185,9 +185,9 @@ export default function ImageUploader({
 
       {/* Image Info */}
       {currentImage && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm"><BadgeCheck size={19} /></div>
-          <p className="text-sm font-bold text-emerald-900">تم تجهيز الصورة بنجاح. راجعها ثم اختر المتابعة عندما تكون جاهزة.</p>
+        <div className="reference-local-note">
+          <BadgeCheck size={18} />
+          <p>تم تجهيز الصورة محلياً. راجعها ثم اختر المتابعة عندما تكون جاهزة.</p>
         </div>
       )}
     </div>
