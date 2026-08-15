@@ -89,6 +89,7 @@ export default function Home() {
   const [selectedSuggestedSize, setSelectedSuggestedSize] = useState<TemplateSize>('portrait');
   const [preferenceProfile, setPreferenceProfile] = useState(() => loadPreferenceProfile());
   const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
+  const [comparisonPreviews, setComparisonPreviews] = useState<{ current: string; suggested: string } | null>(null);
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
@@ -161,6 +162,25 @@ export default function Home() {
     });
     return () => { active = false; };
   }, [productImage]);
+
+  useEffect(() => {
+    if (!productImage || !designSuggestion) { setComparisonPreviews(null); return; }
+    let active = true;
+    let previews: { current: string; suggested: string } | null = null;
+    const selected = { ...designSuggestion, selectedLayout: selectedSuggestedSize };
+    void Promise.all([
+      renderAd(adDetails, templateSettings, productImage, { width: 216, height: 270, quality: .72 }),
+      renderAd(adDetails, applyDesignSuggestion(templateSettings, selected), productImage, { width: 216, height: 270, quality: .72 }),
+    ]).then(([current, suggested]) => {
+      previews = { current, suggested };
+      if (active) setComparisonPreviews(previews);
+      else { URL.revokeObjectURL(current); URL.revokeObjectURL(suggested); }
+    }).catch(() => { if (active) setComparisonPreviews(null); });
+    return () => {
+      active = false;
+      if (previews) { URL.revokeObjectURL(previews.current); URL.revokeObjectURL(previews.suggested); }
+    };
+  }, [productImage, designSuggestion, selectedSuggestedSize, templateSettings, adDetails]);
 
   const handleImageSelect = (imageUrl: string) => {
     setProductImage(imageUrl);
@@ -469,7 +489,7 @@ export default function Home() {
               <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
             </div>}
             {isReviewingImage && productImage ? (
-              <SingleImageReview image={productImage} suggestion={designSuggestion} isDesignAnalyzing={isDesignAnalyzing} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+              <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
             ) : (
               <ImageUploader
                 onImageSelect={handleImageSelect}
@@ -587,14 +607,14 @@ function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
 }
 
-function SingleImageReview({ image, suggestion, isDesignAnalyzing, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; isDesignAnalyzing: boolean; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
+function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnalyzing, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
   return <div className="space-y-5">
     <div className="rounded-2xl border border-primary/10 bg-primary/[0.045] p-4">
       <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
     {isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
-    {suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} currentSize={currentSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} preferencesEnabled={preferenceEnabled} onTogglePreferences={onTogglePreferences} onClearPreferences={onClearPreferences} />}
+    {suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} currentSize={currentSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} preferencesEnabled={preferenceEnabled} onTogglePreferences={onTogglePreferences} onClearPreferences={onClearPreferences} comparisonPreviews={comparisonPreviews} />}
     <button type="button" onClick={onContinue} className="reference-primary w-full"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
   </div>;
 }
