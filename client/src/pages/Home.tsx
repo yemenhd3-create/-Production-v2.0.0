@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import type { AdDetails, AdWorkflowStep, TemplateSettings, TryOnResult } from '@shared/types';
+import type { AdDetails, AdWorkflowStep, DesignSuggestion, TemplateSettings, TemplateSize, TryOnResult } from '@shared/types';
 import {
   DEFAULT_AD_DETAILS,
   DEFAULT_TEMPLATE_SETTINGS,
@@ -11,8 +11,11 @@ import {
   getCanvasDimensions,
 } from '@shared/adWorkflow';
 import ImageUploader from '@/components/ImageUploader';
+import LocalDesignSuggestionCard from '@/components/LocalDesignSuggestionCard';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import { renderAd } from '@/lib/canvasRenderer';
+import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
+import { createLocalDesignSuggestion } from '@/lib/localDesignIntelligence';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
 import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
@@ -81,6 +84,10 @@ export default function Home() {
   const [isReviewingImage, setIsReviewingImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
+  const [designSuggestion, setDesignSuggestion] = useState<DesignSuggestion | null>(null);
+  const [selectedSuggestedSize, setSelectedSuggestedSize] = useState<TemplateSize>('portrait');
+  const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
+  const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
@@ -91,9 +98,14 @@ export default function Home() {
   useEffect(() => {
     const savedDetails = getFromStorage<AdDetails>(StorageKeys.LAST_AD_DETAILS);
     const savedTemplate = getFromStorage<TemplateSettings>(StorageKeys.TEMPLATE_SETTINGS);
+    const savedSuggestion = getFromStorage<DesignSuggestion>(StorageKeys.DESIGN_SUGGESTION);
 
     if (savedDetails) setAdDetails({ ...DEFAULT_AD_DETAILS, ...savedDetails });
     if (savedTemplate) setTemplateSettings({ ...DEFAULT_TEMPLATE_SETTINGS, ...savedTemplate });
+    if (savedSuggestion?.version === 1) {
+      setDesignSuggestion(savedSuggestion);
+      setSelectedSuggestedSize(savedSuggestion.selectedLayout);
+    }
     setHasRestoredDraft(Boolean(savedDetails && hasMeaningfulDraft(savedDetails)));
     setIsStorageReady(true);
   }, []);
@@ -108,6 +120,12 @@ export default function Home() {
     if (!isStorageReady) return;
     saveToStorage(StorageKeys.TEMPLATE_SETTINGS, templateSettings);
   }, [templateSettings, isStorageReady]);
+
+  useEffect(() => {
+    if (!isStorageReady) return;
+    if (designSuggestion) saveToStorage(StorageKeys.DESIGN_SUGGESTION, designSuggestion);
+    else removeFromStorage(StorageKeys.DESIGN_SUGGESTION);
+  }, [designSuggestion, isStorageReady]);
 
   useEffect(() => {
     if (!isStorageReady || !isMainApplicationSection(activeView)) return;
@@ -126,11 +144,29 @@ export default function Home() {
     };
   }, [generatedAd]);
 
+  useEffect(() => {
+    if (!productImage) return;
+    let active = true;
+    setIsDesignAnalyzing(true);
+    void createLocalDesignSuggestion(productImage, adDetails).then(suggestion => {
+      if (!active) return;
+      setDesignSuggestion(suggestion);
+      setSelectedSuggestedSize(suggestion.selectedLayout);
+    }).catch(() => {
+      if (active) setDesignSuggestion(null);
+    }).finally(() => {
+      if (active) setIsDesignAnalyzing(false);
+    });
+    return () => { active = false; };
+  }, [productImage]);
+
   const handleImageSelect = (imageUrl: string) => {
     setProductImage(imageUrl);
     setGeneratedAd('');
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
+    setDesignSuggestion(null);
+    setTemplateBeforeSuggestion(null);
     setCurrentStep('upload');
     setIsReviewingImage(true);
     toast.success('تمت إضافة الصورة. راجعها ثم تابع إلى بيانات الإعلان.');
@@ -141,6 +177,8 @@ export default function Home() {
     setGeneratedAd('');
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
+    setDesignSuggestion(null);
+    setTemplateBeforeSuggestion(null);
     setIsReviewingImage(false);
     setCurrentStep('upload');
   };
@@ -175,6 +213,8 @@ export default function Home() {
     setIsReviewingImage(false);
     resetDraftFields();
     setTryOnResult({ status: 'idle', message: '' });
+    setDesignSuggestion(null);
+    setTemplateBeforeSuggestion(null);
     setCurrentStep('upload');
     setActiveView('create');
     removeFromStorage(StorageKeys.LAST_WORKFLOW_STEP);
@@ -190,6 +230,25 @@ export default function Home() {
   const discardRestoredDraft = () => {
     resetDraftFields();
     toast.success('بدأت مسودة بيانات جديدة. إعدادات القالب والشعار والتذييل بقيت محفوظة.');
+  };
+
+  const acceptDesignSuggestion = () => {
+    if (!designSuggestion) return;
+    const selectedSuggestion = { ...designSuggestion, selectedLayout: selectedSuggestedSize };
+    setTemplateBeforeSuggestion(previous => previous || templateSettings);
+    setTemplateSettings(current => applyDesignSuggestion(current, selectedSuggestion));
+    if (!adDetails.marketingText.trim() && selectedSuggestion.suggestedText) {
+      setAdDetails(current => ({ ...current, marketingText: selectedSuggestion.suggestedText }));
+    }
+    setDesignSuggestion(selectedSuggestion);
+    toast.success('تم اعتماد الاقتراح. تستطيع تعديل القالب أو التراجع قبل التصدير.');
+  };
+
+  const undoDesignSuggestion = () => {
+    if (!templateBeforeSuggestion) return;
+    setTemplateSettings(templateBeforeSuggestion);
+    setTemplateBeforeSuggestion(null);
+    toast.success('تمت إعادة إعدادات القالب السابقة.');
   };
 
   const generateAd = async () => {
@@ -221,7 +280,7 @@ export default function Home() {
       const dimensions = getCanvasDimensions(templateSettings.size);
       setLastVisualSource(localImage.imageUrl);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment' }),
+        renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment', garmentTransform: templateSettings.smartGarmentTransform }),
         15_000,
         'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
       );
@@ -250,7 +309,7 @@ export default function Home() {
     try {
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
+        renderAd(adDetails, templateSettings, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: templateSettings.smartGarmentTransform }),
         15_000,
         'انتهت مهلة إعادة بناء الإعلان. أعد المحاولة أو جرّب صورة أصغر.'
       );
@@ -401,7 +460,7 @@ export default function Home() {
               <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
             </div>}
             {isReviewingImage && productImage ? (
-              <SingleImageReview image={productImage} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+              <SingleImageReview image={productImage} suggestion={designSuggestion} isDesignAnalyzing={isDesignAnalyzing} selectedSize={selectedSuggestedSize} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={() => { setDesignSuggestion(null); setTemplateBeforeSuggestion(null); }} onUndoSuggestion={undoDesignSuggestion} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
             ) : (
               <ImageUploader
                 onImageSelect={handleImageSelect}
@@ -519,12 +578,14 @@ function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
 }
 
-function SingleImageReview({ image, onImageSelect, onImageRemove, onContinue }: { image: string; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
+function SingleImageReview({ image, suggestion, isDesignAnalyzing, selectedSize, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; isDesignAnalyzing: boolean; selectedSize: TemplateSize; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
   return <div className="space-y-5">
     <div className="rounded-2xl border border-primary/10 bg-primary/[0.045] p-4">
       <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
+    {isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
+    {suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} />}
     <button type="button" onClick={onContinue} className="reference-primary w-full"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
   </div>;
 }

@@ -88,6 +88,10 @@ export interface BatchAdItem {
   details?: Partial<Pick<AdDetails, 'productName' | 'headline' | 'discount' | 'price' | 'quantity' | 'colors'>>;
   /** نص مستقل اختياري لهذا الإعلان عند اعتماد وضع النصوص الفردية. */
   marketingText?: string;
+  /** اقتراح محلي مستقل لهذه الصورة؛ لا يحتوي على الصورة ولا يُرسل للخادم. */
+  designSuggestion?: DesignSuggestion;
+  /** لا يطبق اقتراح الدفعة على Canvas إلا بعد لمس المستخدم لهذا الخيار. */
+  designSuggestionApplied?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -107,6 +111,58 @@ export interface BatchAdDraft {
 export type BatchMarketingTextMode = 'shared' | 'perItem';
 
 export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
+
+// ========== Local design intelligence ==========
+/** موضع نسبي داخل منطقة بطل الإعلان وليس داخل كامل Canvas. */
+export interface GarmentDesignTransform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type DesignQualityVerdict = 'excellent' | 'good' | 'usable' | 'needs-attention';
+
+export interface DesignColorSwatch {
+  hex: string;
+  label: string;
+  weight: number;
+}
+
+/** سبب صريح قابل للعرض؛ الأرقام ناتجة من قواعد محلية وليست من مزود خارجي. */
+export interface DesignDecisionReason {
+  title: string;
+  explanation: string;
+  metrics: Record<string, number>;
+}
+
+export interface DesignLayoutCandidate {
+  size: TemplateSize;
+  score: number;
+  garmentTransform: GarmentDesignTransform;
+  reasons: DesignDecisionReason[];
+}
+
+/**
+ * ناتج محلل التصميم المحلي. يحفظ metadata صغيرة فقط ولا يحتوي على الصورة أو أي مفتاح.
+ * الإصدار يجعل المسودات القديمة قابلة للاسترجاع بأمان.
+ */
+export interface DesignSuggestion {
+  version: 1;
+  status: 'ready' | 'degraded';
+  generatedAt: number;
+  confidence: number;
+  warnings: string[];
+  quality: { score: number; verdict: DesignQualityVerdict; brightness: number; contrast: number; sharpness: number };
+  foreground: { x: number; y: number; width: number; height: number; coverage: number };
+  crop: { x: number; y: number; width: number; height: number; safeMargin: number };
+  colors: DesignColorSwatch[];
+  suggestedBackground: string;
+  suggestedTextColor: string;
+  selectedLayout: TemplateSize;
+  candidates: DesignLayoutCandidate[];
+  suggestedText: string;
+}
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
 export type ArtworkFitMode = 'contain' | 'cover' | 'stretch';
@@ -146,6 +202,12 @@ export interface TemplateSettings {
   showFooterArtwork: boolean;
   footerArtwork?: string;
   artworkLayouts?: ArtworkLayoutsBySize;
+  /** لون خلفية اختياري اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartBackgroundColor?: string;
+  /** لون نص اختياري اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartTextColor?: string;
+  /** تحويل اختياري للقطعة اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartGarmentTransform?: GarmentDesignTransform;
 }
 
 // ========== Store Settings ==========
@@ -318,6 +380,7 @@ export enum StorageKeys {
   TEMPLATE_SETTINGS = 'clothing_ad_template_settings',
   LAST_WORKFLOW_STEP = 'clothing_ad_last_workflow_step',
   LAST_APP_SECTION = 'clothing_ad_last_app_section',
+  DESIGN_SUGGESTION = 'clothing_ad_design_suggestion_v1',
 }
 
 // ========== Constants ==========

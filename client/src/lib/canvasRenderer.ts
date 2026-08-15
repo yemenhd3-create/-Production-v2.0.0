@@ -6,6 +6,7 @@ export interface RenderOptions {
   height?: number;
   quality?: number;
   visualMode?: 'garment' | 'transparentPerson';
+  garmentTransform?: { x: number; y: number; width: number; height: number };
 }
 
 const COLORS = {
@@ -36,7 +37,7 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
 
   const layout: Layout = { width, height, scale: width / 1080, font: (weight, size) => `${weight} ${Math.round(size * (width / 1080))}px ${TEMPLATE_FONT_FAMILY}` };
   const geometry = createGeometry(template.size, width, height);
-  ctx.fillStyle = COLORS.background;
+  ctx.fillStyle = template.smartBackgroundColor || COLORS.background;
   ctx.fillRect(0, 0, width, height);
 
   const logoTransform = getArtworkTransform(template, 'logo');
@@ -44,7 +45,7 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   drawTextHeader(ctx, details, template, geometry.header, layout);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
-  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment');
+  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform);
   drawBadges(ctx, details, template, geometry.badge, layout);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout);
@@ -113,10 +114,20 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
   ctx.restore();
 }
 
-async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson') {
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }) {
   // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
   const padding = Math.min(box.width, box.height) * .015;
-  await drawImageContain(ctx, imageSrc, box.x + padding, box.y + padding, box.width - padding * 2, box.height - padding * 2, visualMode);
+  const safeBox = { x: box.x + padding, y: box.y + padding, width: box.width - padding * 2, height: box.height - padding * 2 };
+  const selected = transform ? constrainedHeroTransform(safeBox, transform) : safeBox;
+  await drawImageContain(ctx, imageSrc, selected.x, selected.y, selected.width, selected.height, visualMode);
+}
+
+function constrainedHeroTransform(hero: Box, transform: { x: number; y: number; width: number; height: number }): Box {
+  const x = Math.max(0, Math.min(.92, transform.x));
+  const y = Math.max(0, Math.min(.92, transform.y));
+  const width = Math.max(.35, Math.min(1 - x, transform.width));
+  const height = Math.max(.35, Math.min(1 - y, transform.height));
+  return { x: hero.x + hero.width * x, y: hero.y + hero.height * y, width: hero.width * width, height: hero.height * height };
 }
 
 function getBadgeTypes(template: TemplateSettings, details: AdDetails): Array<Exclude<TemplateBadgeType, 'none'>> {
