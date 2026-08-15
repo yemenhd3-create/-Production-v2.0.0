@@ -1,12 +1,13 @@
 import { BATCH_EXPIRY_MS, BATCH_MAX_IMAGES, type BatchAdDraft, type BatchAdItem, type BatchItemStatus } from '@shared/types';
 
-export function createBatchItem(fileName: string, sourceUrl: string, now = Date.now()): BatchAdItem {
+export function createBatchItem(fileName: string, sourceUrl: string, now = Date.now(), details?: BatchAdItem['details']): BatchAdItem {
   return {
     id: `batch-item-${now}-${Math.random().toString(36).slice(2, 8)}`,
     fileName,
     sourceUrl,
     thumbnailUrl: sourceUrl,
     status: 'ready',
+    details,
     createdAt: now,
     updatedAt: now,
   };

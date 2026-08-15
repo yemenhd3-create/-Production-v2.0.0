@@ -31,6 +31,11 @@ describe('batch advertisement queue', () => {
     expect(getBatchProgress(statuses)).toEqual({ completed: 3, total: 4, percent: 75 });
   });
 
+  it('preserves optional product metadata on an individual batch item', () => {
+    const item = createBatchItem('shirt.jpg', 'blob:shirt', 123, { productName: 'قميص صيفي', price: '120', discount: '15%' });
+    expect(item.details).toEqual({ productName: 'قميص صيفي', price: '120', discount: '15%' });
+  });
+
   it('reorders items deterministically and ignores moves beyond the queue edges', () => {
     expect(reorderBatchItems(['أ', 'ب', 'ج'], 1, 'up')).toEqual(['ب', 'أ', 'ج']);
     expect(reorderBatchItems(['أ', 'ب', 'ج'], 1, 'down')).toEqual(['أ', 'ج', 'ب']);

@@ -20,6 +20,25 @@ describe('batch workspace', () => {
     expect(html).not.toContain('نص مستقل لكل صورة');
   });
 
+  it('shows independent product fields for each uploaded image while retaining shared defaults', () => {
+    const now = Date.now();
+    const html = renderToStaticMarkup(createElement(BatchWorkspace, {
+      details: { ...DEFAULT_AD_DETAILS, productName: 'اسم عام' },
+      template: DEFAULT_TEMPLATE_SETTINGS,
+      onDetailsChange: () => undefined,
+      onBack: () => undefined,
+      previewItems: [
+        { id: 'one', fileName: 'dress.jpg', sourceUrl: 'data:image/png;base64,a', thumbnailUrl: 'data:image/png;base64,a', status: 'ready', createdAt: now, updatedAt: now },
+        { id: 'two', fileName: 'shirt.jpg', sourceUrl: 'data:image/png;base64,b', thumbnailUrl: 'data:image/png;base64,b', status: 'ready', createdAt: now, updatedAt: now },
+      ],
+    }));
+
+    expect(html).toContain('اسم المنتج للصورة 1');
+    expect(html).toContain('اسم المنتج للصورة 2');
+    expect(html).toContain('نسخ الاسم والسعر والخصم إلى كل الصور');
+    expect(html).toContain('value="اسم عام"');
+  });
+
   it('يُظهر سياسة النص المشترك أو المستقل بعد إضافة صور إلى الدفعة', () => {
     const now = Date.now();
     const html = renderToStaticMarkup(createElement(BatchWorkspace, {

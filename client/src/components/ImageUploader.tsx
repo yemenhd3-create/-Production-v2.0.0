@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useRef, useState } from 'react';
 import { prepareSelectedFile, readImageWithFallback } from '@/lib/imageUploadFlow';
 import { getImagePreparationErrorMessage } from '@/lib/imageUploadSupport';
+import GarmentCropEditor from './GarmentCropEditor';
 import { Button } from './ui/button';
 
 interface ImageUploaderProps {
@@ -21,6 +22,7 @@ export default function ImageUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [pendingCrop, setPendingCrop] = useState<{ source: string; file: File } | null>(null);
 
   const handleFileSelect = async (file: File) => {
     setErrorMessage('');
@@ -38,13 +40,28 @@ export default function ImageUploader({
 
     try {
       const imageUrl = await prepareImageFile(file);
-      onImageSelect(imageUrl, file);
+      setPendingCrop({ source: imageUrl, file });
     } catch (error) {
       console.error('Failed to prepare image:', error);
       setErrorMessage(getImagePreparationErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const saveCroppedImage = (dataUrl: string) => {
+    if (!pendingCrop) return;
+    const file = pendingCrop.file;
+    URL.revokeObjectURL(pendingCrop.source);
+    setPendingCrop(null);
+    onImageSelect(dataUrl, file);
+  };
+
+  const useOriginalImage = () => {
+    if (!pendingCrop) return;
+    const { source, file } = pendingCrop;
+    setPendingCrop(null);
+    onImageSelect(source, file);
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -190,6 +207,8 @@ export default function ImageUploader({
           <p>تم تجهيز الصورة محلياً. راجعها ثم اختر المتابعة عندما تكون جاهزة.</p>
         </div>
       )}
+
+      {pendingCrop && <GarmentCropEditor source={pendingCrop.source} onSave={saveCroppedImage} onUseOriginal={useOriginalImage} />}
     </div>
   );
 }

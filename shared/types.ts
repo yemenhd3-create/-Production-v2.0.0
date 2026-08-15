@@ -82,6 +82,8 @@ export interface BatchAdItem {
   outputUrl?: string;
   error?: string;
   usedLocalRemoval?: boolean;
+  /** بيانات أساسية خاصة بهذه الصورة؛ عند غيابها تستخدم الدفعة البيانات المشتركة. */
+  details?: Partial<Pick<AdDetails, 'productName' | 'headline' | 'discount' | 'price' | 'quantity' | 'colors'>>;
   /** نص مستقل اختياري لهذا الإعلان عند اعتماد وضع النصوص الفردية. */
   marketingText?: string;
   createdAt: number;
