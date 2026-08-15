@@ -7,6 +7,7 @@ import type {
   GarmentDesignTransform,
   TemplateSize,
 } from '@shared/types';
+import { loadPreferenceProfile, rankCompositionCandidates } from './localArtDirectorPreferences';
 
 export type LocalImageMetrics = {
   width: number;
@@ -42,7 +43,13 @@ export function createSuggestionFromMetrics(metrics: LocalImageMetrics, details:
   const qualityScore = scoreQuality(metrics);
   const crop = decideSafeCrop(metrics.foreground);
   const candidates = rankLayoutCandidates(metrics);
-  const selected = candidates[0] || fallbackCandidate();
+  const profile = loadPreferenceProfile();
+  const compositionScores = rankCompositionCandidates(candidates, qualityScore, profile);
+  const rankedCandidates = compositionScores.map(composition => {
+    const original = candidates.find(candidate => candidate.size === composition.size) || fallbackCandidate();
+    return { ...original, score: composition.score, reasons: [...original.reasons, composition.reason] };
+  });
+  const selected = rankedCandidates[0] || fallbackCandidate();
   const suggestedBackground = chooseReadableBackground(metrics.colors);
   const suggestedTextColor = contrastRatio(suggestedBackground, '#2A2865') >= 4.5 ? '#2A2865' : '#111111';
   const suggestedText = buildEvidenceBoundText(details);
@@ -61,8 +68,10 @@ export function createSuggestionFromMetrics(metrics: LocalImageMetrics, details:
     suggestedBackground,
     suggestedTextColor,
     selectedLayout: selected.size,
-    candidates: candidates.slice(0, 3),
+    candidates: rankedCandidates.slice(0, 3),
     suggestedText,
+    compositionScores,
+    preferenceApplied: profile.enabled && (Object.keys(profile.acceptedLayouts).length > 0 || Object.keys(profile.rejectedLayouts).length > 0),
   };
 }
 

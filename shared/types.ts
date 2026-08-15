@@ -143,6 +143,24 @@ export interface DesignLayoutCandidate {
   reasons: DesignDecisionReason[];
 }
 
+/** نتيجة هندسية قابلة للتفسير تمنع تداخل منطقة القطعة مع النصوص والشعار والسعر. */
+export interface CompositionScore {
+  size: TemplateSize;
+  score: number;
+  metrics: Record<string, number>;
+  reason: DesignDecisionReason;
+  garmentTransform: GarmentDesignTransform;
+}
+
+/** تفضيلات صغيرة محلية فقط؛ لا تحتوي صورة أو بيانات متجر أو أي مفتاح. */
+export interface PreferenceProfile {
+  version: 1;
+  enabled: boolean;
+  acceptedLayouts: Partial<Record<TemplateSize, number>>;
+  rejectedLayouts: Partial<Record<TemplateSize, number>>;
+  updatedAt: number;
+}
+
 /**
  * ناتج محلل التصميم المحلي. يحفظ metadata صغيرة فقط ولا يحتوي على الصورة أو أي مفتاح.
  * الإصدار يجعل المسودات القديمة قابلة للاسترجاع بأمان.
@@ -162,6 +180,9 @@ export interface DesignSuggestion {
   selectedLayout: TemplateSize;
   candidates: DesignLayoutCandidate[];
   suggestedText: string;
+  /** درجات تكوين اختيارية مضافة للإصدارات الحديثة؛ تبقى المسودات القديمة متوافقة. */
+  compositionScores?: CompositionScore[];
+  preferenceApplied?: boolean;
 }
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
