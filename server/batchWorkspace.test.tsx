@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import BatchWorkspace from '../client/src/components/BatchWorkspace';
+import BatchWorkspace, { runWithConcurrency } from '../client/src/components/BatchWorkspace';
 import { DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
 
 describe('batch workspace', () => {
@@ -15,7 +15,7 @@ describe('batch workspace', () => {
 
     expect(html).toContain('إنشاء عدة إعلانات');
     expect(html).toContain('حتى 10 صور');
-    expect(html).toContain('واحدة بعد أخرى');
+    expect(html).toContain('بالتوازي الآمن');
     expect(html).toContain('إضافة صور إلى الدفعة (0/10)');
     expect(html).not.toContain('نص مستقل لكل صورة');
   });
@@ -53,6 +53,21 @@ describe('batch workspace', () => {
     expect(html).toContain('نص مشترك');
     expect(html).toContain('نص مستقل لكل صورة');
     expect(html).toContain('إزالة الخلفية محلياً لكل صورة');
-    expect(html).toContain('checked=""');
+  });
+
+  it('يعالج عناصر الدفعة بتوازٍ محدود بدلاً من التسلسل أو فتح كل العمليات معاً', async () => {
+    let active = 0;
+    let peak = 0;
+    const completed: number[] = [];
+    await runWithConcurrency([1, 2, 3, 4, 5], 2, async item => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise(resolve => setTimeout(resolve, 2));
+      completed.push(item);
+      active -= 1;
+    });
+
+    expect(peak).toBe(2);
+    expect(completed.sort()).toEqual([1, 2, 3, 4, 5]);
   });
 });

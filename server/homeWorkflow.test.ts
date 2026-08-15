@@ -36,7 +36,7 @@ vi.mock('../client/src/lib/storage', () => ({
 vi.mock('../client/src/components/ImageUploader', async () => {
   const { createElement: h } = await import('react');
   return {
-    default: ({ onImageSelect }: { onImageSelect: (url: string) => void }) => h('button', { type: 'button', onClick: () => onImageSelect('blob:product-original') }, 'رفع صورة اختبار'),
+    default: ({ onImageSelect }: { onImageSelect: (url: string) => void }) => h('button', { type: 'button', onClick: () => onImageSelect('blob:transparent-garment') }, 'رفع صورة اختبار'),
   };
 });
 vi.mock('../client/src/components/AdDetailsForm', async () => {
@@ -59,14 +59,14 @@ describe('Home Try-On workflow', () => {
     savedAdDetails = undefined;
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
-    removeBackgroundLocally.mockRejectedValue(new Error('محرك الإزالة المحلي غير متاح في هذا الاختبار'));
+    removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
     vi.stubGlobal('confirm', vi.fn(() => true));
     vi.stubGlobal('fetch', vi.fn((url: string | URL | Request) => {
       const target = typeof url === 'string' ? url : url.toString();
-      if (target === 'blob:product-original') return Promise.resolve({ ok: true, blob: async () => new Blob(['product'], { type: 'image/png' }) });
+      if (target === 'blob:transparent-garment') return Promise.resolve({ ok: true, blob: async () => new Blob(['product'], { type: 'image/png' }) });
       if (target === '/manus-storage/tryon-result.png' || target === '/manus-storage/raw-cutout.png') return Promise.resolve({ ok: true, blob: async () => new Blob(['tryon'], { type: 'image/png' }) });
       if (target === 'blob:final-ad') return Promise.resolve({ ok: true, blob: async () => new Blob(['advertisement'], { type: 'image/png' }) });
       return Promise.reject(new Error(`Unexpected URL: ${target}`));
@@ -100,40 +100,18 @@ describe('Home Try-On workflow', () => {
 
     await startGeneration();
 
-    await screen.findByText('تم تجهيز الملابس بخلفية شفافة على هذا الهاتف.');
+    await screen.findByText('تمت إزالة الخلفية محلياً على هذا الهاتف. لم تُرسل الصورة إلى أي خدمة خارجية.');
     expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:transparent-garment', expect.objectContaining({ visualMode: 'garment' }));
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it('falls back to the local garment canvas and explains the failure when Try-On rejects', async () => {
-    mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
-
+  it('يعرض فشل الإزالة المحلية مباشرة ولا يطلب أي مزود خارجي', async () => {
+    removeBackgroundLocally.mockRejectedValueOnce(new Error('LOCAL_REMOVAL_UNAVAILABLE'));
     await startGeneration();
-
-    await screen.findByText(/استخدمنا صورة القطعة الأصلية داخل القالب/);
-    expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:product-original', expect.anything());
-    expect(screen.getByTestId('tryon-notice-fallback')).toBeTruthy();
-  });
-
-  it('passes the generated Try-On image to Canvas and shows the success badge', async () => {
-    mutateAsync.mockResolvedValue({ imageUrl: '/manus-storage/tryon-result.png', providerId: 'provider-1', message: 'تم تلبيس القطعة بالذكاء الاصطناعي بنجاح.' });
-
-    await startGeneration();
-
-    await screen.findByText('تم تلبيس القطعة بالذكاء الاصطناعي بنجاح.');
-    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.anything()));
-    expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
-  });
-
-  it('uses a transparent raw product cutout when Try-On is unavailable but background removal succeeds', async () => {
-    mutateAsync.mockRejectedValue(new Error('لا يوجد مزود Try-On مفعّل'));
-    removeBackgroundMutateAsync.mockResolvedValue({ imageUrl: '/manus-storage/raw-cutout.png', providerId: 'background-provider', isTransparent: true, message: 'تمت إزالة خلفية صورة الملابس وحفظ PNG شفاف داخل القالب الأبيض.' });
-
-    await startGeneration();
-
-    await screen.findByText(/تمت إزالة خلفية صورة الملابس/);
-    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:prepared-tryon', expect.objectContaining({ visualMode: 'garment' })));
-    expect(screen.getByTestId('tryon-notice-success')).toBeTruthy();
+    expect(await screen.findByText(/تعذّر تجهيز الصورة محلياً/)).toBeTruthy();
+    expect(renderAd).not.toHaveBeenCalled();
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(removeBackgroundMutateAsync).not.toHaveBeenCalled();
   });
 
   it('يمرر الشعار وتذييل المتجر الكامل المحفوظين إلى معاينة الإعلان النهائية', async () => {
@@ -151,7 +129,7 @@ describe('Home Try-On workflow', () => {
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/png;base64,footer', showStoreLogo: true, storeLogoArtwork: 'data:image/png;base64,logo' }),
-      'blob:product-original',
+      'blob:transparent-garment',
       expect.anything()
     ));
   });
@@ -214,7 +192,7 @@ describe('Home Try-On workflow', () => {
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ showFooterArtwork: true, footerArtwork: 'data:image/jpeg;base64,trend-brand', showStoreLogo: true, storeLogoArtwork: 'data:image/jpeg;base64,trend-brand' }),
-      'blob:product-original',
+      'blob:transparent-garment',
       expect.anything()
     ));
   });
@@ -235,7 +213,7 @@ describe('Home Try-On workflow', () => {
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ badgeType: 'none', badgeTypes: [] }),
-      'blob:product-original',
+      'blob:transparent-garment',
       expect.anything()
     ));
     expect(mutateAsync.mock.calls).toHaveLength(requestsBefore);

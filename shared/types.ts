@@ -81,6 +81,8 @@ export interface BatchAdItem {
   status: BatchItemStatus;
   outputUrl?: string;
   error?: string;
+  /** وصف قصير لمرحلة المعالجة المحلية الجارية لهذه الصورة. */
+  progressMessage?: string;
   usedLocalRemoval?: boolean;
   /** بيانات أساسية خاصة بهذه الصورة؛ عند غيابها تستخدم الدفعة البيانات المشتركة. */
   details?: Partial<Pick<AdDetails, 'productName' | 'headline' | 'discount' | 'price' | 'quantity' | 'colors'>>;

@@ -8,16 +8,13 @@ import {
 } from '@shared/types';
 import {
   buildMarketingText,
-  createLocalFallbackResult,
   getCanvasDimensions,
-  resolveTryOnVisualSource,
 } from '@shared/adWorkflow';
 import ImageUploader from '@/components/ImageUploader';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import { renderAd } from '@/lib/canvasRenderer';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
-import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
-import { assessImageBackground, type BackgroundAssessment } from '@/lib/backgroundAssessment';
+import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
@@ -81,9 +78,6 @@ export default function Home() {
     message: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [useLocalBackgroundRemoval, setUseLocalBackgroundRemoval] = useState(true);
-  const [backgroundAssessment, setBackgroundAssessment] = useState<BackgroundAssessment>('unknown');
-  const [preferOriginalImage, setPreferOriginalImage] = useState(false);
   const [isReviewingImage, setIsReviewingImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
@@ -91,8 +85,6 @@ export default function Home() {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
   });
-  const tryOnMutation = trpc.tryOn.run.useMutation();
-  const backgroundRemoveMutation = trpc.tryOn.removeBackground.useMutation();
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery();
 
@@ -141,12 +133,6 @@ export default function Home() {
     setTryOnResult({ status: 'idle', message: '' });
     setCurrentStep('upload');
     setIsReviewingImage(true);
-    setBackgroundAssessment('analyzing');
-    setPreferOriginalImage(false);
-    void assessImageBackground(imageUrl).then(result => {
-      setBackgroundAssessment(result);
-      if (result === 'simple') setPreferOriginalImage(true);
-    });
     toast.success('تمت إضافة الصورة. راجعها ثم تابع إلى بيانات الإعلان.');
   };
 
@@ -155,8 +141,6 @@ export default function Home() {
     setGeneratedAd('');
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
-    setBackgroundAssessment('unknown');
-    setPreferOriginalImage(false);
     setIsReviewingImage(false);
     setCurrentStep('upload');
   };
@@ -222,77 +206,22 @@ export default function Home() {
       message: 'نجهّز الصورة والقالب للإعلان…',
     });
 
-    let localFallbackMessage = '';
-
     try {
-      if (useLocalBackgroundRemoval) {
-        try {
-          const localImage = await removeBackgroundLocally(productImage, stage => {
-            setTryOnResult({ status: 'processing', message: getLocalStageMessage(stage) });
-          });
-          setTryOnResult({
-            status: 'success',
-            imageUrl: localImage.imageUrl,
-            providerId: 'local-u2netp',
-            message: 'تم تجهيز الملابس بخلفية شفافة على هذا الهاتف.',
-            isTransparent: true,
-            transparentSubject: 'garment',
-          });
-          const dimensions = getCanvasDimensions(templateSettings.size);
-          setLastVisualSource(localImage.imageUrl);
-          const output = await withTimeout(
-            renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment' }),
-            15_000,
-            'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
-          );
-          setGeneratedAd(output);
-          setMarketingText(buildMarketingText(adDetails));
-          return;
-        } catch (localError) {
-          localFallbackMessage = getLocalRemovalUnavailableMessage(localError);
-          toast.error(`${localFallbackMessage} سنكمل بطريقة بديلة.`);
-          setTryOnResult({ status: 'processing', message: 'تعذرت الإزالة المحلية؛ نكمل بطريقة بديلة للصورة…' });
-        }
-      }
-
-      const tryOnWorkflow = await resolveTryOnVisualSource(
-        productImage,
-        async () => {
-          const productImageData = await blobUrlToDataUri(productImage);
-          try {
-            const aspectRatio = templateSettings.size === 'story' ? '9:16' : '4:5';
-            return await tryOnMutation.mutateAsync({
-              productImageData,
-              aspectRatio,
-            });
-          } catch (tryOnError) {
-            if (preferOriginalImage) {
-              return {
-                imageUrl: productImage,
-                providerId: 'original-image',
-                message: 'احتفظنا بصورة القطعة كما هي لأن الخلفية تبدو بسيطة، لتجنب قص الملابس الفاتحة.',
-              };
-            }
-            const rawCutout = await backgroundRemoveMutation.mutateAsync({ productImageData });
-            return {
-              ...rawCutout,
-              message: `تعذر التلبيس بالذكاء الاصطناعي، لكن ${rawCutout.message}`,
-              transparentSubject: 'garment' as const,
-            };
-          }
-        },
-        fetchImageAsBlobUrl
-      );
-      const imageForCanvas = tryOnWorkflow.imageForCanvas;
-      setLastVisualSource(imageForCanvas);
-      const resolvedResult = localFallbackMessage && tryOnWorkflow.result.status === 'fallback'
-        ? { ...tryOnWorkflow.result, message: `${localFallbackMessage} ${tryOnWorkflow.result.message}` }
-        : tryOnWorkflow.result;
-      setTryOnResult(resolvedResult);
-
+      const localImage = await removeBackgroundLocally(productImage, stage => {
+        setTryOnResult({ status: 'processing', message: getLocalStageMessage(stage) });
+      });
+      setTryOnResult({
+        status: 'success',
+        imageUrl: localImage.imageUrl,
+        providerId: 'local-u2netp',
+        message: 'تمت إزالة الخلفية محلياً على هذا الهاتف. لم تُرسل الصورة إلى أي خدمة خارجية.',
+        isTransparent: true,
+        transparentSubject: 'garment',
+      });
       const dimensions = getCanvasDimensions(templateSettings.size);
+      setLastVisualSource(localImage.imageUrl);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, imageForCanvas, { ...dimensions, visualMode: resolvedResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment' }),
+        renderAd(adDetails, templateSettings, localImage.imageUrl, { ...dimensions, visualMode: 'garment' }),
         15_000,
         'انتهت مهلة إنشاء الإعلان. جرّب صورة أصغر أو أعد المحاولة.'
       );
@@ -303,7 +232,7 @@ export default function Home() {
       console.error('Failed to generate local advertisement:', error);
       setTryOnResult({
         status: 'unavailable',
-        message: 'تعذّر إنشاء الإعلان حالياً. تحقق من الصورة ثم حاول مرة أخرى.',
+        message: 'تعذّر تجهيز الصورة محلياً. جرّب قص الزوائد أو صورة أصغر وأوضح، ثم أعد المحاولة.',
       });
     } finally {
       setIsGenerating(false);
@@ -505,25 +434,6 @@ export default function Home() {
 
             <div className="reference-local-note mt-5"><BadgeCheck size={18} />سيجهّز التطبيق الخلفية والنص تلقائياً على الهاتف.</div>
 
-            <details className="mt-4 rounded-2xl border border-dashed border-primary/20 bg-white px-4 py-3">
-              <summary className="cursor-pointer list-none text-sm font-black text-primary marker:hidden">خيارات الصورة المتقدمة</summary>
-              <div className="mt-4 border-t border-primary/10 pt-4">
-                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-primary/10 bg-primary/[0.04] p-4 text-right transition active:scale-[0.99]">
-                  <input
-                    type="checkbox"
-                    checked={useLocalBackgroundRemoval}
-                    onChange={event => setUseLocalBackgroundRemoval(event.target.checked)}
-                    className="mt-1 h-5 w-5 shrink-0 accent-primary"
-                  />
-                  <span><span className="block text-sm font-black text-primary">إزالة الخلفية محلياً على الهاتف</span><span className="mt-1 block text-xs leading-6 text-muted-foreground">تعمل دون إرسال الصورة. ألغِ التحديد فقط عند رغبتك في تجربة الطريقة البديلة.</span></span>
-                </label>
-
-                {backgroundAssessment === 'analyzing' && <p className="mt-3 text-xs font-bold text-muted-foreground" aria-live="polite">جارٍ فحص خلفية الصورة بصورة محلية…</p>}
-                {backgroundAssessment === 'simple' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-right transition active:scale-[0.99]"><input type="checkbox" checked={preferOriginalImage} onChange={event => setPreferOriginalImage(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-sky-700" /><span><span className="block text-sm font-black text-sky-950">احتفظ بالصورة إذا كانت الخلفية بسيطة</span><span className="mt-1 block text-xs leading-6 text-sky-900">خيار محافظ للملابس الفاتحة عند تعذر تجهيز الخلفية.</span></span></label>}
-                {backgroundAssessment === 'mixed' && <p className="mt-3 rounded-2xl bg-secondary/65 p-3 text-xs font-bold leading-5 text-muted-foreground">الخلفية متنوعة؛ سيختار التطبيق أفضل مسار تلقائياً إذا تعذر الإعداد المحلي.</p>}
-              </div>
-            </details>
-
             <button
               type="button"
               onClick={generateAd}
@@ -648,26 +558,4 @@ function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: stri
       }
     );
   });
-}
-
-function blobUrlToDataUri(url: string): Promise<string> {
-  return fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error('تعذر قراءة صورة الملابس');
-      return response.blob();
-    })
-    .then(blob => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error('تعذر تجهيز صورة الملابس'));
-      reader.readAsDataURL(blob);
-    }));
-}
-
-async function fetchImageAsBlobUrl(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('تعذر تحميل صورة Try-On النهائية');
-  const blob = await response.blob();
-  if (!blob.type.startsWith('image/')) throw new Error('نتيجة Try-On ليست صورة صالحة');
-  return URL.createObjectURL(blob);
 }

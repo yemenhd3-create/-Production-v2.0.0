@@ -1,6 +1,6 @@
 import type { DeveloperProviderSummary } from '@shared/types';
 import { PERFECT_CORP_API_BASE_URL, PERFECT_CORP_BACKGROUND_REMOVE, PERFECT_CORP_BACKGROUND_REMOVE_NAME } from '@shared/providerPresets';
-import { Check, KeyRound, LockKeyhole, LogOut, Plus, RefreshCw, ServerCog, Trash2 } from 'lucide-react';
+import { Check, KeyRound, LockKeyhole, LogOut, Plus, Power, RefreshCw, ServerCog, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Input } from './ui/input';
@@ -93,6 +93,18 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
     onError: error => {
       setNotice(error.message || 'تعذر حفظ المزود.');
       addDiagnostic('error', 'تعذر حفظ إعدادات المزود.');
+    },
+  });
+
+  const toggleMutation = trpc.developer.providers.save.useMutation({
+    onSuccess: async provider => {
+      setNotice(provider.enabled ? 'تم تشغيل المزود. سيبقى المسار المحلي هو الافتراضي للمستخدم.' : 'تم إيقاف المزود مؤقتاً مع الاحتفاظ بإعداداته ومفتاحه المشفر.');
+      addDiagnostic('info', provider.enabled ? `تم تشغيل المزود ${provider.name}.` : `تم إيقاف المزود ${provider.name} مؤقتاً.`);
+      await utils.developer.providers.invalidate();
+    },
+    onError: error => {
+      setNotice(error.message || 'تعذر تغيير حالة المزود.');
+      addDiagnostic('error', 'تعذر تشغيل أو إيقاف المزود.');
     },
   });
 
@@ -194,7 +206,7 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
         {providersQuery.isLoading && <p className="text-sm text-muted-foreground">جارٍ تحميل المزودين…</p>}
         {!providersQuery.isLoading && !providersQuery.data?.length && <p className="rounded-2xl bg-secondary/70 p-4 text-sm leading-6 text-muted-foreground">لم تضف مزوداً بعد. ابدأ بمزود واحد فقط ثم اختبره قبل إضافة مزود آخر.</p>}
         <div className="space-y-3">
-          {providersQuery.data?.map(provider => <div key={provider.id} className="rounded-2xl border border-stone-100 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-foreground">{provider.name}</p><p className="mt-1 text-xs text-muted-foreground" dir="ltr">{provider.baseUrl}</p><p className="mt-1 text-xs text-muted-foreground">{provider.model} · {provider.enabled ? 'مفعّل' : 'متوقف'} · {provider.hasApiKey ? 'مفتاح محفوظ' : 'لا يوجد مفتاح'}</p></div><div className="flex gap-1"><button type="button" onClick={() => setDraft(providerToDraft(provider))} className="rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-primary">تعديل</button><button type="button" disabled={checkMutation.isPending} onClick={() => checkMutation.mutate({ id: provider.id })} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">اختبار</button><button type="button" disabled={removeMutation.isPending} onClick={() => removeMutation.mutate({ id: provider.id })} className="flex h-8 w-8 items-center justify-center rounded-lg text-red-600" aria-label={`حذف ${provider.name}`}><Trash2 size={17} /></button></div></div></div>)}
+          {providersQuery.data?.map(provider => <div key={provider.id} className="rounded-2xl border border-stone-100 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-foreground">{provider.name}</p><p className="mt-1 text-xs text-muted-foreground" dir="ltr">{provider.baseUrl}</p><p className="mt-1 text-xs text-muted-foreground">{provider.model} · {provider.enabled ? 'مفعّل' : 'متوقف'} · {provider.hasApiKey ? 'مفتاح محفوظ' : 'لا يوجد مفتاح'}</p></div><div className="flex flex-wrap justify-end gap-1"><button type="button" disabled={toggleMutation.isPending} onClick={() => toggleMutation.mutate({ id: provider.id, name: provider.name, baseUrl: provider.baseUrl, model: provider.model, enabled: !provider.enabled })} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-black disabled:opacity-50 ${provider.enabled ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`} aria-label={`${provider.enabled ? 'إيقاف' : 'تشغيل'} ${provider.name}`}><Power size={14} />{provider.enabled ? 'إيقاف' : 'تشغيل'}</button><button type="button" onClick={() => setDraft(providerToDraft(provider))} className="rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-primary">تعديل</button><button type="button" disabled={checkMutation.isPending || !provider.enabled} onClick={() => checkMutation.mutate({ id: provider.id })} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 disabled:opacity-50">اختبار</button><button type="button" disabled={removeMutation.isPending} onClick={() => removeMutation.mutate({ id: provider.id })} className="flex h-8 w-8 items-center justify-center rounded-lg text-red-600" aria-label={`حذف ${provider.name}`}><Trash2 size={17} /></button></div></div></div>)}
         </div>
       </section>
       <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">

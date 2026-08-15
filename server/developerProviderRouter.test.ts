@@ -72,4 +72,21 @@ describe('developer provider tRPC routes', () => {
     expect(JSON.stringify(saved)).not.toContain('never-return-this-key');
     expect(status).toMatchObject({ reachable: true, status: 200 });
   });
+
+  it('allows a developer to stop a saved provider without resubmitting its API key', async () => {
+    const stoppedProvider = { ...provider, enabled: false };
+    saveMock.mockResolvedValueOnce(stoppedProvider);
+    const caller = appRouter.createCaller(createContext());
+    const saved = await caller.developer.providers.save({
+      id: provider.id,
+      name: provider.name,
+      baseUrl: provider.baseUrl,
+      model: provider.model,
+      enabled: false,
+    });
+
+    expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ id: provider.id, enabled: false }));
+    expect(saveMock.mock.calls[0]?.[0]).not.toHaveProperty('apiKey');
+    expect(saved.enabled).toBe(false);
+  });
 });
