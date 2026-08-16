@@ -43,3 +43,11 @@ SECURITY_REVIEW.md
 ```
 
 ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ.
+
+## رابط Snapshot العام للمراجعة
+
+- **المستودع العام للقطات المراجعة فقط:** https://github.com/yemenhd3-create/clothing-ad-snapshots
+- **اللقطة الحالية:** https://github.com/yemenhd3-create/clothing-ad-snapshots/tree/main/snapshot-2026-08-16
+- **ملف ZIP المباشر:** https://github.com/yemenhd3-create/clothing-ad-snapshots/raw/refs/heads/main/clothing-ad-generator-cloud-review-snapshot-2026-08-16.zip
+
+المستودع الأساسي يظل خاصاً. لا ترفع إلى مستودع اللقطات أي ملف بيئة أو مفتاح أو مادة شخصية أو ملف مشروع كامل؛ استخدمه فقط لملفات المراجعة المنتقاة بعد فحصها.
