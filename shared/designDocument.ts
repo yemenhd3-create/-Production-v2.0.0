@@ -4,7 +4,7 @@ import type { TemplateSize } from './types';
 export type DesignElementId = 'header' | 'logo' | 'product' | 'badge' | 'info' | 'price' | 'features' | 'footer';
 export type DesignConstraintId = 'inside-canvas' | 'product-inside-hero' | 'logo-avoids-product' | 'footer-avoids-price' | 'footer-avoids-features' | 'price-required';
 export type DesignCheckStatus = 'pass' | 'warn' | 'fail';
-export type DesignRepairId = 'reset-logo-transform' | 'reset-footer-transform' | 'reset-garment-transform';
+export type DesignRepairId = 'reset-logo-transform' | 'reset-footer-transform' | 'reset-garment-transform' | 'restore-readable-background';
 
 export interface DesignElementDocument {
   id: DesignElementId;

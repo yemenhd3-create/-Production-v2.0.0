@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, type TemplateSettings } from '../shared/types';
 import type { DesignBenchmark } from '../shared/designBenchmark';
+import type { PixelTruthReport } from '../client/src/lib/pixelTruthGate';
 import { compileDesignDocument } from '../client/src/lib/designCompiler';
 import { evaluateDesignContract } from '../client/src/lib/designContract';
 import { canExportDesign, evaluateDesignQuality } from '../client/src/lib/designQualityGate';
@@ -87,6 +88,22 @@ describe('بوابة جودة التصدير المحلية', () => {
   it('يحسب الدرجة من أوزان الجودة المعلنة', () => {
     const { report } = reportFor();
     expect(report.score).toBe(100);
+  });
+
+  it('يمنع التصدير عندما يثبت Pixel Truth أن تباين النص حرج', () => {
+    const document = compileDesignDocument(details, template);
+    const pixelTruth: PixelTruthReport = {
+      version: 1, status: 'block', sampledWidth: 1080, sampledHeight: 1350,
+      checks: [{ id: 'header', status: 'block', contrastRatio: 1.12, foregroundCoverage: .03, detail: 'التباين المرئي 1.12:1 منخفض بصورة حرجة في منطقة النص.' }],
+      repairs: [{ id: 'restore-readable-background', title: 'استعادة خلفية نص مقروءة', detail: 'إصلاح محلي حتمي.', affectedElements: ['header'] }],
+      privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false },
+    };
+
+    const report = evaluateDesignQuality(document, evaluateDesignContract(document), details, benchmark, pixelTruth);
+
+    expect(report.exportAllowed).toBe(false);
+    expect(report.issues).toContainEqual(expect.objectContaining({ code: 'PIXEL_CONTRAST', severity: 'error' }));
+    expect(report.repairs).toContainEqual(expect.objectContaining({ id: 'restore-readable-background' }));
   });
 
   it('يبقى حتمياً ومحدوداً عبر ألف حالة هندسية متتابعة', () => {

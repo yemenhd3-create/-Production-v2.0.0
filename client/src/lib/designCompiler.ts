@@ -45,6 +45,7 @@ export function compileDesignDocument(details: AdDetails, template: TemplateSett
 /** يطبق إصلاحاً معروفاً فقط؛ لا يغير النصوص أو يخفي أي عنصر إلزامي. */
 export function applyDesignRepair(template: TemplateSettings, repairId: DesignRepairId): TemplateSettings {
   if (repairId === 'reset-garment-transform') return { ...template, smartGarmentTransform: undefined };
+  if (repairId === 'restore-readable-background') return { ...template, smartBackgroundColor: '#FFFFFF' };
   const layer = repairId === 'reset-logo-transform' ? 'logo' : 'footer';
   return {
     ...template,

@@ -20,6 +20,7 @@ import { createDesignPassport, passportFilename, passportToJson, type DesignPass
 import { applyDesignDocument, applyDesignRepair, compileDesignDocument } from '@/lib/designCompiler';
 import { evaluateDesignContract } from '@/lib/designContract';
 import { canExportDesign, evaluateDesignQuality, type DesignQualityReport } from '@/lib/designQualityGate';
+import { inspectRenderedPixelTruth } from '@/lib/pixelTruthGate';
 import { appendDesignHistory, createDesignHistory, designDocumentFingerprint, parseDesignHistory, redoDesignHistory, removeDesignHistoryEntry, replayDesignHistory, serializeDesignHistory, undoDesignHistory, type DesignHistoryDocument, type DesignHistoryEntry } from '@/lib/designHistory';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
 import { buildDesignBenchmarks, createQualityFingerprint, detectDesignRegression } from '@/lib/designBenchmark';
@@ -385,6 +386,11 @@ export default function Home() {
 
       setGeneratedAd(output);
       setMarketingText(buildMarketingText(adDetails));
+      const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const contract = evaluateDesignContract(document);
+      const pixelTruth = await inspectRenderedPixelTruth(output, document);
+      setDesignContractReport(contract);
+      setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === templateSettings.size), pixelTruth));
     } catch (error) {
       console.error('Failed to generate local advertisement:', error);
       setTryOnResult({
@@ -417,6 +423,11 @@ export default function Home() {
       );
       setGeneratedAd(output);
       setMarketingText(buildMarketingText(adDetails));
+      const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const contract = evaluateDesignContract(document);
+      const pixelTruth = await inspectRenderedPixelTruth(output, document);
+      setDesignContractReport(contract);
+      setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === templateSettings.size), pixelTruth));
       toast.success('تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.');
     } catch (error) {
       console.error('Failed to regenerate advertisement with updated template:', error);
@@ -426,21 +437,22 @@ export default function Home() {
     }
   };
 
-  const evaluateCurrentQualityGate = () => {
+  const evaluateCurrentQualityGate = async () => {
     const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
     const contract = evaluateDesignContract(document);
     const benchmark = designBenchmarks.find(item => item.template === templateSettings.size);
-    const report = evaluateDesignQuality(document, contract, adDetails, benchmark);
+    const pixelTruth = await inspectRenderedPixelTruth(generatedAd, document);
+    const report = evaluateDesignQuality(document, contract, adDetails, benchmark, pixelTruth);
     setDesignContractReport(contract);
     setQualityGateReport(report);
     return report;
   };
 
-  const handleCheckQualityGate = () => {
+  const handleCheckQualityGate = async () => {
     if (!generatedAd || isCheckingQualityGate) return;
     setIsCheckingQualityGate(true);
     try {
-      const report = evaluateCurrentQualityGate();
+      const report = await evaluateCurrentQualityGate();
       if (canExportDesign(report)) toast.success('اجتاز الإعلان بوابة جودة التصدير محلياً.');
       else toast.error('أوقفت بوابة الجودة التصدير حتى إصلاح الخطأ الهندسي الحرج.');
     } catch {
@@ -450,10 +462,10 @@ export default function Home() {
     }
   };
 
-  const ensureExportAllowed = () => {
+  const ensureExportAllowed = async () => {
     if (!generatedAd) return false;
     try {
-      const report = evaluateCurrentQualityGate();
+      const report = await evaluateCurrentQualityGate();
       if (canExportDesign(report)) return true;
       toast.error('تم إيقاف الحفظ والمشاركة: أصلح الخطأ الهندسي الحرج أولاً.');
       return false;
@@ -463,9 +475,9 @@ export default function Home() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!generatedAd) return;
-    if (!ensureExportAllowed()) return;
+    if (!(await ensureExportAllowed())) return;
     try {
       downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
       toast.success('تم حفظ تصميم PNG. افتح التنزيلات أو المعرض لإرساله في واتساب.');
@@ -606,7 +618,7 @@ export default function Home() {
 
   const handleWhatsApp = async () => {
     if (!generatedAd) return;
-    if (!ensureExportAllowed()) return;
+    if (!(await ensureExportAllowed())) return;
     try {
       const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
       if (shared) {
@@ -623,7 +635,7 @@ export default function Home() {
 
   const handleShare = async () => {
     if (!generatedAd) return;
-    if (!ensureExportAllowed()) return;
+    if (!(await ensureExportAllowed())) return;
     try {
       const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
       if (shared) {

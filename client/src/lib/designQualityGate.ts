@@ -2,6 +2,7 @@ import type { AdDetails } from '@shared/types';
 import type { DesignBenchmark } from '@shared/designBenchmark';
 import type { DesignContractReport, DesignDocument, DesignElementId, DesignRepairPlan } from '@shared/designDocument';
 import { getDesignGeometry, type NormalizedBox } from '@shared/designGeometry';
+import type { PixelTruthReport } from '@/lib/pixelTruthGate';
 
 export type QualitySeverity = 'error' | 'warning';
 
@@ -13,6 +14,7 @@ export type QualityIssueCode =
   | 'FOOTER_OVERLAP'
   | 'PRICE_HIDDEN'
   | 'LOW_CONTRAST'
+  | 'PIXEL_CONTRAST'
   | 'INVALID_GEOMETRY'
   | 'INVALID_NUMBER';
 
@@ -30,6 +32,7 @@ export interface DesignQualityReport {
   exportAllowed: boolean;
   issues: QualityIssue[];
   repairs: DesignRepairPlan[];
+  pixelTruth?: PixelTruthReport;
   metrics: {
     collisionCount: number;
     outOfBoundsCount: number;
@@ -72,7 +75,7 @@ function countTextWarning(details: AdDetails, document: DesignDocument): Quality
 }
 
 /** بوابة محلية: الأخطاء الهندسية فقط تمنع التصدير؛ التحذيرات لا تمنع المستخدم. */
-export function evaluateDesignQuality(document: DesignDocument, contract: DesignContractReport, details: AdDetails, benchmark?: DesignBenchmark): DesignQualityReport {
+export function evaluateDesignQuality(document: DesignDocument, contract: DesignContractReport, details: AdDetails, benchmark?: DesignBenchmark, pixelTruth?: PixelTruthReport): DesignQualityReport {
   const geometry = getDesignGeometry(document.template);
   const issues: QualityIssue[] = [];
   const visible = document.elements.filter(item => item.visible);
@@ -90,6 +93,11 @@ export function evaluateDesignQuality(document: DesignDocument, contract: Design
   issues.push(...countTextWarning(details, document));
   const metrics = benchmark?.metrics;
   if (metrics && metrics.contrast < 50) issues.push({ code: 'LOW_CONTRAST', severity: 'warning', elementIds: ['header', 'price'], messageAr: 'تباين النص المقدر منخفض؛ راجع لون الخلفية والنص قبل المشاركة.', metrics: { contrast: metrics.contrast } });
+  pixelTruth?.checks.forEach(check => {
+    if (check.id === 'render') return;
+    if (check.status === 'block') issues.push({ code: 'PIXEL_CONTRAST', severity: 'error', elementIds: [check.id], messageAr: check.detail, metrics: { contrastRatio: check.contrastRatio ?? 0, coverage: check.foregroundCoverage } });
+    if (check.status === 'warning') issues.push({ code: 'PIXEL_CONTRAST', severity: 'warning', elementIds: [check.id], messageAr: check.detail, metrics: { contrastRatio: check.contrastRatio ?? 0, coverage: check.foregroundCoverage } });
+  });
   const score = metrics ? clamp(
     metrics.productVisibility * QUALITY_WEIGHTS.productVisibility / 100 +
     metrics.textReadability * QUALITY_WEIGHTS.textReadability / 100 +
@@ -106,7 +114,8 @@ export function evaluateDesignQuality(document: DesignDocument, contract: Design
     score,
     exportAllowed: errorCount === 0,
     issues,
-    repairs: contract.repairs,
+    repairs: [...contract.repairs, ...(pixelTruth?.repairs || [])],
+    pixelTruth,
     metrics: {
       collisionCount: issues.filter(item => item.code === 'COLLISION' || item.code === 'FOOTER_OVERLAP').length,
       outOfBoundsCount: issues.filter(item => item.code === 'OUT_OF_BOUNDS' || item.code === 'LOGO_OUTSIDE_SAFE_AREA').length,
