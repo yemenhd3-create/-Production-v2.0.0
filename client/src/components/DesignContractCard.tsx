@@ -77,3 +77,4 @@ export default function DesignContractCard({ report, onApplyRepair, onUndoRepair
     </section>
   );
 }
+import * as React from 'react';

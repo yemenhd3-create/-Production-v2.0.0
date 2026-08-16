@@ -19,6 +19,7 @@ import { renderAd } from '@/lib/canvasRenderer';
 import { createDesignPassport, passportFilename, passportToJson, type DesignPassport } from '@/lib/designPassport';
 import { applyDesignDocument, applyDesignRepair, compileDesignDocument } from '@/lib/designCompiler';
 import { evaluateDesignContract } from '@/lib/designContract';
+import { canExportDesign, evaluateDesignQuality, type DesignQualityReport } from '@/lib/designQualityGate';
 import { appendDesignHistory, createDesignHistory, designDocumentFingerprint, parseDesignHistory, redoDesignHistory, removeDesignHistoryEntry, replayDesignHistory, serializeDesignHistory, undoDesignHistory, type DesignHistoryDocument, type DesignHistoryEntry } from '@/lib/designHistory';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
 import { buildDesignBenchmarks, createQualityFingerprint, detectDesignRegression } from '@/lib/designBenchmark';
@@ -57,6 +58,7 @@ const DeveloperWorkspace = React.lazy(() => import('@/components/DeveloperWorksp
 const AdDetailsForm = React.lazy(() => import('@/components/AdDetailsForm'));
 const PersonalMessageCenter = React.lazy(() => import('@/components/PersonalMessageCenter'));
 const SharePanel = React.lazy(() => import('@/components/SharePanel'));
+const DesignQualityGateCard = React.lazy(() => import('@/components/DesignQualityGateCard'));
 const TryOnStatusNotice = React.lazy(() => import('@/components/TryOnStatusNotice').then(module => ({ default: module.TryOnStatusNotice })));
 const UserTemplateSettings = React.lazy(() => import('@/components/UserTemplateSettings'));
 const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
@@ -108,6 +110,8 @@ export default function Home() {
   const [isCreatingPassport, setIsCreatingPassport] = useState(false);
   const [designContractReport, setDesignContractReport] = useState<DesignContractReport | null>(null);
   const [isCheckingDesignContract, setIsCheckingDesignContract] = useState(false);
+  const [qualityGateReport, setQualityGateReport] = useState<DesignQualityReport | null>(null);
+  const [isCheckingQualityGate, setIsCheckingQualityGate] = useState(false);
   const [templateBeforeContractRepair, setTemplateBeforeContractRepair] = useState<TemplateSettings | null>(null);
   const [designHistory, setDesignHistory] = useState<DesignHistoryDocument | null>(null);
   const [designRedoEntries, setDesignRedoEntries] = useState<DesignHistoryEntry[]>([]);
@@ -279,6 +283,7 @@ export default function Home() {
     setGeneratedAd('');
     setDesignPassport(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
     setDesignHistory(null);
     setDesignRedoEntries([]);
@@ -351,6 +356,7 @@ export default function Home() {
     setGeneratedAd('');
     setDesignPassport(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
     setTryOnResult({
       status: 'processing',
@@ -400,6 +406,7 @@ export default function Home() {
     setGeneratedAd('');
     setDesignPassport(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
     try {
       const dimensions = getCanvasDimensions(templateSettings.size);
@@ -419,8 +426,46 @@ export default function Home() {
     }
   };
 
+  const evaluateCurrentQualityGate = () => {
+    const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+    const contract = evaluateDesignContract(document);
+    const benchmark = designBenchmarks.find(item => item.template === templateSettings.size);
+    const report = evaluateDesignQuality(document, contract, adDetails, benchmark);
+    setDesignContractReport(contract);
+    setQualityGateReport(report);
+    return report;
+  };
+
+  const handleCheckQualityGate = () => {
+    if (!generatedAd || isCheckingQualityGate) return;
+    setIsCheckingQualityGate(true);
+    try {
+      const report = evaluateCurrentQualityGate();
+      if (canExportDesign(report)) toast.success('اجتاز الإعلان بوابة جودة التصدير محلياً.');
+      else toast.error('أوقفت بوابة الجودة التصدير حتى إصلاح الخطأ الهندسي الحرج.');
+    } catch {
+      toast.error('تعذر فحص بوابة جودة التصدير محلياً. أعد التوليد ثم حاول مرة أخرى.');
+    } finally {
+      setIsCheckingQualityGate(false);
+    }
+  };
+
+  const ensureExportAllowed = () => {
+    if (!generatedAd) return false;
+    try {
+      const report = evaluateCurrentQualityGate();
+      if (canExportDesign(report)) return true;
+      toast.error('تم إيقاف الحفظ والمشاركة: أصلح الخطأ الهندسي الحرج أولاً.');
+      return false;
+    } catch {
+      toast.error('تعذر التحقق من جودة التصميم قبل التصدير. أعد التوليد ثم حاول مرة أخرى.');
+      return false;
+    }
+  };
+
   const handleDownload = () => {
     if (!generatedAd) return;
+    if (!ensureExportAllowed()) return;
     try {
       downloadImage(generatedAd, `${adDetails.productName.trim() || 'إعلان-ملابس'}-${Date.now()}.png`);
       toast.success('تم حفظ تصميم PNG. افتح التنزيلات أو المعرض لإرساله في واتساب.');
@@ -461,6 +506,7 @@ export default function Home() {
       setDesignHistory(history);
       const report = evaluateDesignContract(confirmed);
       setDesignContractReport(report);
+      setQualityGateReport(evaluateDesignQuality(confirmed, report, adDetails, designBenchmarks.find(item => item.template === confirmed.template)));
       if (report.status === 'pass') toast.success('اجتاز التصميم عقد الهندسة المحلي للمقاس الحالي.');
       else toast.message('وجد عقد التصميم موضعاً يحتاج مراجعة أو إصلاحاً اختيارياً.');
     } catch {
@@ -483,7 +529,9 @@ export default function Home() {
       setDesignRedoEntries([]);
       setTemplateBeforeContractRepair(templateSettings);
       setTemplateSettings(repairedTemplate);
-      setDesignContractReport(evaluateDesignContract(replayed));
+      const report = evaluateDesignContract(replayed);
+      setDesignContractReport(report);
+      setQualityGateReport(null);
       toast.success('تم تطبيق الإصلاح وتحقق سجل التصميم منه. أعد توليد الإعلان لتحديث PNG.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'تعذر تطبيق إصلاح عقد التصميم.');
@@ -496,6 +544,7 @@ export default function Home() {
     saveToStorage(StorageKeys.DESIGN_HISTORY, history);
     setDesignHistory(history);
     setDesignContractReport(evaluateDesignContract(replayed));
+    setQualityGateReport(null);
     toast.success(message);
   };
 
@@ -539,6 +588,7 @@ export default function Home() {
     setTemplateSettings(templateBeforeContractRepair);
     setTemplateBeforeContractRepair(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     toast.success('تم التراجع عن إصلاح عقد التصميم.');
   };
 
@@ -556,6 +606,7 @@ export default function Home() {
 
   const handleWhatsApp = async () => {
     if (!generatedAd) return;
+    if (!ensureExportAllowed()) return;
     try {
       const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
       if (shared) {
@@ -572,6 +623,7 @@ export default function Home() {
 
   const handleShare = async () => {
     if (!generatedAd) return;
+    if (!ensureExportAllowed()) return;
     try {
       const shared = await shareViaWebAPI(generatedAd, adDetails.productName || 'إعلان ملابس', marketingText);
       if (shared) {
@@ -778,7 +830,8 @@ export default function Home() {
                 </section>
                 {designPassport && <DesignPassportCard passport={designPassport} onDownload={handleDownloadPassport} />}
                 {designContractReport && <DesignContractCard report={designContractReport} onApplyRepair={handleApplyContractRepair} historyEntries={(designHistory?.entries || []).map(entry => ({ id: entry.id, label: entry.label }))} historyFingerprint={designHistory ? designDocumentFingerprint(replayDesignHistory(designHistory)) : undefined} canUndoHistory={Boolean(designHistory?.entries.length)} canRedoHistory={Boolean(designRedoEntries.length)} onReplayHistory={handleReplayHistory} onUndoHistory={handleUndoHistory} onRedoHistory={handleRedoHistory} onRemoveHistoryEntry={handleRemoveHistoryEntry} />}
-                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} onContractCheck={handleCheckDesignContract} isQualityChecking={isCreatingPassport} isContractChecking={isCheckingDesignContract} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
+                {qualityGateReport && <React.Suspense fallback={null}><DesignQualityGateCard report={qualityGateReport} onApplyRepair={handleApplyContractRepair} /></React.Suspense>}
+                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} onContractCheck={handleCheckDesignContract} onExportGateCheck={handleCheckQualityGate} isQualityChecking={isCreatingPassport} isContractChecking={isCheckingDesignContract} isExportGateChecking={isCheckingQualityGate} exportBlocked={qualityGateReport?.exportAllowed === false} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}
           </section>
