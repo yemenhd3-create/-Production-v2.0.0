@@ -6,10 +6,11 @@ import SharePanel from '../client/src/components/SharePanel';
 describe('final advertisement share panel', () => {
   it('presents download, quality check, native share, WhatsApp, and edit actions', () => {
     const action = vi.fn();
-    const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onQualityCheck: action, onEdit: action, onClear: action }));
+    const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onQualityCheck: action, onContractCheck: action, onEdit: action, onClear: action }));
 
     expect(html).toContain('حفظ في الهاتف');
     expect(html).toContain('فحص جودة الإعلان');
+    expect(html).toContain('فحص عقد التصميم');
     expect(html).toContain('مشاركة أخرى');
     expect(html).toContain('WhatsApp');
     expect(html).toContain('تعديل');
@@ -18,9 +19,17 @@ describe('final advertisement share panel', () => {
 
   it('disables the quality action while the local inspection is running', () => {
     const action = vi.fn();
-    const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onQualityCheck: action, onEdit: action, onClear: action, isQualityChecking: true }));
+    const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onQualityCheck: action, onContractCheck: action, onEdit: action, onClear: action, isQualityChecking: true }));
 
     expect(html).toContain('جارٍ فحص الإعلان محلياً');
+    expect(html).toMatch(/disabled=""/);
+  });
+
+  it('disables the contract action while the local contract inspection is running', () => {
+    const action = vi.fn();
+    const html = renderToStaticMarkup(createElement(SharePanel, { onDownload: action, onShare: action, onWhatsApp: action, onQualityCheck: action, onContractCheck: action, onEdit: action, onClear: action, isContractChecking: true }));
+
+    expect(html).toContain('جارٍ فحص عقد التصميم');
     expect(html).toMatch(/disabled=""/);
   });
 });

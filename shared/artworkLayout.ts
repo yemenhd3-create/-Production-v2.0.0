@@ -51,15 +51,18 @@ export function getArtworkTransform(settings: TemplateSettings, layer: ArtworkLa
 }
 
 export function clampArtworkTransform(layer: ArtworkLayerKey, candidate: ArtworkLayerTransform, size?: TemplateSize): ArtworkLayerTransform {
-  const minimum = layer === 'logo' ? .06 : .14;
-  const x = clamp(candidate.x, 0, .96 - minimum);
-  const y = clamp(candidate.y, 0, .96 - minimum);
+  const minimumWidth = layer === 'logo' ? .06 : .14;
+  // التذييل قد يكون رفيعاً في القصة وواتساب؛ فرض حد .14 على ارتفاعه كان يحوله
+  // إلى طبقة أطول من هندسة القالب ويؤدي إلى تداخل حقيقي مع المزايا.
+  const minimumHeight = layer === 'logo' ? .06 : .04;
+  const x = clamp(candidate.x, 0, .96 - minimumWidth);
+  const y = clamp(candidate.y, 0, .96 - minimumHeight);
   const result = {
     ...candidate,
     x,
     y,
-    width: clamp(candidate.width, minimum, 1 - x),
-    height: clamp(candidate.height, minimum, 1 - y),
+    width: clamp(candidate.width, minimumWidth, 1 - x),
+    height: clamp(candidate.height, minimumHeight, 1 - y),
   };
   return size ? keepOutsideHero(layer, result, heroZones[size]) : result;
 }

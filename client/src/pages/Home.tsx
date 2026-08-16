@@ -14,8 +14,11 @@ import ImageUploader from '@/components/ImageUploader';
 import LocalDesignSuggestionCard from '@/components/LocalDesignSuggestionCard';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import DesignPassportCard from '@/components/DesignPassportCard';
+import DesignContractCard from '@/components/DesignContractCard';
 import { renderAd } from '@/lib/canvasRenderer';
 import { createDesignPassport, passportFilename, passportToJson, type DesignPassport } from '@/lib/designPassport';
+import { applyDesignRepair, compileDesignDocument } from '@/lib/designCompiler';
+import { evaluateDesignContract } from '@/lib/designContract';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
 import { createLocalDesignSuggestion } from '@/lib/localDesignIntelligence';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
@@ -25,6 +28,7 @@ import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
+import type { DesignContractReport, DesignRepairId } from '@shared/designDocument';
 import {
   BadgeCheck,
   Check,
@@ -95,6 +99,9 @@ export default function Home() {
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
   const [designPassport, setDesignPassport] = useState<DesignPassport | null>(null);
   const [isCreatingPassport, setIsCreatingPassport] = useState(false);
+  const [designContractReport, setDesignContractReport] = useState<DesignContractReport | null>(null);
+  const [isCheckingDesignContract, setIsCheckingDesignContract] = useState(false);
+  const [templateBeforeContractRepair, setTemplateBeforeContractRepair] = useState<TemplateSettings | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
@@ -190,6 +197,8 @@ export default function Home() {
     setProductImage(imageUrl);
     setGeneratedAd('');
     setDesignPassport(null);
+    setDesignContractReport(null);
+    setTemplateBeforeContractRepair(null);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -203,6 +212,8 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setDesignPassport(null);
+    setDesignContractReport(null);
+    setTemplateBeforeContractRepair(null);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -237,6 +248,8 @@ export default function Home() {
     setProductImage('');
     setGeneratedAd('');
     setDesignPassport(null);
+    setDesignContractReport(null);
+    setTemplateBeforeContractRepair(null);
     setLastVisualSource('');
     setMarketingText('');
     setIsReviewingImage(false);
@@ -297,6 +310,8 @@ export default function Home() {
     setIsGenerating(true);
     setGeneratedAd('');
     setDesignPassport(null);
+    setDesignContractReport(null);
+    setTemplateBeforeContractRepair(null);
     setTryOnResult({
       status: 'processing',
       message: 'نجهّز الصورة والقالب للإعلان…',
@@ -344,6 +359,8 @@ export default function Home() {
     setIsGenerating(true);
     setGeneratedAd('');
     setDesignPassport(null);
+    setDesignContractReport(null);
+    setTemplateBeforeContractRepair(null);
     try {
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
@@ -384,6 +401,37 @@ export default function Home() {
     } finally {
       setIsCreatingPassport(false);
     }
+  };
+
+  const handleCheckDesignContract = () => {
+    if (!generatedAd || isCheckingDesignContract) return;
+    setIsCheckingDesignContract(true);
+    try {
+      const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const report = evaluateDesignContract(document);
+      setDesignContractReport(report);
+      if (report.status === 'pass') toast.success('اجتاز التصميم عقد الهندسة المحلي للمقاس الحالي.');
+      else toast.message('وجد عقد التصميم موضعاً يحتاج مراجعة أو إصلاحاً اختيارياً.');
+    } catch {
+      toast.error('تعذر فحص عقد التصميم محلياً. أعد توليد الإعلان ثم حاول مرة أخرى.');
+    } finally {
+      setIsCheckingDesignContract(false);
+    }
+  };
+
+  const handleApplyContractRepair = (repairId: DesignRepairId) => {
+    setTemplateBeforeContractRepair(previous => previous || templateSettings);
+    setTemplateSettings(current => applyDesignRepair(current, repairId));
+    setDesignContractReport(null);
+    toast.success('تم تطبيق الإصلاح بأمان. أعد توليد الإعلان للتحقق من النتيجة الجديدة.');
+  };
+
+  const handleUndoContractRepair = () => {
+    if (!templateBeforeContractRepair) return;
+    setTemplateSettings(templateBeforeContractRepair);
+    setTemplateBeforeContractRepair(null);
+    setDesignContractReport(null);
+    toast.success('تم التراجع عن إصلاح عقد التصميم.');
   };
 
   const handleDownloadPassport = () => {
@@ -621,7 +669,8 @@ export default function Home() {
                   <textarea value={marketingText} onChange={event => { setMarketingText(event.target.value); setAdDetails(current => ({ ...current, marketingText: event.target.value })); }} className="min-h-28 w-full rounded-2xl border border-primary/15 bg-secondary/25 p-4 text-right text-sm leading-7 text-foreground outline-none transition focus:border-primary focus:bg-white" aria-label="تعديل نص الإعلان" />
                 </section>
                 {designPassport && <DesignPassportCard passport={designPassport} onDownload={handleDownloadPassport} />}
-                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} isQualityChecking={isCreatingPassport} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
+                {designContractReport && <DesignContractCard report={designContractReport} onApplyRepair={handleApplyContractRepair} onUndoRepair={handleUndoContractRepair} hasUndoRepair={Boolean(templateBeforeContractRepair)} />}
+                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} onContractCheck={handleCheckDesignContract} isQualityChecking={isCreatingPassport} isContractChecking={isCheckingDesignContract} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}
           </section>

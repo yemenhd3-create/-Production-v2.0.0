@@ -1,5 +1,6 @@
 import type { AdDetails, TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
 import { getArtworkTransform } from '@shared/artworkLayout';
+import { getDesignGeometry } from '@shared/designGeometry';
 
 export interface RenderOptions {
   width?: number;
@@ -66,18 +67,12 @@ function resolveCanvasSize(size: TemplateSize, requestedWidth?: number, requeste
 }
 
 function createGeometry(size: TemplateSize, width: number, height: number): Geometry {
-  const box = (x: number, y: number, w: number, h: number): Box => ({ x: width * x, y: height * y, width: width * w, height: height * h });
-  if (size === 'landscape') {
-    return { safe: box(.035, .06, .93, .88), header: box(.20, .10, .34, .20), logo: box(.55, .10, .09, .17), hero: box(.07, .30, .48, .30), info: box(.61, .42, .14, .18), price: box(.79, .38, .15, .22), features: box(.60, .18, .34, .10), footer: box(0, .627, 1, .351), badge: box(.06, .10, .11, .16) };
-  }
-  const config: Record<Exclude<TemplateSize, 'landscape'>, { headerY: number; headerH: number; heroY: number; heroH: number; infoY: number; featureY: number; footerY: number; footerH: number }> = {
-    portrait: { headerY: .06, headerH: .13, heroY: .20, heroH: .52, infoY: .42, featureY: .75, footerY: .83, footerH: .147 },
-    square: { headerY: .06, headerH: .15, heroY: .22, heroH: .48, infoY: .43, featureY: .73, footerY: .793, footerH: .184 },
-    story: { headerY: .055, headerH: .10, heroY: .17, heroH: .58, infoY: .44, featureY: .78, footerY: .872, footerH: .103 },
-    whatsapp: { headerY: .06, headerH: .12, heroY: .19, heroH: .55, infoY: .43, featureY: .77, footerY: .84, footerH: .138 },
+  const normalized = getDesignGeometry(size);
+  const toPixels = (box: typeof normalized.hero): Box => ({ x: width * box.x, y: height * box.y, width: width * box.width, height: height * box.height });
+  return {
+    safe: toPixels(normalized.safe), header: toPixels(normalized.header), logo: toPixels(normalized.logo), hero: toPixels(normalized.hero),
+    info: toPixels(normalized.info), price: toPixels(normalized.price), features: toPixels(normalized.features), footer: toPixels(normalized.footer), badge: toPixels(normalized.badge),
   };
-  const c = config[size];
-  return { safe: box(.04, .025, .92, .95), header: box(.14, c.headerY, .72, c.headerH), logo: box(.77, c.headerY + c.headerH * .08, .095, c.headerH * .58), hero: box(.17, c.heroY, .66, c.heroH), info: box(.055, c.infoY, .13, .20), price: box(.815, c.infoY, .13, .20), features: box(.14, c.featureY, .72, .06), footer: box(0, c.footerY, 1, c.footerH), badge: box(.075, c.headerY + .01, .12, .10) };
 }
 
 function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
