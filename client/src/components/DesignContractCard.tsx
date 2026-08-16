@@ -1,14 +1,22 @@
 import type { DesignContractReport, DesignRepairId } from '@shared/designDocument';
-import { AlertTriangle, CheckCircle2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, History, Play, Redo2, RotateCcw, ShieldCheck, Trash2, Wrench } from 'lucide-react';
 
 interface DesignContractCardProps {
   report: DesignContractReport;
   onApplyRepair: (repairId: DesignRepairId) => void;
   onUndoRepair?: () => void;
   hasUndoRepair?: boolean;
+  historyEntries?: Array<{ id: number; label: string }>;
+  historyFingerprint?: string;
+  canUndoHistory?: boolean;
+  canRedoHistory?: boolean;
+  onReplayHistory?: () => void;
+  onUndoHistory?: () => void;
+  onRedoHistory?: () => void;
+  onRemoveHistoryEntry?: (id: number) => void;
 }
 
-export default function DesignContractCard({ report, onApplyRepair, onUndoRepair, hasUndoRepair = false }: DesignContractCardProps) {
+export default function DesignContractCard({ report, onApplyRepair, onUndoRepair, hasUndoRepair = false, historyEntries = [], historyFingerprint, canUndoHistory = false, canRedoHistory = false, onReplayHistory, onUndoHistory, onRedoHistory, onRemoveHistoryEntry }: DesignContractCardProps) {
   const failed = report.checks.filter(check => check.status === 'fail');
   const passed = report.checks.filter(check => check.status === 'pass');
   const valid = report.status === 'pass';
@@ -51,6 +59,20 @@ export default function DesignContractCard({ report, onApplyRepair, onUndoRepair
           <RotateCcw size={15} /> التراجع عن آخر إصلاح للعقد
         </button>
       )}
+      <div className="mt-3 rounded-xl border border-primary/10 bg-white/80 p-3">
+        <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 text-xs font-black text-primary"><History size={15} /> سجل التصميم المحلي</span><span className="text-[10px] text-muted-foreground">{historyEntries.length} عملية</span></div>
+        {historyFingerprint && <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{historyFingerprint}</p>}
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <button type="button" disabled={!onUndoHistory || !canUndoHistory} onClick={onUndoHistory} className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-primary/15 bg-white px-2 text-[11px] font-bold text-primary disabled:opacity-40"><RotateCcw size={13} /> تراجع</button>
+          <button type="button" disabled={!onRedoHistory || !canRedoHistory} onClick={onRedoHistory} className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-primary/15 bg-white px-2 text-[11px] font-bold text-primary disabled:opacity-40"><Redo2 size={13} /> إعادة</button>
+          <button type="button" disabled={!onReplayHistory} onClick={onReplayHistory} className="inline-flex min-h-9 items-center justify-center gap-1 rounded-lg bg-primary px-2 text-[11px] font-bold text-primary-foreground disabled:opacity-40"><Play size={13} /> تشغيل</button>
+        </div>
+        {historyEntries.length > 0 && (
+          <div className="mt-2 grid gap-1">
+            {historyEntries.map(entry => <div key={entry.id} className="flex items-center justify-between gap-2 rounded-lg bg-secondary/40 px-2 py-1.5"><span className="truncate text-[11px] text-slate-700">{entry.id}. {entry.label}</span><button type="button" onClick={() => onRemoveHistoryEntry?.(entry.id)} className="shrink-0 rounded-md p-1 text-red-700 hover:bg-red-50" aria-label={`حذف ${entry.label} من السجل`}><Trash2 size={13} /></button></div>)}
+          </div>
+        )}
+      </div>
       <p className="mt-3 text-[11px] leading-5 text-muted-foreground">الفحص محلي ولا يحفظ الصورة أو بيانات المتجر داخل العقد.</p>
     </section>
   );

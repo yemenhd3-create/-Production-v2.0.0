@@ -17,8 +17,9 @@ import DesignPassportCard from '@/components/DesignPassportCard';
 import DesignContractCard from '@/components/DesignContractCard';
 import { renderAd } from '@/lib/canvasRenderer';
 import { createDesignPassport, passportFilename, passportToJson, type DesignPassport } from '@/lib/designPassport';
-import { applyDesignRepair, compileDesignDocument } from '@/lib/designCompiler';
+import { applyDesignDocument, applyDesignRepair, compileDesignDocument } from '@/lib/designCompiler';
 import { evaluateDesignContract } from '@/lib/designContract';
+import { appendDesignHistory, createDesignHistory, designDocumentFingerprint, parseDesignHistory, redoDesignHistory, removeDesignHistoryEntry, replayDesignHistory, serializeDesignHistory, undoDesignHistory, type DesignHistoryDocument, type DesignHistoryEntry } from '@/lib/designHistory';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
 import { createLocalDesignSuggestion } from '@/lib/localDesignIntelligence';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
@@ -102,6 +103,8 @@ export default function Home() {
   const [designContractReport, setDesignContractReport] = useState<DesignContractReport | null>(null);
   const [isCheckingDesignContract, setIsCheckingDesignContract] = useState(false);
   const [templateBeforeContractRepair, setTemplateBeforeContractRepair] = useState<TemplateSettings | null>(null);
+  const [designHistory, setDesignHistory] = useState<DesignHistoryDocument | null>(null);
+  const [designRedoEntries, setDesignRedoEntries] = useState<DesignHistoryEntry[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
@@ -199,6 +202,9 @@ export default function Home() {
     setDesignPassport(null);
     setDesignContractReport(null);
     setTemplateBeforeContractRepair(null);
+    setDesignHistory(null);
+    setDesignRedoEntries([]);
+    removeFromStorage(StorageKeys.DESIGN_HISTORY);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -214,6 +220,9 @@ export default function Home() {
     setDesignPassport(null);
     setDesignContractReport(null);
     setTemplateBeforeContractRepair(null);
+    setDesignHistory(null);
+    setDesignRedoEntries([]);
+    removeFromStorage(StorageKeys.DESIGN_HISTORY);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -250,6 +259,9 @@ export default function Home() {
     setDesignPassport(null);
     setDesignContractReport(null);
     setTemplateBeforeContractRepair(null);
+    setDesignHistory(null);
+    setDesignRedoEntries([]);
+    removeFromStorage(StorageKeys.DESIGN_HISTORY);
     setLastVisualSource('');
     setMarketingText('');
     setIsReviewingImage(false);
@@ -408,7 +420,18 @@ export default function Home() {
     setIsCheckingDesignContract(true);
     try {
       const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
-      const report = evaluateDesignContract(document);
+      const persisted = designHistory || getFromStorage<DesignHistoryDocument>(StorageKeys.DESIGN_HISTORY);
+      let history = persisted ? parseDesignHistory(serializeDesignHistory(persisted)) : createDesignHistory(document);
+      const replayed = replayDesignHistory(history);
+      if (designDocumentFingerprint(replayed) !== designDocumentFingerprint(document)) {
+        history = appendDesignHistory(history, replayed, document, 'تحديث إعدادات التصميم');
+        setDesignRedoEntries([]);
+      }
+      const confirmed = replayDesignHistory(history);
+      if (designDocumentFingerprint(confirmed) !== designDocumentFingerprint(document)) throw new Error('تعذر إثبات إعادة تشغيل التصميم.');
+      saveToStorage(StorageKeys.DESIGN_HISTORY, history);
+      setDesignHistory(history);
+      const report = evaluateDesignContract(confirmed);
       setDesignContractReport(report);
       if (report.status === 'pass') toast.success('اجتاز التصميم عقد الهندسة المحلي للمقاس الحالي.');
       else toast.message('وجد عقد التصميم موضعاً يحتاج مراجعة أو إصلاحاً اختيارياً.');
@@ -420,10 +443,67 @@ export default function Home() {
   };
 
   const handleApplyContractRepair = (repairId: DesignRepairId) => {
-    setTemplateBeforeContractRepair(previous => previous || templateSettings);
-    setTemplateSettings(current => applyDesignRepair(current, repairId));
-    setDesignContractReport(null);
-    toast.success('تم تطبيق الإصلاح بأمان. أعد توليد الإعلان للتحقق من النتيجة الجديدة.');
+    try {
+      const before = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const repairedTemplate = applyDesignRepair(templateSettings, repairId);
+      const after = compileDesignDocument(adDetails, repairedTemplate, designSuggestion);
+      const history = appendDesignHistory(designHistory || createDesignHistory(before), before, after, 'إصلاح هندسي آمن');
+      const replayed = replayDesignHistory(history);
+      if (designDocumentFingerprint(replayed) !== designDocumentFingerprint(after)) throw new Error('تعذر التحقق من إصلاح التصميم.');
+      saveToStorage(StorageKeys.DESIGN_HISTORY, history);
+      setDesignHistory(history);
+      setDesignRedoEntries([]);
+      setTemplateBeforeContractRepair(templateSettings);
+      setTemplateSettings(repairedTemplate);
+      setDesignContractReport(evaluateDesignContract(replayed));
+      toast.success('تم تطبيق الإصلاح وتحقق سجل التصميم منه. أعد توليد الإعلان لتحديث PNG.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'تعذر تطبيق إصلاح عقد التصميم.');
+    }
+  };
+
+  const applyReplayedHistory = (history: DesignHistoryDocument, message: string) => {
+    const replayed = replayDesignHistory(history);
+    setTemplateSettings(current => applyDesignDocument(current, replayed));
+    saveToStorage(StorageKeys.DESIGN_HISTORY, history);
+    setDesignHistory(history);
+    setDesignContractReport(evaluateDesignContract(replayed));
+    toast.success(message);
+  };
+
+  const handleUndoHistory = () => {
+    if (!designHistory) return;
+    try {
+      const result = undoDesignHistory(designHistory);
+      if (!result.removed) return;
+      setDesignRedoEntries(current => [...current, result.removed!]);
+      applyReplayedHistory(result.history, 'تم التراجع عن آخر عملية تصميم محلياً. أعد التوليد لتحديث الصورة.');
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'تعذر التراجع عن سجل التصميم.'); }
+  };
+
+  const handleRedoHistory = () => {
+    if (!designHistory || !designRedoEntries.length) return;
+    try {
+      const entry = designRedoEntries[designRedoEntries.length - 1];
+      const history = redoDesignHistory(designHistory, entry);
+      setDesignRedoEntries(current => current.slice(0, -1));
+      applyReplayedHistory(history, 'تمت إعادة عملية التصميم. أعد التوليد لتحديث الصورة.');
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'تعذرت إعادة العملية من سجل التصميم.'); }
+  };
+
+  const handleReplayHistory = () => {
+    if (!designHistory) return;
+    try { applyReplayedHistory(designHistory, 'أعيد تشغيل التصميم من سجله الدلالي بنجاح. أعد التوليد لتحديث الصورة.'); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'تعذرت إعادة تشغيل سجل التصميم.'); }
+  };
+
+  const handleRemoveHistoryEntry = (id: number) => {
+    if (!designHistory) return;
+    try {
+      const history = removeDesignHistoryEntry(designHistory, id);
+      setDesignRedoEntries([]);
+      applyReplayedHistory(history, 'تم حذف العملية وإعادة بناء حالة التصميم بأمان. أعد التوليد لتحديث الصورة.');
+    } catch { toast.error('لا يمكن حذف هذه العملية لأنها تعتمد عليها عملية لاحقة في السجل.'); }
   };
 
   const handleUndoContractRepair = () => {
@@ -669,7 +749,7 @@ export default function Home() {
                   <textarea value={marketingText} onChange={event => { setMarketingText(event.target.value); setAdDetails(current => ({ ...current, marketingText: event.target.value })); }} className="min-h-28 w-full rounded-2xl border border-primary/15 bg-secondary/25 p-4 text-right text-sm leading-7 text-foreground outline-none transition focus:border-primary focus:bg-white" aria-label="تعديل نص الإعلان" />
                 </section>
                 {designPassport && <DesignPassportCard passport={designPassport} onDownload={handleDownloadPassport} />}
-                {designContractReport && <DesignContractCard report={designContractReport} onApplyRepair={handleApplyContractRepair} onUndoRepair={handleUndoContractRepair} hasUndoRepair={Boolean(templateBeforeContractRepair)} />}
+                {designContractReport && <DesignContractCard report={designContractReport} onApplyRepair={handleApplyContractRepair} historyEntries={(designHistory?.entries || []).map(entry => ({ id: entry.id, label: entry.label }))} historyFingerprint={designHistory ? designDocumentFingerprint(replayDesignHistory(designHistory)) : undefined} canUndoHistory={Boolean(designHistory?.entries.length)} canRedoHistory={Boolean(designRedoEntries.length)} onReplayHistory={handleReplayHistory} onUndoHistory={handleUndoHistory} onRedoHistory={handleRedoHistory} onRemoveHistoryEntry={handleRemoveHistoryEntry} />}
                 <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} onContractCheck={handleCheckDesignContract} isQualityChecking={isCreatingPassport} isContractChecking={isCheckingDesignContract} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}

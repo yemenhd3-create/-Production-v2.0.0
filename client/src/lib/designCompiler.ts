@@ -58,5 +58,35 @@ export function applyDesignRepair(template: TemplateSettings, repairId: DesignRe
   };
 }
 
+/** يطبق الهندسة الدلالية فقط على إعدادات القالب؛ لا يلمس الصورة أو بيانات المتجر أو نصه. */
+export function applyDesignDocument(template: TemplateSettings, document: DesignDocument): TemplateSettings {
+  const geometry = getDesignGeometry(document.template);
+  const byId = new Map(document.elements.map((element) => [element.id, element]));
+  const logo = byId.get('logo');
+  const footer = byId.get('footer');
+  const product = byId.get('product');
+  const toArtwork = (element: DesignElementDocument, fit: 'cover' | 'contain' | 'stretch') => ({ ...element.box, fit });
+  const artworkLayouts = {
+    ...template.artworkLayouts,
+    [document.template]: {
+      ...template.artworkLayouts?.[document.template],
+      ...(logo ? { logo: toArtwork(logo, 'cover') } : {}),
+      ...(footer ? { footer: toArtwork(footer, 'stretch') } : {}),
+    },
+  };
+  const productTransform = product ? {
+    x: round((product.box.x - geometry.hero.x) / geometry.hero.width),
+    y: round((product.box.y - geometry.hero.y) / geometry.hero.height),
+    width: round(product.box.width / geometry.hero.width),
+    height: round(product.box.height / geometry.hero.height),
+  } : template.smartGarmentTransform;
+  return {
+    ...template,
+    size: document.template,
+    artworkLayouts,
+    smartGarmentTransform: productTransform,
+  };
+}
+
 function clamp(value: number, minimum: number, maximum: number) { return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum)); }
 function round(value: number) { return Math.round(value * 10_000) / 10_000; }

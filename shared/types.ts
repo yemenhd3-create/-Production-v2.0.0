@@ -402,6 +402,7 @@ export enum StorageKeys {
   LAST_WORKFLOW_STEP = 'clothing_ad_last_workflow_step',
   LAST_APP_SECTION = 'clothing_ad_last_app_section',
   DESIGN_SUGGESTION = 'clothing_ad_design_suggestion_v1',
+  DESIGN_HISTORY = 'clothing_ad_design_history_v1',
 }
 
 // ========== Constants ==========
