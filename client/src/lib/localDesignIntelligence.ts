@@ -37,6 +37,11 @@ export async function createLocalDesignSuggestion(source: string, details: AdDet
   return createSuggestionFromMetrics(metrics, details);
 }
 
+/** يفحص الصورة محلياً لإتاحة إعادة استعمال القياسات الصغيرة من Cache من دون حفظ الصورة نفسها. */
+export async function inspectLocalImageMetrics(source: string): Promise<LocalImageMetrics> {
+  return inspectImageLocally(source);
+}
+
 /** دالة حتمية للاختبارات: نفس القياسات والبيانات تعني النتيجة نفسها باستثناء وقت الإنشاء. */
 export function createSuggestionFromMetrics(metrics: LocalImageMetrics, details: AdDetails, generatedAt = Date.now()): DesignSuggestion {
   const warnings = qualityWarnings(metrics);

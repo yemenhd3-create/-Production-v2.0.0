@@ -21,7 +21,8 @@ import { applyDesignDocument, applyDesignRepair, compileDesignDocument } from '@
 import { evaluateDesignContract } from '@/lib/designContract';
 import { appendDesignHistory, createDesignHistory, designDocumentFingerprint, parseDesignHistory, redoDesignHistory, removeDesignHistoryEntry, replayDesignHistory, serializeDesignHistory, undoDesignHistory, type DesignHistoryDocument, type DesignHistoryEntry } from '@/lib/designHistory';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
-import { createLocalDesignSuggestion } from '@/lib/localDesignIntelligence';
+import { createSuggestionFromMetrics } from '@/lib/localDesignIntelligence';
+import { prepareLocalAnalysis } from '@/lib/localAnalysisCache';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
 import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localBackgroundRemovalSupport';
@@ -98,6 +99,7 @@ export default function Home() {
   const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
   const [comparisonPreviews, setComparisonPreviews] = useState<{ current: string; suggested: string } | null>(null);
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
+  const [localPreparation, setLocalPreparation] = useState<{ status: 'idle' | 'analyzing' | 'ready' | 'failed'; cache?: 'hit' | 'miss'; elapsedMs?: number }>({ status: 'idle' });
   const [designPassport, setDesignPassport] = useState<DesignPassport | null>(null);
   const [isCreatingPassport, setIsCreatingPassport] = useState(false);
   const [designContractReport, setDesignContractReport] = useState<DesignContractReport | null>(null);
@@ -165,12 +167,18 @@ export default function Home() {
     if (!productImage) return;
     let active = true;
     setIsDesignAnalyzing(true);
-    void createLocalDesignSuggestion(productImage, adDetails).then(suggestion => {
+    setLocalPreparation({ status: 'analyzing' });
+    void prepareLocalAnalysis(productImage).then(preparation => {
       if (!active) return;
+      const suggestion = createSuggestionFromMetrics(preparation.metrics, adDetails);
       setDesignSuggestion(suggestion);
       setSelectedSuggestedSize(suggestion.selectedLayout);
+      setLocalPreparation({ status: 'ready', cache: preparation.cache, elapsedMs: preparation.elapsedMs });
     }).catch(() => {
-      if (active) setDesignSuggestion(null);
+      if (active) {
+        setDesignSuggestion(null);
+        setLocalPreparation({ status: 'failed' });
+      }
     }).finally(() => {
       if (active) setIsDesignAnalyzing(false);
     });
@@ -652,7 +660,7 @@ export default function Home() {
               <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
             </div>}
             {isReviewingImage && productImage ? (
-              <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+              <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} localPreparation={localPreparation} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
             ) : (
               <ImageUploader
                 onImageSelect={handleImageSelect}
@@ -772,13 +780,15 @@ function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
 }
 
-function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnalyzing, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
+function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnalyzing, localPreparation, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; localPreparation: { status: 'idle' | 'analyzing' | 'ready' | 'failed'; cache?: 'hit' | 'miss'; elapsedMs?: number }; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
   return <div className="space-y-5">
     <div className="rounded-2xl border border-primary/10 bg-primary/[0.045] p-4">
       <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
     {isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
+    {localPreparation.status === 'ready' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">{localPreparation.cache === 'hit' ? 'تمت استعادة تحليل محلي محفوظ للصورة نفسها' : 'اكتمل تحليل الجودة والألوان والتخطيط محلياً'}{typeof localPreparation.elapsedMs === 'number' && ` خلال ${localPreparation.elapsedMs}ms`}</div>}
+    {localPreparation.status === 'failed' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">تعذر التحليل المسبق؛ يمكنك متابعة إنشاء الإعلان محلياً كالمعتاد.</div>}
     {suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} currentSize={currentSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} preferencesEnabled={preferenceEnabled} onTogglePreferences={onTogglePreferences} onClearPreferences={onClearPreferences} comparisonPreviews={comparisonPreviews} />}
     <button type="button" onClick={onContinue} className="reference-primary w-full"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
   </div>;
