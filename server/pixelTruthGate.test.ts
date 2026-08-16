@@ -86,4 +86,15 @@ describe('Pixel Truth Gate', () => {
     expect(repaired.smartBackgroundColor).toBe('#FFFFFF');
     expect(repaired.size).toBe('story');
   });
+
+  it('يقترح إصلاحاً تلقائياً للعنوان فقط ولا يعرض إصلاح السعر أو التذييل', () => {
+    const pixels = new Uint8ClampedArray(100 * 60 * 4).fill(255);
+    const regions = [
+      { id: 'price' as const, x: 0, y: 0, width: 1, height: 1, preferredForeground: 'light' as const },
+    ];
+    const report = inspectPixelTruthPixels(100, 60, pixels, regions);
+
+    expect(report.status).toBe('block');
+    expect(report.repairs).toEqual([]);
+  });
 });

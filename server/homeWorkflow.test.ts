@@ -9,6 +9,7 @@ const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
 const removeBackgroundLocally = vi.fn();
+const inspectRenderedPixelTruth = vi.fn();
 let savedTemplateSettings: TemplateSettings | undefined;
 let savedAdDetails: AdDetails | undefined;
 
@@ -24,6 +25,10 @@ vi.mock('../client/src/lib/trpc', () => ({
 }));
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd }));
 vi.mock('../client/src/lib/localBackgroundRemoval', () => ({ removeBackgroundLocally }));
+vi.mock('../client/src/lib/pixelTruthGate', async () => {
+  const actual = await vi.importActual<typeof import('../client/src/lib/pixelTruthGate')>('../client/src/lib/pixelTruthGate');
+  return { ...actual, inspectRenderedPixelTruth };
+});
 vi.mock('../client/src/lib/storage', () => ({
   getFromStorage: (key: string) => {
     if (key === StorageKeys.TEMPLATE_SETTINGS) return savedTemplateSettings;
@@ -60,6 +65,7 @@ describe('Home Try-On workflow', () => {
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
     removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
+    inspectRenderedPixelTruth.mockResolvedValue({ version: 1, status: 'pass', checks: [], repairs: [], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } });
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
@@ -69,6 +75,7 @@ describe('Home Try-On workflow', () => {
       if (target === 'blob:transparent-garment') return Promise.resolve({ ok: true, blob: async () => new Blob(['product'], { type: 'image/png' }) });
       if (target === '/manus-storage/tryon-result.png' || target === '/manus-storage/raw-cutout.png') return Promise.resolve({ ok: true, blob: async () => new Blob(['tryon'], { type: 'image/png' }) });
       if (target === 'blob:final-ad') return Promise.resolve({ ok: true, blob: async () => new Blob(['advertisement'], { type: 'image/png' }) });
+      if (target === 'blob:repaired-ad') return Promise.resolve({ ok: true, blob: async () => new Blob(['repaired advertisement'], { type: 'image/png' }) });
       return Promise.reject(new Error(`Unexpected URL: ${target}`));
     }));
   });
@@ -255,5 +262,52 @@ describe('Home Try-On workflow', () => {
     await waitFor(() => expect(openWindow).toHaveBeenCalled());
     fireEvent.click(screen.getAllByRole('button', { name: 'تعديل' })[0]);
     expect(screen.getByText('نموذج بيانات الاختبار')).toBeTruthy();
+  });
+
+  it('يعيد رسم العنوان ويعيد فحصه قبل قبول الإصلاح ثم يعيد الأصل عند التراجع', async () => {
+    const headerBlock = { version: 1, status: 'block', checks: [{ id: 'header', status: 'block', contrastRatio: 1, foregroundCoverage: 0, detail: 'عنوان غير مقروء' }], repairs: [{ id: 'restore-readable-background', title: 'استعادة خلفية عنوان مقروءة', detail: 'إصلاح العنوان', affectedElements: ['header'] }], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } };
+    const visualPass = { version: 1, status: 'pass', checks: [{ id: 'header', status: 'pass', contrastRatio: 9, foregroundCoverage: .04, detail: 'عنوان مقروء' }], repairs: [], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } };
+    renderAd.mockReset().mockResolvedValueOnce('blob:final-ad').mockResolvedValueOnce('blob:repaired-ad');
+    inspectRenderedPixelTruth.mockReset().mockResolvedValueOnce(headerBlock).mockResolvedValueOnce(visualPass);
+
+    await startGeneration();
+    fireEvent.click(await screen.findByRole('button', { name: 'استعادة خلفية عنوان مقروءة' }));
+
+    await screen.findByText('نجح إصلاح العنوان: أُعيد الرسم والفحص قبل إتاحة التصدير.');
+    expect(renderAd).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ smartBackgroundColor: '#FFFFFF' }), 'blob:transparent-garment', expect.anything());
+    expect(inspectRenderedPixelTruth).toHaveBeenCalledTimes(2);
+
+    const repairStatus = screen.getByText('نجح إصلاح العنوان: أُعيد الرسم والفحص قبل إتاحة التصدير.').parentElement;
+    fireEvent.click(repairStatus!.querySelector('button')!);
+    expect(await screen.findByText('أعيدت إعدادات الإعلان والصورة الأصلية قبل إصلاح العنوان.')).toBeTruthy();
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it('يبقي الإعلان الأصلي محجوباً عندما تفشل إعادة فحص إصلاح العنوان', async () => {
+    const headerBlock = { version: 1, status: 'block', checks: [{ id: 'header', status: 'block', contrastRatio: 1, foregroundCoverage: 0, detail: 'عنوان غير مقروء' }], repairs: [{ id: 'restore-readable-background', title: 'استعادة خلفية عنوان مقروءة', detail: 'إصلاح العنوان', affectedElements: ['header'] }], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } };
+    renderAd.mockReset().mockResolvedValueOnce('blob:final-ad').mockResolvedValueOnce('blob:repaired-ad');
+    inspectRenderedPixelTruth.mockReset().mockResolvedValueOnce(headerBlock).mockResolvedValueOnce(headerBlock);
+
+    await startGeneration();
+    fireEvent.click(await screen.findByRole('button', { name: 'استعادة خلفية عنوان مقروءة' }));
+
+    expect(await screen.findByText('لم ينجح إصلاح العنوان؛ أبقينا الإعلان الأصلي والتصدير محجوباً.')).toBeTruthy();
+    expect(renderAd).toHaveBeenCalledTimes(2);
+    const repairStatus = screen.getByText('لم ينجح إصلاح العنوان؛ أبقينا الإعلان الأصلي والتصدير محجوباً.').parentElement;
+    expect(repairStatus?.querySelector('button')).toBeNull();
+  });
+
+  it.each(['portrait', 'square', 'story', 'whatsapp', 'landscape'] as const)('يعيد رسم إصلاح العنوان للمقاس %s عبر المسار نفسه', async size => {
+    const headerBlock = { version: 1, status: 'block', checks: [{ id: 'header', status: 'block', contrastRatio: 1, foregroundCoverage: 0, detail: 'عنوان غير مقروء' }], repairs: [{ id: 'restore-readable-background', title: 'استعادة خلفية عنوان مقروءة', detail: 'إصلاح العنوان', affectedElements: ['header'] }], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } };
+    const visualPass = { version: 1, status: 'pass', checks: [{ id: 'header', status: 'pass', contrastRatio: 9, foregroundCoverage: .04, detail: 'عنوان مقروء' }], repairs: [], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } };
+    savedTemplateSettings = { ...DEFAULT_TEMPLATE_SETTINGS, size };
+    renderAd.mockReset().mockResolvedValueOnce('blob:final-ad').mockResolvedValueOnce('blob:repaired-ad');
+    inspectRenderedPixelTruth.mockReset().mockResolvedValueOnce(headerBlock).mockResolvedValueOnce(visualPass);
+
+    await startGeneration();
+    fireEvent.click(await screen.findByRole('button', { name: 'استعادة خلفية عنوان مقروءة' }));
+
+    await screen.findByText('نجح إصلاح العنوان: أُعيد الرسم والفحص قبل إتاحة التصدير.');
+    expect(renderAd).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ size, smartBackgroundColor: '#FFFFFF' }), 'blob:transparent-garment', expect.anything());
   });
 });

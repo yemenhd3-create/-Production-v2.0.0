@@ -110,11 +110,12 @@ export function inspectPixelTruthPixels(width: number, height: number, pixels: U
   const checks = regions.map(region => inspectRegion(pixels, width, height, region));
   const hasBlock = checks.some(check => check.status === 'block');
   const hasWarning = checks.some(check => check.status === 'warning');
+  const headerBlocked = checks.some(check => check.id === 'header' && check.status === 'block');
   return {
     version: 1,
     status: hasBlock ? 'block' : hasWarning ? 'warning' : 'pass',
     checks,
-    repairs: hasBlock ? [{ id: 'restore-readable-background', title: 'استعادة خلفية نص مقروءة', detail: 'يضبط خلفية القالب إلى الأبيض لاستعادة تباين عنوان الإعلان بصورة حتمية.', affectedElements: ['header'] }] : [],
+    repairs: headerBlocked ? [{ id: 'restore-readable-background', title: 'استعادة خلفية عنوان مقروءة', detail: 'يضبط خلفية القالب إلى الأبيض لاستعادة تباين عنوان الإعلان بصورة حتمية.', affectedElements: ['header'] }] : [],
     sampledWidth: width,
     sampledHeight: height,
     privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false },

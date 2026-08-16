@@ -77,6 +77,14 @@ function isWorkflowStep(value: string | null): value is AdWorkflowStep {
 
 type MainApplicationSection = 'create' | 'batch' | 'settings';
 type ActiveView = MainApplicationSection | 'about' | 'developer' | 'messages';
+type VisualRepairStatus = 'idle' | 'repairing' | 'verified' | 'blocked' | 'failed' | 'undone';
+type VisualRepairSnapshot = {
+  templateSettings: TemplateSettings;
+  generatedAdBlob: Blob;
+  qualityGateReport: DesignQualityReport | null;
+  designContractReport: DesignContractReport | null;
+  marketingText: string;
+};
 
 function isMainApplicationSection(value: ActiveView): value is MainApplicationSection {
   return value === 'create' || value === 'batch' || value === 'settings';
@@ -114,6 +122,8 @@ export default function Home() {
   const [qualityGateReport, setQualityGateReport] = useState<DesignQualityReport | null>(null);
   const [isCheckingQualityGate, setIsCheckingQualityGate] = useState(false);
   const [templateBeforeContractRepair, setTemplateBeforeContractRepair] = useState<TemplateSettings | null>(null);
+  const [visualRepairSnapshot, setVisualRepairSnapshot] = useState<VisualRepairSnapshot | null>(null);
+  const [visualRepairStatus, setVisualRepairStatus] = useState<VisualRepairStatus>('idle');
   const [designHistory, setDesignHistory] = useState<DesignHistoryDocument | null>(null);
   const [designRedoEntries, setDesignRedoEntries] = useState<DesignHistoryEntry[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
@@ -227,7 +237,10 @@ export default function Home() {
     setGeneratedAd('');
     setDesignPassport(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('idle');
     setDesignHistory(null);
     setDesignRedoEntries([]);
     removeFromStorage(StorageKeys.DESIGN_HISTORY);
@@ -245,7 +258,10 @@ export default function Home() {
     setGeneratedAd('');
     setDesignPassport(null);
     setDesignContractReport(null);
+    setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('idle');
     setDesignHistory(null);
     setDesignRedoEntries([]);
     removeFromStorage(StorageKeys.DESIGN_HISTORY);
@@ -286,6 +302,8 @@ export default function Home() {
     setDesignContractReport(null);
     setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('idle');
     setDesignHistory(null);
     setDesignRedoEntries([]);
     removeFromStorage(StorageKeys.DESIGN_HISTORY);
@@ -359,6 +377,8 @@ export default function Home() {
     setDesignContractReport(null);
     setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('idle');
     setTryOnResult({
       status: 'processing',
       message: 'نجهّز الصورة والقالب للإعلان…',
@@ -414,6 +434,8 @@ export default function Home() {
     setDesignContractReport(null);
     setQualityGateReport(null);
     setTemplateBeforeContractRepair(null);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('idle');
     try {
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
@@ -528,7 +550,57 @@ export default function Home() {
     }
   };
 
+  const handleVisualRepair = async () => {
+    if (!generatedAd || visualRepairStatus === 'repairing') return;
+    setVisualRepairStatus('repairing');
+    try {
+      const currentReport = qualityGateReport || await evaluateCurrentQualityGate();
+      const headerBlocked = currentReport.pixelTruth?.checks.some(check => check.id === 'header' && check.status === 'block');
+      if (!headerBlocked) {
+        setVisualRepairStatus('blocked');
+        toast.message('الإصلاح التلقائي متاح فقط عندما يكون التباين الحرج في عنوان الإعلان.');
+        return;
+      }
+      const source = lastVisualSource || productImage;
+      if (!source) throw new Error('لا تتوفر صورة القطعة لإعادة الرسم.');
+      const sourceResponse = await fetch(generatedAd);
+      const originalBlob = await sourceResponse.blob();
+      if (!sourceResponse.ok || !originalBlob.type.startsWith('image/')) throw new Error('تعذر حفظ معاينة الإعلان الأصلية للتراجع.');
+      const repairedTemplate = applyDesignRepair(templateSettings, 'restore-readable-background');
+      const dimensions = getCanvasDimensions(repairedTemplate.size);
+      const output = await withTimeout(
+        renderAd(adDetails, repairedTemplate, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: repairedTemplate.smartGarmentTransform }),
+        15_000,
+        'انتهت مهلة إعادة رسم إصلاح العنوان.'
+      );
+      const document = compileDesignDocument(adDetails, repairedTemplate, designSuggestion);
+      const contract = evaluateDesignContract(document);
+      const pixelTruth = await inspectRenderedPixelTruth(output, document);
+      const report = evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === repairedTemplate.size), pixelTruth);
+      if (!canExportDesign(report)) {
+        URL.revokeObjectURL(output);
+        setVisualRepairStatus('blocked');
+        toast.error('أُعيد الرسم والفحص، لكن الإصلاح لم ينجح؛ أبقينا الإعلان الأصلي والتصدير محجوباً.');
+        return;
+      }
+      setVisualRepairSnapshot({ templateSettings, generatedAdBlob: originalBlob, qualityGateReport: currentReport, designContractReport, marketingText });
+      setTemplateSettings(repairedTemplate);
+      setGeneratedAd(output);
+      setDesignContractReport(contract);
+      setQualityGateReport(report);
+      setVisualRepairStatus('verified');
+      toast.success('نجح إصلاح العنوان بعد إعادة الرسم وفحص البكسلات والهندسة محلياً.');
+    } catch (error) {
+      setVisualRepairStatus('failed');
+      toast.error(error instanceof Error ? error.message : 'تعذر إكمال إصلاح العنوان؛ بقي الإعلان الأصلي كما هو.');
+    }
+  };
+
   const handleApplyContractRepair = (repairId: DesignRepairId) => {
+    if (repairId === 'restore-readable-background') {
+      void handleVisualRepair();
+      return;
+    }
     try {
       const before = compileDesignDocument(adDetails, templateSettings, designSuggestion);
       const repairedTemplate = applyDesignRepair(templateSettings, repairId);
@@ -602,6 +674,19 @@ export default function Home() {
     setDesignContractReport(null);
     setQualityGateReport(null);
     toast.success('تم التراجع عن إصلاح عقد التصميم.');
+  };
+
+  const handleUndoVisualRepair = () => {
+    if (!visualRepairSnapshot) return;
+    const restoredAd = URL.createObjectURL(visualRepairSnapshot.generatedAdBlob);
+    setTemplateSettings(visualRepairSnapshot.templateSettings);
+    setGeneratedAd(restoredAd);
+    setQualityGateReport(visualRepairSnapshot.qualityGateReport);
+    setDesignContractReport(visualRepairSnapshot.designContractReport);
+    setMarketingText(visualRepairSnapshot.marketingText);
+    setVisualRepairSnapshot(null);
+    setVisualRepairStatus('undone');
+    toast.success('أعيدت إعدادات الإعلان والصورة الأصلية قبل إصلاح العنوان.');
   };
 
   const handleDownloadPassport = () => {
@@ -842,7 +927,7 @@ export default function Home() {
                 </section>
                 {designPassport && <DesignPassportCard passport={designPassport} onDownload={handleDownloadPassport} />}
                 {designContractReport && <DesignContractCard report={designContractReport} onApplyRepair={handleApplyContractRepair} historyEntries={(designHistory?.entries || []).map(entry => ({ id: entry.id, label: entry.label }))} historyFingerprint={designHistory ? designDocumentFingerprint(replayDesignHistory(designHistory)) : undefined} canUndoHistory={Boolean(designHistory?.entries.length)} canRedoHistory={Boolean(designRedoEntries.length)} onReplayHistory={handleReplayHistory} onUndoHistory={handleUndoHistory} onRedoHistory={handleRedoHistory} onRemoveHistoryEntry={handleRemoveHistoryEntry} />}
-                {qualityGateReport && <React.Suspense fallback={null}><DesignQualityGateCard report={qualityGateReport} onApplyRepair={handleApplyContractRepair} /></React.Suspense>}
+                {qualityGateReport && <React.Suspense fallback={null}><DesignQualityGateCard report={qualityGateReport} onApplyRepair={handleApplyContractRepair} visualRepairStatus={visualRepairStatus} onUndoVisualRepair={visualRepairSnapshot ? handleUndoVisualRepair : undefined} /></React.Suspense>}
                 <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} onContractCheck={handleCheckDesignContract} onExportGateCheck={handleCheckQualityGate} isQualityChecking={isCreatingPassport} isContractChecking={isCheckingDesignContract} isExportGateChecking={isCheckingQualityGate} exportBlocked={qualityGateReport?.exportAllowed === false} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}
