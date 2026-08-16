@@ -389,7 +389,11 @@
 - [x] ربط Cache التحليل بمراجعة الصورة وحالة تقدم صادقة ومقاييس جلسة
 - [x] إضافة اختبارات Cache والتحقق الكامل قبل تحديث GitHub
 - [x] مراجعة اقتراح Local Design Benchmark Engine واعتماد نطاق قياس وانحدار قابل للاختبار
-- [ ] تنفيذ Design Benchmark & Regression v1 بعد تسليم Patch مبني على commit 5e43644
+- [x] تنفيذ Design Benchmark & Regression v1 بعد تسليم Patch مبني على commit 5e43644
+- [x] بناء عقود Benchmark وبصمة جودة وRegression وGolden fixtures رقمية بلا صور
+- [x] تنفيذ Pareto محدود ومحرك Benchmark حتمي فوق CompositionScore وDesignContract
+- [x] ربط ملخص Benchmark وتنبيه Regression ببطاقة اقتراح التصميم المحلي
+- [x] تشغيل 1000 حالة خصائص وGolden fixtures وفحوص الجودة والهاتف قبل تحديث GitHub
 
 ## ملاحظات عامة
 - جميع البيانات الثابتة تُحفظ محلياً على الجهاز

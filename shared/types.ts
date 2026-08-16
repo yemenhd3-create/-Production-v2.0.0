@@ -404,6 +404,7 @@ export enum StorageKeys {
   DESIGN_SUGGESTION = 'clothing_ad_design_suggestion_v1',
   DESIGN_HISTORY = 'clothing_ad_design_history_v1',
   LOCAL_ANALYSIS_CACHE = 'clothing_ad_local_analysis_cache_v1',
+  DESIGN_QUALITY_BASELINE = 'clothing_ad_design_quality_baseline_v1',
 }
 
 // ========== Constants ==========
