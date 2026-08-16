@@ -34,6 +34,7 @@
 - نُفذ Pilot v1 لـ«عقد التصميم المحلي» في 16 أغسطس 2026: وثيقة حتمية، هندسة مشتركة للمقاسات الخمسة، فحص قيود محلي وإصلاحات قابلة للتراجع. لا يُعاد اقتراح Pilot نفسه؛ المرحلة التالية، إن طُلبت، يمكن أن تكون سجل عمليات محلياً منفصلاً فقط بعد مراجعة أثره. راجع `LOCAL_DESIGN_COMPILER_PROPOSAL_REVIEW_AR.md` والاختبارات `server/designContract.test.ts`.
 - نُفذ كذلك `Design Replay v1`: سجل دلالي محلي لوثيقة التصميم مع Replay وUndo وRedo وحذف عملية مشروط بعدم التعارض. يثبت المشروع تطابق **وثيقة التصميم** ببصمة حتمية؛ لا يجوز الادعاء بأن بصمة PNG متطابقة بين أجهزة أو متصفحات مختلفة. لا تتضمن السجلات صوراً أو بيانات متجر أو روابط. راجع `client/src/lib/designHistory.ts` و`server/designHistory.test.ts`.
 - نُفذ `Progressive Local Preparation v1`: Cache محلي لقياسات تحليل الصورة فقط، ببصمة Canvas محلية وحد 12 نتيجة وحالات hit/miss صادقة. لا يحفظ صورة أو URL أو بيانات متجر ولا يشغل ONNX بالتوازي. لا يعاد اقتراحه كفكرة جديدة؛ راجع `client/src/lib/localAnalysisCache.ts` و`server/localAnalysisCache.test.ts`.
+- التحدي المعتمد التالي هو `Design Benchmark & Regression v1`: Benchmark حتمي للمرشحين، Pareto بثلاثة محاور، بصمة جودة محلية، كشف Regression وGolden fixtures رقمية و1000 حالة خصائص. لا يعاد بناء CompositionScore أو DesignContract؛ راجع `LOCAL_DESIGN_BENCHMARK_PROPOSAL_REVIEW_AR.md`.
 
 ## ما هو مؤجل
 
