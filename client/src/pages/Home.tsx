@@ -13,7 +13,9 @@ import {
 import ImageUploader from '@/components/ImageUploader';
 import LocalDesignSuggestionCard from '@/components/LocalDesignSuggestionCard';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
+import DesignPassportCard from '@/components/DesignPassportCard';
 import { renderAd } from '@/lib/canvasRenderer';
+import { createDesignPassport, passportFilename, passportToJson, type DesignPassport } from '@/lib/designPassport';
 import { applyDesignSuggestion } from '@/lib/designSuggestionApplication';
 import { createLocalDesignSuggestion } from '@/lib/localDesignIntelligence';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
@@ -91,6 +93,8 @@ export default function Home() {
   const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
   const [comparisonPreviews, setComparisonPreviews] = useState<{ current: string; suggested: string } | null>(null);
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
+  const [designPassport, setDesignPassport] = useState<DesignPassport | null>(null);
+  const [isCreatingPassport, setIsCreatingPassport] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
@@ -185,6 +189,7 @@ export default function Home() {
   const handleImageSelect = (imageUrl: string) => {
     setProductImage(imageUrl);
     setGeneratedAd('');
+    setDesignPassport(null);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -197,6 +202,7 @@ export default function Home() {
   const handleImageRemove = () => {
     setProductImage('');
     setGeneratedAd('');
+    setDesignPassport(null);
     setLastVisualSource('');
     setTryOnResult({ status: 'idle', message: '' });
     setDesignSuggestion(null);
@@ -230,6 +236,7 @@ export default function Home() {
     if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
     setProductImage('');
     setGeneratedAd('');
+    setDesignPassport(null);
     setLastVisualSource('');
     setMarketingText('');
     setIsReviewingImage(false);
@@ -289,6 +296,7 @@ export default function Home() {
     setCurrentStep('final');
     setIsGenerating(true);
     setGeneratedAd('');
+    setDesignPassport(null);
     setTryOnResult({
       status: 'processing',
       message: 'نجهّز الصورة والقالب للإعلان…',
@@ -335,6 +343,7 @@ export default function Home() {
     }
     setIsGenerating(true);
     setGeneratedAd('');
+    setDesignPassport(null);
     try {
       const dimensions = getCanvasDimensions(templateSettings.size);
       const output = await withTimeout(
@@ -360,6 +369,32 @@ export default function Home() {
       toast.success('تم حفظ تصميم PNG. افتح التنزيلات أو المعرض لإرساله في واتساب.');
     } catch {
       toast.error('تعذّر تنزيل الإعلان. حاول مرة أخرى.');
+    }
+  };
+
+  const handleCreatePassport = async () => {
+    if (!generatedAd || isCreatingPassport) return;
+    setIsCreatingPassport(true);
+    try {
+      const passport = await createDesignPassport(generatedAd, templateSettings, designSuggestion);
+      setDesignPassport(passport);
+      toast.success('اكتمل فحص جودة الإعلان محلياً. يمكنك حفظ الجواز الاختياري الآن.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'تعذر فحص نتيجة الإعلان محلياً. أعد التوليد ثم حاول مرة أخرى.');
+    } finally {
+      setIsCreatingPassport(false);
+    }
+  };
+
+  const handleDownloadPassport = () => {
+    if (!designPassport) return;
+    const blob = new Blob([passportToJson(designPassport)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    try {
+      downloadImage(url, passportFilename(adDetails.productName));
+      toast.success('تم حفظ جواز الجودة بصيغة JSON في التنزيلات.');
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     }
   };
 
@@ -585,7 +620,8 @@ export default function Home() {
                   <div className="mb-3 flex items-center justify-between gap-2 text-primary"><span className="flex items-center gap-2"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></span><span className="text-[11px] font-bold text-muted-foreground">قابل للتحرير قبل المشاركة</span></div>
                   <textarea value={marketingText} onChange={event => { setMarketingText(event.target.value); setAdDetails(current => ({ ...current, marketingText: event.target.value })); }} className="min-h-28 w-full rounded-2xl border border-primary/15 bg-secondary/25 p-4 text-right text-sm leading-7 text-foreground outline-none transition focus:border-primary focus:bg-white" aria-label="تعديل نص الإعلان" />
                 </section>
-                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
+                {designPassport && <DesignPassportCard passport={designPassport} onDownload={handleDownloadPassport} />}
+                <React.Suspense fallback={<PageLoading label="جارٍ تجهيز خيارات المشاركة…" />}><SharePanel onDownload={handleDownload} onShare={handleShare} onWhatsApp={handleWhatsApp} onQualityCheck={handleCreatePassport} isQualityChecking={isCreatingPassport} onEdit={() => setCurrentStep('details')} onClear={clearAdSession} /></React.Suspense>
               </>
             )}
           </section>
