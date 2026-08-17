@@ -18,6 +18,10 @@ jobs:
     name: تحقق الجودة
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      DEVELOPER_PANEL_USERNAME: ci-developer
+      DEVELOPER_PANEL_PASSWORD: ci-only-not-a-production-password
+      JWT_SECRET: ci-only-test-secret-please-do-not-use-in-production-2026
     steps:
       - name: جلب النسخة
         uses: actions/checkout@v4
