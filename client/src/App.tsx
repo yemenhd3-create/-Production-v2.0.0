@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { isFriendTestMode } from "./lib/friendTestMode";
 
 const CanvasVisualCheck = lazy(() => import('./components/CanvasVisualCheck'));
 const PersonalAccessGate = lazy(() => import('./components/PersonalAccessGate'));
@@ -41,6 +42,10 @@ function PersonalHome() {
   }
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('batch-visual-check')) {
     return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز مساحة الدفعة…" />}><BatchVisualCheck /></Suspense>;
+  }
+  const friendTestMode = isFriendTestMode(import.meta.env.VITE_FRIEND_TEST_MODE);
+  if (friendTestMode) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز وضع الاختبار…" />}><AuthenticatedApplication friendTestMode /></Suspense>;
   }
   return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
 }

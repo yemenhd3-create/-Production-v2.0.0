@@ -95,7 +95,7 @@ function isMainApplicationSection(value: ActiveView): value is MainApplicationSe
   return value === 'create' || value === 'batch' || value === 'settings';
 }
 
-export default function Home() {
+export default function Home({ friendTestMode = false }: { friendTestMode?: boolean }) {
   const [currentStep, setCurrentStep] = useState<AdWorkflowStep>('upload');
   const [productImage, setProductImage] = useState('');
   const [adDetails, setAdDetails] = useState<AdDetails>(DEFAULT_AD_DETAILS);
@@ -136,7 +136,7 @@ export default function Home() {
     return saved === 'batch' || saved === 'settings' ? saved : 'create';
   });
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
-  const announcementQuery = trpc.personal.announcement.useQuery();
+  const announcementQuery = trpc.personal.announcement.useQuery(undefined, { enabled: !friendTestMode });
 
   useEffect(() => {
     const savedDetails = getFromStorage<AdDetails>(StorageKeys.LAST_AD_DETAILS);
@@ -771,13 +771,14 @@ export default function Home() {
     <div className="reference-shell min-h-screen text-foreground" dir="rtl">
       <header className="sticky top-0 z-20 bg-[#fdfbf8]/92 backdrop-blur-xl">
         <div className="mx-auto grid max-w-2xl grid-cols-[44px_minmax(0,1fr)_48px] items-center gap-3 px-5 py-4">
-          <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={20} /></button>
+          {friendTestMode ? <span className="h-11 w-11" aria-hidden="true" /> : <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={20} /></button>}
           <div className="min-w-0 text-center"><h1 className="text-[15px] font-black leading-5 tracking-tight text-primary sm:text-xl">استوديو إعلانات الملابس</h1><p className="mt-0.5 text-[10px] font-bold text-muted-foreground">صمّم إعلانك بخطوات سهلة</p></div>
           <button type="button" onClick={() => setActiveView('settings')} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1.5 shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="الإعدادات"><img src={LOGO_URL} alt="شعار التطبيق" className="h-full w-full object-contain" /></button>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-5 sm:pt-8">
+        {friendTestMode && activeView === 'create' && <div className="mb-5 w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm leading-6 text-amber-950"><span className="font-black">وضع اختبار مؤقت: </span>يمكنك إنشاء إعلان محلي وتجربة الواجهة. لا تتوفر لوحة المطور أو الرسائل أو الخدمات السحابية في هذا الوضع.</div>}
         {activeView === 'create' && <PwaInstallPrompt />}
 
         {activeView === 'create' && <section className={`reference-card mb-6 p-4 ${currentStep === 'upload' ? 'hidden' : ''}`}>
@@ -817,12 +818,12 @@ export default function Home() {
             onChange={setTemplateSettings}
             onBack={() => setActiveView('create')}
             onAbout={() => setActiveView('about')}
-            onDeveloper={() => setActiveView('developer')}
+            onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
-        {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
+        {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 
-        {activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
+        {!friendTestMode && activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
 
         {activeView === 'about' && (
           <React.Suspense fallback={<PageLoading label="جارٍ فتح حول التطبيق…" />}>
@@ -830,13 +831,13 @@ export default function Home() {
           </React.Suspense>
         )}
 
-        {activeView === 'developer' && (
+        {!friendTestMode && activeView === 'developer' && (
           <React.Suspense fallback={<PageLoading label="جارٍ فتح لوحة المطور…" />}>
             <DeveloperWorkspace onBack={() => setActiveView('create')} />
           </React.Suspense>
         )}
 
-        {activeView === 'create' && announcementQuery.data && (
+        {!friendTestMode && activeView === 'create' && announcementQuery.data && (
           <button type="button" onClick={() => setActiveView('messages')} className="mb-5 w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm leading-6 text-amber-950"><span className="font-black">رسالة من المطور: </span>{announcementQuery.data.message}</button>
         )}
 
@@ -889,7 +890,7 @@ export default function Home() {
               </button>
             </div>
 
-            <React.Suspense fallback={<PageLoading label="جارٍ تجهيز حقول الإعلان…" />}><AdDetailsForm details={adDetails} onChange={setAdDetails} generateCloudText={(details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>
+            <React.Suspense fallback={<PageLoading label="جارٍ تجهيز حقول الإعلان…" />}><AdDetailsForm details={adDetails} onChange={setAdDetails} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>
 
             <div className="reference-local-note mt-5"><BadgeCheck size={18} />سيجهّز التطبيق الخلفية والنص تلقائياً على الهاتف.</div>
 
