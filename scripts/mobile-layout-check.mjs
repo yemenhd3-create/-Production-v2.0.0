@@ -3,6 +3,9 @@ import { spawn } from 'node:child_process';
 const targetUrl = process.env.MOBILE_CHECK_URL || 'http://127.0.0.1:3000/';
 const debugPort = Number(process.env.MOBILE_CHECK_PORT || 9227);
 const chromium = process.env.CHROMIUM_BIN || 'chromium';
+const startupTimeoutMs = Math.max(3_000, Number(process.env.MOBILE_CHECK_STARTUP_TIMEOUT_MS || 15_000));
+let chromiumError = '';
+let chromiumExited = false;
 
 const browser = spawn(chromium, [
   '--headless=new',
@@ -12,21 +15,32 @@ const browser = spawn(chromium, [
   `--remote-debugging-port=${debugPort}`,
   `--user-data-dir=/tmp/clothing-ad-mobile-check-${process.pid}`,
   'about:blank',
-], { stdio: 'ignore' });
+], { stdio: ['ignore', 'ignore', 'pipe'] });
+
+browser.stderr?.on('data', (chunk) => {
+  chromiumError = `${chromiumError}${chunk}`.slice(-1_000);
+});
+browser.once('exit', () => { chromiumExited = true; });
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function getDebugData(path) {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  const deadline = Date.now() + startupTimeoutMs;
+  while (Date.now() < deadline) {
     try {
       const response = await fetch(`http://127.0.0.1:${debugPort}${path}`);
       if (response.ok) return response.json();
     } catch {
       // Chromium has not opened the debugging socket yet.
     }
+    if (chromiumExited) {
+      const details = chromiumError.trim() ? `: ${chromiumError.trim()}` : '';
+      throw new Error(`توقف Chromium قبل فتح قناة الفحص${details}`);
+    }
     await wait(100);
   }
-  throw new Error('تعذّر فتح قناة فحص Chromium في الوقت المحدد.');
+  const details = chromiumError.trim() ? `: ${chromiumError.trim()}` : '';
+  throw new Error(`تعذّر فتح قناة فحص Chromium خلال ${startupTimeoutMs}ms${details}`);
 }
 
 async function connectCdp() {
