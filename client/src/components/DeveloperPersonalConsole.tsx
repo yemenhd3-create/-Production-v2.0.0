@@ -2,6 +2,7 @@ import { Archive, BellRing, CheckCircle2, MessageSquareText, ShieldBan, UsersRou
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
+import DeveloperAccessCodes from './DeveloperAccessCodes';
 
 export default function DeveloperPersonalConsole() {
   const utils = trpc.useUtils();
@@ -61,6 +62,8 @@ export default function DeveloperPersonalConsole() {
         <button type="button" onClick={() => setIsActive(current => !current)} className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-primary"><span className={`flex h-6 w-6 items-center justify-center rounded-full ${isActive ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>{isActive && <CheckCircle2 size={14} />}</span>إظهار الإعلان للمستخدمين</button>
         <button type="button" disabled={!announcement.trim() || saveAnnouncement.isPending} onClick={() => saveAnnouncement.mutate({ id: announcementId, message: announcement.trim(), isActive })} className="mt-4 min-h-12 w-full rounded-xl bg-primary text-sm font-black text-primary-foreground disabled:opacity-50">{saveAnnouncement.isPending ? 'جارٍ الحفظ…' : 'حفظ الإعلان العام'}</button>
       </section>
+
+      <DeveloperAccessCodes />
 
       <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
         <div className="mb-4 flex items-center gap-2 text-primary"><MessageSquareText size={20} /><h3 className="font-black">رسائل المستخدمين</h3></div>

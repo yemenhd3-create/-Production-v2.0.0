@@ -9,6 +9,8 @@ import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSess
 import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
 import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
 import { generateMarketingTextWithFallback } from './marketingText';
+import { createAccessCode, listAccessCodes, redeemAccessCode, revokeAccessCode } from './accessCodes';
+import { sdk } from './_core/sdk';
 import {
   createUserMessage,
   getActiveAnnouncement,
@@ -88,7 +90,40 @@ export const appRouter = router({
       setUserAccess: developerProcedure
         .input(z.object({ id: z.number().int().positive(), isDisabled: z.boolean() }))
         .mutation(({ input }) => setPersonalUserAccess(input.id, input.isDisabled)),
+      accessCodes: router({
+        list: developerProcedure.query(() => listAccessCodes()),
+        create: developerProcedure
+          .input(z.object({
+            label: z.string().trim().min(1).max(120),
+            expiresAt: z.number().int().positive().optional(),
+            maxUses: z.number().int().positive().max(1_000_000).optional(),
+          }))
+          .mutation(({ input }) => createAccessCode({
+            label: input.label,
+            expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+            maxUses: input.maxUses,
+          })),
+        revoke: developerProcedure
+          .input(z.object({ id: z.number().int().positive() }))
+          .mutation(({ input }) => revokeAccessCode(input.id)),
+      }),
     }),
+  }),
+  accessCodes: router({
+    redeem: publicProcedure
+      .input(z.object({ code: z.string().trim().min(12).max(80) }))
+      .mutation(async ({ ctx, input }) => {
+        const redeemed = await redeemAccessCode(input.code);
+        const remainingMs = redeemed.expiresAt
+          ? Math.max(1_000, redeemed.expiresAt.getTime() - Date.now())
+          : undefined;
+        const token = await sdk.createSessionToken(redeemed.openId, { name: redeemed.name, expiresInMs: remainingMs });
+        ctx.res.cookie(COOKIE_NAME, token, {
+          ...getSessionCookieOptions(ctx.req),
+          maxAge: remainingMs,
+        });
+        return { success: true } as const;
+      }),
   }),
   personal: router({
     access: protectedProcedure.query(async ({ ctx }) => assertPersonalUserIsActive(ctx.user.id)),

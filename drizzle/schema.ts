@@ -61,3 +61,19 @@ export const userMessages = mysqlTable("user_messages", {
 
 export type AppAnnouncement = typeof appAnnouncements.$inferSelect;
 export type UserMessage = typeof userMessages.$inferSelect;
+
+/** رمز وصول يصدره المطور. لا يُخزّن الرمز الخام؛ تحفظ بصمة SHA-256 فقط. */
+export const accessCodes = mysqlTable("access_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  codeHash: varchar("codeHash", { length: 64 }).notNull().unique(),
+  sessionOpenId: varchar("sessionOpenId", { length: 96 }).notNull().unique(),
+  label: varchar("label", { length: 120 }).notNull(),
+  expiresAt: timestamp("expiresAt"),
+  maxUses: int("maxUses"),
+  useCount: int("useCount").default(0).notNull(),
+  isRevoked: int("isRevoked").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastUsedAt: timestamp("lastUsedAt"),
+});
+
+export type AccessCode = typeof accessCodes.$inferSelect;

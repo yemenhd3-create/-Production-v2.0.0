@@ -1,8 +1,9 @@
 import { startLogin } from '@/const';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
-import { LockKeyhole, LogIn, ShieldAlert } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { KeyRound, LockKeyhole, LogIn, ShieldAlert } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 
 export default function PersonalAccessGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -21,8 +22,8 @@ export default function PersonalAccessGate({ children }: { children: ReactNode }
       <AccessShell
         icon={<LockKeyhole size={28} />}
         title="دخول إلى المساحة الشخصية"
-        description="هذا التطبيق مخصص للاستخدام الخاص. سجّل الدخول أولاً لحفظ الوصول بين أجهزتك المصرح بها."
-        action={<button type="button" onClick={() => startLogin()} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-black text-primary-foreground transition active:scale-[0.98]"><LogIn size={20} /> تسجيل الدخول</button>}
+        description="أدخل رمز الوصول الذي أنشأه المطور، أو استخدم حسابك المعتاد إذا كان لديك."
+        action={<AccessCodeEntry onPlatformLogin={() => startLogin()} />}
       />
     );
   }
@@ -32,6 +33,25 @@ export default function PersonalAccessGate({ children }: { children: ReactNode }
   }
 
   return <>{children}</>;
+}
+
+function AccessCodeEntry({ onPlatformLogin }: { onPlatformLogin: () => void }) {
+  const [code, setCode] = useState('');
+  const redeem = trpc.accessCodes.redeem.useMutation({
+    onSuccess: () => window.location.reload(),
+    onError: error => toast.error(error.message || 'تعذر التحقق من رمز الدخول.'),
+  });
+  const submit = () => {
+    if (!code.trim()) return toast.error('أدخل رمز الدخول أولاً.');
+    redeem.mutate({ code: code.trim() });
+  };
+
+  return <div className="space-y-3">
+    <label className="sr-only" htmlFor="access-code">رمز الدخول</label>
+    <input id="access-code" value={code} onChange={event => setCode(event.target.value.toUpperCase())} onKeyDown={event => { if (event.key === 'Enter') submit(); }} autoCapitalize="characters" autoCorrect="off" placeholder="مثال: CAG-ABCDE-12345" className="min-h-12 w-full rounded-2xl border border-stone-200 px-4 text-center font-bold outline-none focus:border-primary" dir="ltr" />
+    <button type="button" disabled={redeem.isPending} onClick={submit} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-black text-primary-foreground transition active:scale-[0.98] disabled:opacity-50"><KeyRound size={20} />{redeem.isPending ? 'جارٍ التحقق…' : 'الدخول بالرمز'}</button>
+    <button type="button" onClick={onPlatformLogin} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 px-5 text-sm font-black text-primary transition active:scale-[0.98]"><LogIn size={18} />متابعة بالحساب المعتاد</button>
+  </div>;
 }
 
 function AccessShell({ icon, title, description, action }: { icon: ReactNode; title: string; description: string; action?: ReactNode }) {
