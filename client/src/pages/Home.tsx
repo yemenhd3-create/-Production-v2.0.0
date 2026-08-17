@@ -35,6 +35,8 @@ import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBack
 import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
+import { clearMerchantProfile, loadMerchantProfile, saveMerchantProfile } from '@/lib/merchantMemory';
+import { applyMerchantCommands, type MerchantCommand, type MerchantProfile } from '@shared/merchantAssistant';
 import { trpc } from '@/lib/trpc';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -54,6 +56,7 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkles,
+  Bot,
   Wand2,
 } from 'lucide-react';
 
@@ -67,6 +70,7 @@ const SharePanel = React.lazy(() => import('@/components/SharePanel'));
 const DesignQualityGateCard = React.lazy(() => import('@/components/DesignQualityGateCard'));
 const TryOnStatusNotice = React.lazy(() => import('@/components/TryOnStatusNotice').then(module => ({ default: module.TryOnStatusNotice })));
 const UserTemplateSettings = React.lazy(() => import('@/components/UserTemplateSettings'));
+const MerchantAssistantWorkspace = React.lazy(() => import('@/components/MerchantAssistantWorkspace'));
 const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
@@ -80,7 +84,7 @@ function isWorkflowStep(value: string | null): value is AdWorkflowStep {
   return value === 'upload' || value === 'details' || value === 'final';
 }
 
-type MainApplicationSection = 'create' | 'batch' | 'settings';
+type MainApplicationSection = 'create' | 'batch' | 'assistant' | 'settings';
 type ActiveView = MainApplicationSection | 'about' | 'developer' | 'messages';
 type VisualRepairStatus = 'idle' | 'repairing' | 'verified' | 'blocked' | 'failed' | 'undone';
 type VisualRepairSnapshot = {
@@ -92,7 +96,7 @@ type VisualRepairSnapshot = {
 };
 
 function isMainApplicationSection(value: ActiveView): value is MainApplicationSection {
-  return value === 'create' || value === 'batch' || value === 'settings';
+  return value === 'create' || value === 'batch' || value === 'assistant' || value === 'settings';
 }
 
 export default function Home({ friendTestMode = false }: { friendTestMode?: boolean }) {
@@ -114,6 +118,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   const [designSuggestion, setDesignSuggestion] = useState<DesignSuggestion | null>(null);
   const [selectedSuggestedSize, setSelectedSuggestedSize] = useState<TemplateSize>('portrait');
   const [preferenceProfile, setPreferenceProfile] = useState(() => loadPreferenceProfile());
+  const [merchantProfile, setMerchantProfile] = useState(() => loadMerchantProfile());
   const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
   const [comparisonPreviews, setComparisonPreviews] = useState<{ current: string; suggested: string } | null>(null);
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
@@ -133,7 +138,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   const [designRedoEntries, setDesignRedoEntries] = useState<DesignHistoryEntry[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
-    return saved === 'batch' || saved === 'settings' ? saved : 'create';
+    return saved === 'batch' || saved === 'assistant' || saved === 'settings' ? saved : 'create';
   });
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery(undefined, { enabled: !friendTestMode });
@@ -427,7 +432,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     }
   };
 
-  const regenerateWithCurrentSettings = async (templateOverride?: TemplateSettings, successMessage = 'تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.') => {
+  const regenerateWithCurrentSettings = async (templateOverride?: TemplateSettings, successMessage = 'تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.', detailsOverride?: AdDetails) => {
     const source = lastVisualSource || productImage;
     if (!source) {
       setCurrentStep('upload');
@@ -443,15 +448,16 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     setVisualRepairStatus('idle');
     try {
       const activeTemplate = templateOverride || templateSettings;
+      const activeDetails = detailsOverride || adDetails;
       const dimensions = getCanvasDimensions(activeTemplate.size);
       const output = await withTimeout(
-        renderAd(adDetails, activeTemplate, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: activeTemplate.smartGarmentTransform }),
+        renderAd(activeDetails, activeTemplate, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: activeTemplate.smartGarmentTransform }),
         15_000,
         'انتهت مهلة إعادة بناء الإعلان. أعد المحاولة أو جرّب صورة أصغر.'
       );
       setGeneratedAd(output);
-      setMarketingText(buildMarketingText(adDetails));
-      const document = compileDesignDocument(adDetails, activeTemplate, designSuggestion);
+      setMarketingText(buildMarketingText(activeDetails));
+      const document = compileDesignDocument(activeDetails, activeTemplate, designSuggestion);
       const contract = evaluateDesignContract(document);
       const pixelTruth = await inspectRenderedPixelTruth(output, document);
       setDesignContractReport(contract);
@@ -488,6 +494,62 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       toast.message(error instanceof Error ? error.message : 'تم تحديث الحجم، لكن تعذر إضافة العملية إلى سجل التصميم.');
     }
     setTemplateSettings(updatedTemplate);
+  };
+
+  const handleMerchantProfileCommit = (profile: MerchantProfile) => {
+    const stored = saveMerchantProfile(profile);
+    setMerchantProfile(stored);
+    setAdDetails(current => ({
+      ...current,
+      storeName: stored.storeName || current.storeName,
+      storePhone: stored.storePhone || current.storePhone,
+      colors: stored.defaultColors.length > 0 ? stored.defaultColors : current.colors,
+    }));
+    toast.success('تم حفظ تفضيلات متجرك محلياً على هذا الهاتف.');
+  };
+
+  const handleMerchantProfileClear = () => {
+    setMerchantProfile(clearMerchantProfile());
+    toast.success('تم مسح ذاكرة المساعد المحلية من هذا الهاتف.');
+  };
+
+  const handleMerchantCommands = async (commands: MerchantCommand[]) => {
+    const application = applyMerchantCommands(templateSettings, merchantProfile, commands);
+    const nextDetails: AdDetails = { ...adDetails, ...application.detailsPatch };
+    const templateChanged = JSON.stringify(application.template) !== JSON.stringify(templateSettings);
+    const detailsChanged = JSON.stringify(nextDetails) !== JSON.stringify(adDetails);
+    const appliedProfile = saveMerchantProfile(application.profile);
+    setMerchantProfile(appliedProfile);
+    if (application.applied.length === 0) {
+      toast.message('لم نغير التصميم: الطلب غير مدعوم حالياً وسُجل كتجميعة محلية بلا إرسال.');
+      return true;
+    }
+    if (!templateChanged && !detailsChanged) return true;
+    if (!generatedAd || !(lastVisualSource || productImage)) {
+      if (templateChanged) setTemplateSettings(application.template);
+      if (detailsChanged) setAdDetails(nextDetails);
+      toast.success('تم حفظ التغيير المسموح للإعلان التالي محلياً.');
+      return true;
+    }
+    const updated = await regenerateWithCurrentSettings(application.template, 'طبق المساعد التغييرات المسموحة وأعاد فحص الإعلان محلياً.', nextDetails);
+    if (!updated) return false;
+    try {
+      const before = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const after = compileDesignDocument(nextDetails, application.template, designSuggestion);
+      let history = designHistory || createDesignHistory(before);
+      const replayed = replayDesignHistory(history);
+      if (designDocumentFingerprint(replayed) !== designDocumentFingerprint(before)) history = appendDesignHistory(history, replayed, before, 'تحديث إعدادات التصميم');
+      history = appendDesignHistory(history, before, after, 'تطبيق أمر مساعد محلي');
+      if (designDocumentFingerprint(replayDesignHistory(history)) !== designDocumentFingerprint(after)) throw new Error('تعذر حفظ أمر المساعد في سجل التصميم.');
+      saveToStorage(StorageKeys.DESIGN_HISTORY, history);
+      setDesignHistory(history);
+      setDesignRedoEntries([]);
+    } catch (error) {
+      toast.message(error instanceof Error ? error.message : 'طُبق الأمر، لكن تعذر إضافته إلى سجل التصميم.');
+    }
+    setTemplateSettings(application.template);
+    setAdDetails(nextDetails);
+    return true;
   };
 
   const evaluateCurrentQualityGate = async () => {
@@ -821,6 +883,8 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
+        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} /></React.Suspense>}
+
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 
         {!friendTestMode && activeView === 'messages' && <React.Suspense fallback={<PageLoading label="جارٍ فتح الرسائل…" />}><PersonalMessageCenter onBack={() => setActiveView('create')} /></React.Suspense>}
@@ -969,10 +1033,11 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#ece8f0] bg-[#fdfbf8]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={20} />الإعدادات</button>
           <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={20} />دفعات</button>
-          <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><span className={`flex h-9 w-9 items-center justify-center rounded-full ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-white text-muted-foreground'}`}><Sparkles size={19} /></span>إنشاء</button>
+          <button type="button" onClick={() => setActiveView('assistant')} aria-current={activeView === 'assistant' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'assistant' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Bot size={20} />المساعد</button>
+          <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary/10 text-primary shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><span className={`flex h-9 w-9 items-center justify-center rounded-full ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-white text-muted-foreground'}`}><Sparkles size={19} /></span>إنشاء</button>
         </div>
       </nav>
     </div>

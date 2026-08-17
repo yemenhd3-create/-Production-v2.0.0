@@ -48,6 +48,10 @@ vi.mock('../client/src/components/AdDetailsForm', async () => {
   const { createElement: h } = await import('react');
   return { default: () => h('div', null, 'نموذج بيانات الاختبار') };
 });
+vi.mock('../client/src/components/AIChatBox', async () => {
+  const { createElement: h } = await import('react');
+  return { AIChatBox: () => h('div', null, 'واجهة محادثة المساعد المحلية') };
+});
 vi.mock('../client/src/components/ArtworkCropEditor', async () => {
   const { createElement: h } = await import('react');
   return {
@@ -161,6 +165,17 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'رفع الملابس' }));
     expect(await screen.findByRole('button', { name: 'رفع صورة اختبار' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /الإعلان جاهز/ }).disabled).toBe(true);
+  });
+
+  it('يفتح تبويبة مساعد التاجر المحلية من التنقل السفلي من دون استدعاء أي مزود سحابي', async () => {
+    render(createElement(Home));
+
+    fireEvent.click(screen.getByRole('button', { name: 'المساعد' }));
+
+    expect(await screen.findByText('مساعد التاجر المحلي')).toBeTruthy();
+    expect(screen.getByText('لنضبط أساس متجرك')).toBeTruthy();
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(removeBackgroundMutateAsync).not.toHaveBeenCalled();
   });
 
   it('يحمل شعاراً وتذييلاً كاملاً من الإعدادات ثم يستخدمهما في الإعلان النهائي في التدفق نفسه', async () => {
