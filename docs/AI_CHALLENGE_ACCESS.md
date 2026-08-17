@@ -7,6 +7,7 @@
 | الغرض | الرابط أو الأمر |
 |---|---|
 | تحدي Merchant Intelligence v1 | [CHALLENGE_MERCHANT_INTELLIGENCE_V1_AR.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/docs/CHALLENGE_MERCHANT_INTELLIGENCE_V1_AR.md) |
+| خارطة مرحلتي Merchant Intelligence | [MERCHANT_INTELLIGENCE_ROADMAP_V1_V2_AR.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/docs/MERCHANT_INTELLIGENCE_ROADMAP_V1_V2_AR.md) |
 | قالب تسليم Merchant Intelligence | [AI_MERCHANT_INTELLIGENCE_SUBMISSION_TEMPLATE.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/docs/AI_MERCHANT_INTELLIGENCE_SUBMISSION_TEMPLATE.md) |
 | المستودع الحي (آخر نسخة) | [GitHub — main](https://github.com/yemenhd3-create/-Production-v2.0.0/tree/main) |
 | تنزيل/قراءة الكود | `git clone --depth 1 https://github.com/yemenhd3-create/-Production-v2.0.0.git` |
