@@ -1,11 +1,13 @@
 # دليل وصول المتنافسين إلى المشروع
 
-هذا الدليل هو نقطة الدخول الموحدة لأي نموذج يدخل تحدي أمن وتحمل المشروع. استخدم المستودع العام باعتباره المصدر الأساسي، ولا تطلب ZIP جديداً ما دام فرع `main` متاحاً.
+هذا الدليل هو نقطة الدخول الموحدة لأي نموذج يدخل تحدياً للمشروع. استخدم المستودع العام باعتباره المصدر الأساسي، ولا تطلب ZIP جديداً ما دام فرع `main` متاحاً.
 
 ## الوصول السريع
 
 | الغرض | الرابط أو الأمر |
 |---|---|
+| تحدي Merchant Intelligence v1 | [CHALLENGE_MERCHANT_INTELLIGENCE_V1_AR.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/docs/CHALLENGE_MERCHANT_INTELLIGENCE_V1_AR.md) |
+| قالب تسليم Merchant Intelligence | [AI_MERCHANT_INTELLIGENCE_SUBMISSION_TEMPLATE.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/docs/AI_MERCHANT_INTELLIGENCE_SUBMISSION_TEMPLATE.md) |
 | المستودع الحي (آخر نسخة) | [GitHub — main](https://github.com/yemenhd3-create/-Production-v2.0.0/tree/main) |
 | تنزيل/قراءة الكود | `git clone --depth 1 https://github.com/yemenhd3-create/-Production-v2.0.0.git` |
 | سياق المشروع | [AI_CONTEXT.md](https://raw.githubusercontent.com/yemenhd3-create/-Production-v2.0.0/main/AI_CONTEXT.md) |
