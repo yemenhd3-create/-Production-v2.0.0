@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
 import { renderAd } from '../client/src/lib/canvasRenderer';
+import { TEMPLATE_THEME_LIST } from '../shared/templateThemes';
 
 class LoadedImage {
   width = 600;
@@ -20,6 +21,7 @@ function createContext() {
   const drawImage = vi.fn();
   const stroke = vi.fn();
   const fonts: string[] = [];
+  const fillStyles: string[] = [];
   const context = {
     fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop,
     arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
@@ -29,8 +31,10 @@ function createContext() {
     __drawImage: drawImage,
     __stroke: stroke,
     __fonts: fonts,
-  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn>; __stroke: ReturnType<typeof vi.fn>; __fonts: string[] };
+    __fillStyles: fillStyles,
+  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn>; __stroke: ReturnType<typeof vi.fn>; __fonts: string[]; __fillStyles: string[] };
   Object.defineProperty(context, 'font', { get: () => fonts.at(-1), set: (value: string) => fonts.push(value) });
+  Object.defineProperty(context, 'fillStyle', { get: () => fillStyles.at(-1), set: (value: string) => fillStyles.push(value) });
   return context;
 }
 
@@ -43,6 +47,7 @@ describe('Canvas advertisement renderer', () => {
     context.__drawImage.mockClear();
     context.__stroke.mockClear();
     context.__fonts.splice(0);
+    context.__fillStyles.splice(0);
     vi.stubGlobal('Image', LoadedImage);
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:rendered-advertisement') });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
@@ -128,5 +133,16 @@ describe('Canvas advertisement renderer', () => {
     await renderAd(DEFAULT_AD_DETAILS, { ...base, artworkLayouts: { portrait: { footer: { x: .12, y: .82, width: .7, height: .14, fit: 'stretch' }, logo: { x: .12, y: .10, width: .12, height: .12, fit: 'cover' } } } }, 'blob:garment-image', { width: 1080, height: 1350 });
     expect(context.__drawImage.mock.calls[0][1]).not.toBe(defaultLogoX);
     expect(context.__drawImage.mock.calls[2][1]).not.toBe(defaultFooterX);
+  });
+
+  it('يرسم الأنماط البصرية الخمسة من Theme Registry داخل المحرك نفسه من دون تغيير المقاس أو إنشاء Renderer جديد', async () => {
+    const details = { ...DEFAULT_AD_DETAILS, productName: 'عباية أنيقة', price: '5000', storeName: 'متجر مروان', storePhone: '770976559' };
+    for (const theme of TEMPLATE_THEME_LIST) {
+      context.__fillStyles.splice(0);
+      await renderAd(details, { ...DEFAULT_TEMPLATE_SETTINGS, visualTheme: theme.id }, 'blob:garment-image', { width: 1080, height: 1350 });
+      expect(context.__fillStyles).toContain(theme.palette.background);
+      expect(context.__fillStyles).toContain(theme.palette.primary);
+      expect(context.__fillStyles).toContain(theme.palette.accent);
+    }
   });
 });

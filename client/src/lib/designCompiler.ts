@@ -35,6 +35,7 @@ export function compileDesignDocument(details: AdDetails, template: TemplateSett
   return {
     schemaVersion: 1,
     template: template.size,
+    visualTheme: template.visualTheme || 'classic',
     elements,
     constraints: ['inside-canvas', 'product-inside-hero', 'logo-avoids-product', 'footer-avoids-price', 'footer-avoids-features', 'price-required'],
     evidence: suggestion ? { layout: suggestion.selectedLayout, confidence: round(suggestion.confidence), decisionSha256: undefined } : undefined,
@@ -84,6 +85,7 @@ export function applyDesignDocument(template: TemplateSettings, document: Design
   return {
     ...template,
     size: document.template,
+    visualTheme: document.visualTheme || template.visualTheme || 'classic',
     artworkLayouts,
     smartGarmentTransform: productTransform,
   };

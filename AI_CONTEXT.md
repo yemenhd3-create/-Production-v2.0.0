@@ -7,7 +7,7 @@
 - **المستودع المرجعي للقراءة والمراجعة:** https://github.com/yemenhd3-create/-Production-v2.0.0
 - **حالة الوصول:** قراءة عامة؛ لا تمنح صلاحية كتابة أو دمج مباشر لأي نموذج.
 - **نقطة الاستعادة المرجعية:** تُحدَّث بعد حفظ هذه النسخة ومزامنتها مع GitHub.
-- **آخر فحوص مكتملة قبل تحديث GitHub:** 176 اختبار Vitest، TypeScript، بناء الإنتاج، ميزانية الحزمة، وفحص هاتف بعرض 390px. تعذر دخول التحقق الحي في المتصفح بسبب CAPTCHA؛ لا تدّعِ نجاحه.
+- **آخر فحوص مكتملة قبل تحديث GitHub:** 180 اختبار Vitest، TypeScript، بناء الإنتاج، ميزانية الحزمة، وفحص هاتف بعرض 390px. تعذر دخول التحقق الحي في المتصفح بسبب CAPTCHA؛ لا تدّعِ نجاحه.
 
 ## ما هو مكتمل — لا تكرره
 
@@ -22,6 +22,7 @@
 9. Quality Gate للتصدير محلياً: يبني على `DesignContract` و`DesignBenchmark` ويمنع الحفظ أو المشاركة عند الخطأ الهندسي الحرج فقط. التحذيرات، ومنها طول النص العربي والتباين المقدّر، لا تمنع التصدير. راجع `client/src/lib/designQualityGate.ts` و`server/designQualityGate.test.ts`.
 10. Pixel Truth Gate v1: يفحص بكسلات الإعلان النهائي المحلي بعد الرسم في مناطق العنوان والسعر والتذييل، ويصنف التباين إلى `PASS` و`WARNING` و`BLOCK`. لا يُسمح بإعادة اقتراح فحص نظري للألوان بدلاً منه؛ راجع `client/src/lib/pixelTruthGate.ts` و`server/pixelTruthGate.test.ts`.
 11. Visual Repair Loop v1 للعنوان فقط: يعيد رسم PNG عبر المحرك الحالي بعد إصلاح خلفية العنوان، ثم يعيد فحص Pixel Truth والعقد وبوابة الجودة قبل قبول النتيجة. إذا بقي `BLOCK` يحافظ على الإعلان الأصلي، وUndo يعيد Snapshot محلياً في الذاكرة؛ راجع `client/src/pages/Home.tsx` و`server/homeWorkflow.test.ts`.
+12. Theme Registry v1: خمسة أنماط بصرية محلية (`classic`, `midnight`, `rose`, `mint`, `sand`) مستقلة عن المقاسات، يستهلكها Canvas الحالي وتُحفظ في وثيقة التصميم وسجل Replay. راجع `shared/templateThemes.ts` و`server/templateThemes.test.ts`.
 
 ## القيود الإلزامية
 
@@ -42,6 +43,7 @@
 - نُفذ `Pixel Truth Gate v1`: فحص فعلي لبكسلات ناتج Canvas المحلي في مناطق النص الحرجة. `BLOCK` البصري ينتقل إلى Quality Gate ويمنع التصدير، و`WARNING` يبقى غير مانع، ويوفر `BLOCK` إصلاحاً حتمياً قابلًا للتراجع. لا تُستخدم مكتبة أو شبكة أو بيانات شخصية في التحليل.
 - **قرار Editorial Frame (مراجعة فقط، غير منفذ):** التطبيق لا يملك حالياً Registry لأنماط بصرية مستقلة؛ `TemplateSettings` يمثل المقاس والعناصر والهوية، وCanvas Renderer مسار رسم واحد. لذلك لا يجوز ادعاء دمج `editorial-frame` «داخل نظام القوالب الحالي» قبل بناء طبقة Theme Registry حتمية ومحدودة. أي تسليم يتجاوز هذه الخطوة يجب رفضه، خصوصاً إن أضاف Renderer أو Canvas أو Demo منفصلين أو خلط المقياس بالنمط البصري.
 - نُفذ `Visual Repair Loop v1` للعنوان فقط: `repair → render → Pixel Truth → DesignContract → Quality Gate → verify`. تحفظ الحلقة Snapshot من `TemplateSettings` وPNG والتقارير محلياً في الذاكرة للتراجع، ولا تقبل النتيجة المعاد رسمها إذا بقي فيها `BLOCK`. لا توجد إصلاحات تلقائية للسعر أو التذييل أو الشعار. اختبارات Vitest تغطي المسارات وحالات المقاسات الخمسة، لكن لا تدّع اختبار Canvas حقيقياً داخل JSDOM ولا تحقق متصفح حي؛ CAPTCHA منع تسجيل الدخول إلى التطبيق أثناء التحقق اليدوي.
+- نُفذ `Merchant Fast Studio: Theme Registry v1` بعد استبعاد المقترحات المكررة. يوجد سجل بيانات واحد للأنماط البصرية الخمسة، ولا يجوز إنشاء Canvas أو Renderer أو Demo ثانٍ لأي نمط جديد. النمط مستقل عن `TemplateSize` ويجب أن يدخل دائماً في `TemplateSettings` و`DesignDocument` وDesign Replay مع اختبار الحتمية قبل أي توسيع.
 
 ## ما هو مؤجل
 

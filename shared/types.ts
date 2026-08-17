@@ -185,6 +185,8 @@ export interface DesignSuggestion {
   preferenceApplied?: boolean;
 }
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
+/** نمط بصري محلي مستقل عن مقاس التصدير؛ يبقى اختياريًا لتوافق المسودات القديمة. */
+export type TemplateVisualTheme = 'classic' | 'midnight' | 'rose' | 'mint' | 'sand';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
 export type ArtworkFitMode = 'contain' | 'cover' | 'stretch';
 
@@ -202,6 +204,7 @@ export type ArtworkLayoutsBySize = Partial<Record<TemplateSize, Partial<Record<A
 /** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
 export interface TemplateSettings {
   size: TemplateSize;
+  visualTheme?: TemplateVisualTheme;
   showProductName: boolean;
   showHeadline: boolean;
   showDiscount: boolean;
@@ -446,6 +449,7 @@ export const DEFAULT_AD_DETAILS: AdDetails = {
 
 export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   size: 'portrait',
+  visualTheme: 'classic',
   showProductName: true,
   showHeadline: true,
   showDiscount: true,

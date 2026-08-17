@@ -2,6 +2,7 @@ import type { DesignDocument, DesignElementDocument } from '@shared/designDocume
 
 export type DesignHistoryOperation =
   | { type: 'set-template'; from: DesignDocument['template']; to: DesignDocument['template'] }
+  | { type: 'set-visual-theme'; from: DesignDocument['visualTheme']; to: DesignDocument['visualTheme'] }
   | { type: 'set-element'; id: DesignElementDocument['id']; from: DesignElementDocument; to: DesignElementDocument };
 
 export interface DesignHistoryEntry {
@@ -35,6 +36,7 @@ export function diffDesignDocuments(before: DesignDocument, after: DesignDocumen
   assertSafeDocument(after);
   const operations: DesignHistoryOperation[] = [];
   if (before.template !== after.template) operations.push({ type: 'set-template', from: before.template, to: after.template });
+  if ((before.visualTheme || 'classic') !== (after.visualTheme || 'classic')) operations.push({ type: 'set-visual-theme', from: before.visualTheme || 'classic', to: after.visualTheme || 'classic' });
 
   const previous = elementIndex(before);
   for (const nextElement of after.elements) {
@@ -51,6 +53,11 @@ export function applyDesignHistoryOperation(document: DesignDocument, operation:
   if (operation.type === 'set-template') {
     if (next.template !== operation.from) throw new Error('تعارض في قالب سجل التصميم.');
     next.template = operation.to;
+    return next;
+  }
+  if (operation.type === 'set-visual-theme') {
+    if ((next.visualTheme || 'classic') !== (operation.from || 'classic')) throw new Error('تعارض في نمط سجل التصميم.');
+    next.visualTheme = operation.to || 'classic';
     return next;
   }
   const index = next.elements.findIndex((element) => element.id === operation.id);

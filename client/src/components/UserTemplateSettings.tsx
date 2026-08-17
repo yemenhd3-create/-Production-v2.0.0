@@ -1,4 +1,5 @@
-import type { TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
+import type { TemplateBadgeType, TemplateSettings, TemplateSize, TemplateVisualTheme } from '@shared/types';
+import { TEMPLATE_THEME_LIST, getTemplateTheme } from '@shared/templateThemes';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, ChevronLeft, CircleHelp, ImagePlus, LayoutTemplate, MonitorSmartphone, Palette, Settings2, Sparkles, Store, Tag, Wrench } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
@@ -15,7 +16,7 @@ interface UserTemplateSettingsProps {
 }
 
 type ToggleKey = 'showProductName' | 'showHeadline' | 'showDiscount' | 'showQuantity' | 'showColors' | 'showFeatures' | 'showPrice' | 'showStoreInfo' | 'showQualityMark';
-type SettingsCardKey = 'size' | 'identity' | 'badges' | 'elements' | 'help';
+type SettingsCardKey = 'size' | 'theme' | 'identity' | 'badges' | 'elements' | 'help';
 
 const toggles: Array<{ key: ToggleKey; title: string; description: string }> = [
   { key: 'showProductName', title: 'اسم المنتج', description: 'يظهر في أعلى القالب.' },
@@ -80,6 +81,7 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
   const [pendingArtwork, setPendingArtwork] = useState<{ kind: 'logo' | 'footer'; source: string } | null>(null);
   const visibleCount = toggles.filter(item => settings[item.key]).length;
   const selectedBadges = settings.badgeTypes?.slice() || (settings.badgeType !== 'none' ? [settings.badgeType] : []);
+  const selectedTheme = getTemplateTheme(settings.visualTheme);
   const setCard = (card: SettingsCardKey) => setOpenCard(current => current === card ? current : card);
   const updateSettings = (next: TemplateSettings) => { onChange(next); setIsSaved(false); };
   const setToggle = (key: ToggleKey) => updateSettings({ ...settings, [key]: !settings[key] });
@@ -110,11 +112,19 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
       <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><Settings2 size={15} /> إعدادات اختيارية</span>
       <h2 className="text-2xl font-black text-foreground">عدّل شكل الإعلان عند الحاجة</h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">لإنشاء إعلانك الأول لا تحتاج إلى تغيير أي شيء هنا. افتح بطاقة واحدة فقط عندما تريد تعديل المقاس أو هوية المتجر، وستبقى اختياراتك محفوظة على هذا الهاتف.</p>
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-3 text-center"><div><span className="block text-[10px] font-bold text-muted-foreground">المقاس</span><span className="mt-1 block text-xs font-black text-primary">{sizeOptions.find(option => option.value === settings.size)?.title}</span></div><div className="border-x border-primary/10"><span className="block text-[10px] font-bold text-muted-foreground">العناصر</span><span className="mt-1 block text-sm font-black text-primary">{visibleCount} ظاهرة</span></div><div><span className="block text-[10px] font-bold text-muted-foreground">الشارات</span><span className="mt-1 block text-sm font-black text-primary">{selectedBadges.length || '—'}</span></div></div>
+      <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-gradient-to-l from-primary/10 to-violet-50 p-3 text-center"><div><span className="block text-[10px] font-bold text-muted-foreground">المقاس والنمط</span><span className="mt-1 block text-xs font-black text-primary">{sizeOptions.find(option => option.value === settings.size)?.title} · {selectedTheme.title}</span></div><div className="border-x border-primary/10"><span className="block text-[10px] font-bold text-muted-foreground">العناصر</span><span className="mt-1 block text-sm font-black text-primary">{visibleCount}</span></div><div><span className="block text-[10px] font-bold text-muted-foreground">الشارات</span><span className="mt-1 block text-sm font-black text-primary">{selectedBadges.length || '—'}</span></div></div>
     </div>
 
     <SettingsCard id="size" icon={MonitorSmartphone} title="المقاس ومنصة النشر" summary={sizeOptions.find(option => option.value === settings.size)?.subtitle || 'اختر المقاس المناسب'} open={openCard === 'size'} onToggle={() => setCard('size')}>
       <div className="grid grid-cols-2 gap-3">{sizeOptions.map(option => <button key={option.value} type="button" onClick={() => updateSettings({ ...settings, size: option.value })} className={`rounded-2xl border p-4 text-right transition active:scale-[.99] ${settings.size === option.value ? 'border-primary bg-white shadow-sm' : 'border-transparent bg-white/70 text-muted-foreground'}`}><span className="block text-sm font-black">{option.title}</span><span className="mt-1 block text-xs">{option.subtitle}</span></button>)}</div>
+    </SettingsCard>
+
+    <SettingsCard id="theme" icon={Palette} title="نمط الإعلان" summary={`${selectedTheme.title}: ${selectedTheme.description}`} open={openCard === 'theme'} onToggle={() => setCard('theme')}>
+      <p className="mb-3 text-xs leading-5 text-muted-foreground">اختر أسلوباً بصرياً واحداً. لا يغير النمط المقاس أو النصوص أو مواضع العناصر، ويظل فحص الجودة المحلي فعالاً قبل الحفظ.</p>
+      <div className="grid gap-2 sm:grid-cols-2">{TEMPLATE_THEME_LIST.map(theme => {
+        const selected = selectedTheme.id === theme.id;
+        return <button key={theme.id} type="button" onClick={() => updateSettings({ ...settings, visualTheme: theme.id as TemplateVisualTheme })} className="rounded-2xl border p-3 text-right transition active:scale-[.99]" style={{ backgroundColor: theme.palette.background, borderColor: selected ? theme.palette.primary : 'rgba(42,40,101,.12)' }} aria-pressed={selected}><span className="flex items-center gap-2"><span className="h-7 w-7 rounded-full border border-primary/10" style={{ backgroundColor: theme.palette.accent }} /><span className="text-sm font-black" style={{ color: theme.palette.primary }}>{theme.title}</span>{selected && <Check size={15} style={{ color: theme.palette.primary }} />}</span><span className="mt-1 block text-[11px] leading-5" style={{ color: theme.palette.muted }}>{theme.description}</span></button>;
+      })}</div>
     </SettingsCard>
 
     <SettingsCard id="identity" icon={Store} title="هوية المتجر" summary={settings.storeLogoArtwork || settings.footerArtwork ? 'الشعار أو التذييل محفوظان ويمكن تعديلهما' : 'أضف شعاراً وتذييلاً اختياريين'} open={openCard === 'identity'} onToggle={() => setCard('identity')}>

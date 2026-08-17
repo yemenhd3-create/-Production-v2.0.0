@@ -1,5 +1,5 @@
 import type { NormalizedBox } from './designGeometry';
-import type { TemplateSize } from './types';
+import type { TemplateSize, TemplateVisualTheme } from './types';
 
 export type DesignElementId = 'header' | 'logo' | 'product' | 'badge' | 'info' | 'price' | 'features' | 'footer';
 export type DesignConstraintId = 'inside-canvas' | 'product-inside-hero' | 'logo-avoids-product' | 'footer-avoids-price' | 'footer-avoids-features' | 'price-required';
@@ -25,6 +25,8 @@ export interface DesignEvidenceSummary {
 export interface DesignDocument {
   schemaVersion: 1;
   template: TemplateSize;
+  /** اختياري لتبقى وثائق v1 القديمة قابلة لإعادة التشغيل. */
+  visualTheme?: TemplateVisualTheme;
   elements: DesignElementDocument[];
   constraints: DesignConstraintId[];
   evidence?: DesignEvidenceSummary;

@@ -1,6 +1,7 @@
 import type { AdDetails, TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
 import { getArtworkTransform } from '@shared/artworkLayout';
 import { getDesignGeometry } from '@shared/designGeometry';
+import { getTemplateTheme, type TemplateThemePalette } from '@shared/templateThemes';
 
 export interface RenderOptions {
   width?: number;
@@ -9,17 +10,6 @@ export interface RenderOptions {
   visualMode?: 'garment' | 'transparentPerson';
   garmentTransform?: { x: number; y: number; width: number; height: number };
 }
-
-const COLORS = {
-  background: '#FFFFFF',
-  purple: '#2A2865',
-  purpleSoft: '#F0ECFF',
-  red: '#D01720',
-  redDark: '#AD111A',
-  white: '#FFFFFF',
-  gray: '#737581',
-  line: '#E8E2D8',
-};
 
 const TEMPLATE_FONT_FAMILY = 'Cairo, Tahoma, Arial, sans-serif';
 type Box = { x: number; y: number; width: number; height: number };
@@ -38,21 +28,22 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
 
   const layout: Layout = { width, height, scale: width / 1080, font: (weight, size) => `${weight} ${Math.round(size * (width / 1080))}px ${TEMPLATE_FONT_FAMILY}` };
   const geometry = createGeometry(template.size, width, height);
-  ctx.fillStyle = template.smartBackgroundColor || COLORS.background;
+  const palette = getTemplateTheme(template.visualTheme).palette;
+  ctx.fillStyle = template.smartBackgroundColor || palette.background;
   ctx.fillRect(0, 0, width, height);
 
   const logoTransform = getArtworkTransform(template, 'logo');
   const footerTransform = getArtworkTransform(template, 'footer');
-  drawTextHeader(ctx, details, template, geometry.header, layout);
+  drawTextHeader(ctx, details, template, geometry.header, layout, palette);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
   await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform);
-  drawBadges(ctx, details, template, geometry.badge, layout);
-  if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout);
-  if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout);
-  if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), geometry.features, layout);
+  drawBadges(ctx, details, template, geometry.badge, layout, palette);
+  if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout, palette);
+  if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout, palette);
+  if (template.showFeatures && details.features.filter(Boolean).length) drawFeatureBadges(ctx, details.features.filter(Boolean).slice(0, 2), geometry.features, layout, palette);
   if (template.showFooterArtwork && template.footerArtwork) await drawArtwork(ctx, template.footerArtwork, toPixelBox(footerTransform, width, height), footerTransform.fit);
-  else if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) drawFooter(ctx, details, geometry.footer, layout);
+  else if (template.showStoreInfo && (details.storeName.trim() || details.storePhone.trim())) drawFooter(ctx, details, geometry.footer, layout, palette);
 
   const blob = await canvasToBlob(canvas, 'image/png', options.quality || 0.92);
   return URL.createObjectURL(blob);
@@ -75,12 +66,12 @@ function createGeometry(size: TemplateSize, width: number, height: number): Geom
   };
 }
 
-function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout, palette: TemplateThemePalette) {
   const title = template.showProductName ? details.productName.trim() : '';
   const headline = template.showHeadline ? details.headline.trim() : '';
   const { font, scale } = layout;
   ctx.save();
-  ctx.fillStyle = COLORS.purple;
+  ctx.fillStyle = template.smartTextColor || palette.primary;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   const isLandscape = layout.width > layout.height;
@@ -92,16 +83,16 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
     drawWrappedText(ctx, title, titleCenter, box.y + box.height * .08, titleWidth, (isLandscape ? 45 : 62) * scale, 2);
   }
   if (headline) {
-    ctx.fillStyle = COLORS.gray;
+    ctx.fillStyle = palette.muted;
     ctx.font = font(600, 22);
     drawWrappedText(ctx, headline, titleCenter, box.y + box.height * (title ? .62 : .25), titleWidth, 30 * scale, 2);
   }
   if (template.showQualityMark) {
     const markSize = Math.min(box.height * .48, 72 * scale);
     roundedRect(ctx, box.x + box.width - markSize, box.y + box.height * .08, markSize, markSize, markSize * .26);
-    ctx.fillStyle = COLORS.purpleSoft;
+    ctx.fillStyle = palette.primarySoft;
     ctx.fill();
-    ctx.fillStyle = COLORS.purple;
+    ctx.fillStyle = template.smartTextColor || palette.primary;
     ctx.font = font(900, 36);
     ctx.textBaseline = 'middle';
     ctx.fillText('✓', box.x + box.width - markSize / 2, box.y + box.height * .08 + markSize / 2);
@@ -132,20 +123,20 @@ function getBadgeTypes(template: TemplateSettings, details: AdDetails): Array<Ex
   return template.showDiscount && details.discount.trim() ? ['discount'] : [];
 }
 
-function drawBadges(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+function drawBadges(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout, palette: TemplateThemePalette) {
   const types = getBadgeTypes(template, details);
   if (!types.length) return;
   const gap = box.width * .08;
   const diameter = Math.min(box.width * (types.length === 1 ? .95 : .58), box.height * .78);
   const totalWidth = diameter * types.length + gap * (types.length - 1);
   const startX = box.x + Math.max(0, (box.width - totalWidth) / 2);
-  types.forEach((type, index) => drawBadge(ctx, details, template, type, { x: startX + index * (diameter + gap), y: box.y + (box.height - diameter) / 2, width: diameter, height: diameter }, layout, types.length === 1));
+  types.forEach((type, index) => drawBadge(ctx, details, template, type, { x: startX + index * (diameter + gap), y: box.y + (box.height - diameter) / 2, width: diameter, height: diameter }, layout, types.length === 1, palette));
 }
 
-function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, type: Exclude<TemplateBadgeType, 'none'>, box: Box, layout: Layout, canUseCustomText: boolean) {
+function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, type: Exclude<TemplateBadgeType, 'none'>, box: Box, layout: Layout, canUseCustomText: boolean, palette: TemplateThemePalette) {
   const labels: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: details.discount.trim() ? `خصم\n${details.discount.trim()}%` : 'خصم', new: 'جديد', offer: 'عرض', price: 'سعر', quality: 'جودة' };
   const text = canUseCustomText && template.badgeText.trim() ? template.badgeText.trim() : labels[type];
-  const colors: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: COLORS.red, new: COLORS.purple, offer: '#F07B16', price: COLORS.redDark, quality: '#198754' };
+  const colors: Record<Exclude<TemplateBadgeType, 'none'>, string> = { discount: palette.accent, new: palette.primary, offer: palette.accentDark, price: palette.accentDark, quality: palette.primary };
   const radius = Math.min(box.width, box.height) / 2;
   const cx = box.x + radius;
   const cy = box.y + radius;
@@ -156,7 +147,7 @@ function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: 
   ctx.shadowOffsetY = radius * .08;
   ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.fillStyle = COLORS.white;
+  ctx.fillStyle = palette.onAccent;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const lines = text.split(/\n|\s{2,}/).filter(Boolean).slice(0, 2);
   ctx.font = layout.font(900, Math.max(17, Math.min(31, radius / layout.scale * .36)));
@@ -164,7 +155,7 @@ function drawBadge(ctx: CanvasRenderingContext2D, details: AdDetails, template: 
   ctx.restore();
 }
 
-function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout) {
+function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails, template: TemplateSettings, box: Box, layout: Layout, palette: TemplateThemePalette) {
   const items = [template.showQuantity && details.quantity.trim() ? { label: 'الكمية', value: details.quantity.trim() } : null, template.showColors && details.colors.length ? { label: 'الألوان', value: details.colors.slice(0, 2).join('، ') } : null].filter(Boolean) as Array<{ label: string; value: string }>;
   if (!items.length) return;
   ctx.save();
@@ -173,21 +164,21 @@ function drawInformationPanel(ctx: CanvasRenderingContext2D, details: AdDetails,
   items.forEach((item, index) => {
     const y = box.y + index * (itemHeight + gap);
     roundedRect(ctx, box.x, y, box.width, itemHeight, Math.min(box.width, itemHeight) * .18);
-    ctx.fillStyle = COLORS.purpleSoft; ctx.fill();
+    ctx.fillStyle = palette.primarySoft; ctx.fill();
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = COLORS.gray; ctx.font = layout.font(700, 19); ctx.fillText(item.label, box.x + box.width / 2, y + itemHeight * .16);
-    ctx.fillStyle = COLORS.purple; ctx.font = layout.font(900, 23); drawWrappedText(ctx, item.value, box.x + box.width / 2, y + itemHeight * .46, box.width * .84, itemHeight * .24, 2);
+    ctx.fillStyle = palette.muted; ctx.font = layout.font(700, 19); ctx.fillText(item.label, box.x + box.width / 2, y + itemHeight * .16);
+    ctx.fillStyle = palette.primary; ctx.font = layout.font(900, 23); drawWrappedText(ctx, item.value, box.x + box.width / 2, y + itemHeight * .46, box.width * .84, itemHeight * .24, 2);
   });
   ctx.restore();
 }
 
-function drawPricePanel(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout) {
+function drawPricePanel(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout, palette: TemplateThemePalette) {
   ctx.save();
   roundedRect(ctx, box.x, box.y, box.width, box.height, Math.min(box.width, box.height) * .18);
-  ctx.fillStyle = COLORS.red; ctx.fill();
+  ctx.fillStyle = palette.accent; ctx.fill();
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.font = layout.font(700, 21); ctx.fillText('السعر', box.x + box.width / 2, box.y + box.height * .14);
-  ctx.fillStyle = COLORS.white; ctx.font = layout.font(900, 44); ctx.fillText(details.price.trim(), box.x + box.width / 2, box.y + box.height * .36);
+  ctx.fillStyle = palette.onAccent; ctx.font = layout.font(900, 44); ctx.fillText(details.price.trim(), box.x + box.width / 2, box.y + box.height * .36);
   ctx.font = layout.font(700, 21); ctx.fillText(details.currency.trim() || 'ريال', box.x + box.width / 2, box.y + box.height * .61);
   if (details.discount.trim()) {
     ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = Math.max(1, layout.scale * 2); ctx.beginPath(); ctx.moveTo(box.x + box.width * .16, box.y + box.height * .76); ctx.lineTo(box.x + box.width * .84, box.y + box.height * .76); ctx.stroke();
@@ -196,22 +187,22 @@ function drawPricePanel(ctx: CanvasRenderingContext2D, details: AdDetails, box: 
   ctx.restore();
 }
 
-function drawFeatureBadges(ctx: CanvasRenderingContext2D, features: string[], box: Box, layout: Layout) {
+function drawFeatureBadges(ctx: CanvasRenderingContext2D, features: string[], box: Box, layout: Layout, palette: TemplateThemePalette) {
   const gap = box.width * .025;
   const width = (box.width - gap * (features.length - 1)) / features.length;
   ctx.save();
   features.forEach((feature, index) => {
     const x = box.x + index * (width + gap);
-    roundedRect(ctx, x, box.y, width, box.height, Math.min(width, box.height) * .27); ctx.fillStyle = COLORS.purpleSoft; ctx.fill();
-    ctx.fillStyle = COLORS.purple; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = layout.font(800, 20); ctx.fillText(truncateToWidth(ctx, feature, width * .84), x + width / 2, box.y + box.height / 2);
+    roundedRect(ctx, x, box.y, width, box.height, Math.min(width, box.height) * .27); ctx.fillStyle = palette.primarySoft; ctx.fill();
+    ctx.fillStyle = palette.primary; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = layout.font(800, 20); ctx.fillText(truncateToWidth(ctx, feature, width * .84), x + width / 2, box.y + box.height / 2);
   });
   ctx.restore();
 }
 
-function drawFooter(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout) {
+function drawFooter(ctx: CanvasRenderingContext2D, details: AdDetails, box: Box, layout: Layout, palette: TemplateThemePalette) {
   ctx.save();
-  roundedRect(ctx, box.x, box.y, box.width, box.height, box.height * .25); ctx.fillStyle = COLORS.red; ctx.fill();
-  ctx.fillStyle = COLORS.white; ctx.textBaseline = 'middle';
+  roundedRect(ctx, box.x, box.y, box.width, box.height, box.height * .25); ctx.fillStyle = palette.accent; ctx.fill();
+  ctx.fillStyle = palette.onAccent; ctx.textBaseline = 'middle';
   if (details.storeName.trim()) { ctx.font = layout.font(900, 27); ctx.textAlign = 'right'; ctx.fillText(truncateToWidth(ctx, details.storeName.trim(), box.width * .58), box.x + box.width * .94, box.y + box.height / 2); }
   if (details.storePhone.trim()) { ctx.font = layout.font(800, 24); ctx.textAlign = 'left'; ctx.direction = 'ltr'; ctx.fillText(details.storePhone.trim(), box.x + box.width * .06, box.y + box.height / 2); }
   ctx.restore();
