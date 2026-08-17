@@ -36,11 +36,38 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      - name: إعداد Chrome لفحص الهاتف
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+
       - name: تثبيت الاعتماديات المقفلة
         run: pnpm install --frozen-lockfile
 
       - name: فحص الاختبارات والبناء والأداء
         run: pnpm quality
 
+      - name: تشغيل التطبيق المبني للفحص
+        run: |
+          pnpm start > /tmp/clothing-ad-server.log 2>&1 &
+          echo $! > /tmp/clothing-ad-server.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/clothing-ad-server.log
+          exit 1
+
       - name: فحص الهاتف بعرض 390px
+        env:
+          MOBILE_CHECK_URL: http://127.0.0.1:3000/
+          CHROMIUM_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: pnpm mobile:check
+
+      - name: إيقاف التطبيق بعد الفحص
+        if: always()
+        run: |
+          if [ -f /tmp/clothing-ad-server.pid ]; then
+            kill "$(cat /tmp/clothing-ad-server.pid)" || true
+          fi
