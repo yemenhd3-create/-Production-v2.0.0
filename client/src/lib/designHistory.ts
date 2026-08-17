@@ -1,8 +1,10 @@
 import type { DesignDocument, DesignElementDocument } from '@shared/designDocument';
+import { DEFAULT_PRODUCT_SCALE } from '@shared/types';
 
 export type DesignHistoryOperation =
   | { type: 'set-template'; from: DesignDocument['template']; to: DesignDocument['template'] }
   | { type: 'set-visual-theme'; from: DesignDocument['visualTheme']; to: DesignDocument['visualTheme'] }
+  | { type: 'set-product-scale'; from: number; to: number }
   | { type: 'set-element'; id: DesignElementDocument['id']; from: DesignElementDocument; to: DesignElementDocument };
 
 export interface DesignHistoryEntry {
@@ -37,6 +39,7 @@ export function diffDesignDocuments(before: DesignDocument, after: DesignDocumen
   const operations: DesignHistoryOperation[] = [];
   if (before.template !== after.template) operations.push({ type: 'set-template', from: before.template, to: after.template });
   if ((before.visualTheme || 'classic') !== (after.visualTheme || 'classic')) operations.push({ type: 'set-visual-theme', from: before.visualTheme || 'classic', to: after.visualTheme || 'classic' });
+  if (productScale(before) !== productScale(after)) operations.push({ type: 'set-product-scale', from: productScale(before), to: productScale(after) });
 
   const previous = elementIndex(before);
   for (const nextElement of after.elements) {
@@ -58,6 +61,11 @@ export function applyDesignHistoryOperation(document: DesignDocument, operation:
   if (operation.type === 'set-visual-theme') {
     if ((next.visualTheme || 'classic') !== (operation.from || 'classic')) throw new Error('تعارض في نمط سجل التصميم.');
     next.visualTheme = operation.to || 'classic';
+    return next;
+  }
+  if (operation.type === 'set-product-scale') {
+    if (productScale(next) !== operation.from) throw new Error('تعارض في حجم قطعة سجل التصميم.');
+    next.productScale = operation.to;
     return next;
   }
   const index = next.elements.findIndex((element) => element.id === operation.id);
@@ -166,6 +174,8 @@ function safeLabel(label: string) {
   const result = label.trim().replace(/[\r\n]+/g, ' ').slice(0, 80);
   return result || 'تعديل التصميم';
 }
+
+function productScale(document: DesignDocument) { return document.productScale ?? DEFAULT_PRODUCT_SCALE; }
 
 function assertNoUnsafeUrls(value: string) {
   if (/data:image\/|blob:|https?:\/\//i.test(value)) throw new Error('لا يسمح سجل التصميم بالصور أو الروابط أو الطلبات الشبكية.');

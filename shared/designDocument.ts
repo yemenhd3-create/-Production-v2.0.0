@@ -27,6 +27,8 @@ export interface DesignDocument {
   template: TemplateSize;
   /** اختياري لتبقى وثائق v1 القديمة قابلة لإعادة التشغيل. */
   visualTheme?: TemplateVisualTheme;
+  /** حجم القطعة داخل منطقتها؛ اختياري لتبقى وثائق v1 السابقة قابلة لإعادة التشغيل. */
+  productScale?: number;
   elements: DesignElementDocument[];
   constraints: DesignConstraintId[];
   evidence?: DesignEvidenceSummary;

@@ -1,4 +1,4 @@
-import type { AdDetails, TemplateBadgeType, TemplateSettings, TemplateSize } from '@shared/types';
+import { DEFAULT_PRODUCT_SCALE, PRODUCT_SCALE_MAX, PRODUCT_SCALE_MIN, type AdDetails, type TemplateBadgeType, type TemplateSettings, type TemplateSize } from '@shared/types';
 import { getArtworkTransform } from '@shared/artworkLayout';
 import { getDesignGeometry } from '@shared/designGeometry';
 import { getTemplateTheme, type TemplateThemePalette } from '@shared/templateThemes';
@@ -37,7 +37,7 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   drawTextHeader(ctx, details, template, geometry.header, layout, palette);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
-  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform);
+  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform, template.productScale);
   drawBadges(ctx, details, template, geometry.badge, layout, palette);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout, palette);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout, palette);
@@ -100,12 +100,15 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
   ctx.restore();
 }
 
-async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }) {
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }, productScale?: number) {
   // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
   const padding = Math.min(box.width, box.height) * .015;
   const safeBox = { x: box.x + padding, y: box.y + padding, width: box.width - padding * 2, height: box.height - padding * 2 };
   const selected = transform ? constrainedHeroTransform(safeBox, transform) : safeBox;
-  await drawImageContain(ctx, imageSrc, selected.x, selected.y, selected.width, selected.height, visualMode);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(safeBox.x, safeBox.y, safeBox.width, safeBox.height); ctx.clip();
+  await drawImageContain(ctx, imageSrc, selected.x, selected.y, selected.width, selected.height, visualMode, normalizeProductScale(productScale));
+  ctx.restore();
 }
 
 function constrainedHeroTransform(hero: Box, transform: { x: number; y: number; width: number; height: number }): Box {
@@ -243,13 +246,14 @@ async function drawCircularLogo(ctx: CanvasRenderingContext2D, source: string, b
   ctx.save(); ctx.beginPath(); ctx.arc(x + diameter / 2, y + diameter / 2, diameter / 2, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.94)'; ctx.lineWidth = Math.max(2, diameter * .055); ctx.stroke(); ctx.restore();
 }
 
-async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson') {
+async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson', productScale: number) {
   const image = await loadImage(imageSrc);
   const usesPersonPlacement = visualMode === 'transparentPerson';
   const widthLimit = usesPersonPlacement ? maxWidth * .94 : maxWidth;
   const heightLimit = usesPersonPlacement ? maxHeight * .985 : maxHeight;
   const ratio = Math.min(widthLimit / image.width, heightLimit / image.height);
-  const drawWidth = Math.max(1, image.width * ratio); const drawHeight = Math.max(1, image.height * ratio);
+  const renderedScale = usesPersonPlacement ? 1 : productScale;
+  const drawWidth = Math.max(1, image.width * ratio * renderedScale); const drawHeight = Math.max(1, image.height * ratio * renderedScale);
   ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const drawX = x + (maxWidth - drawWidth) / 2;
   const drawY = usesPersonPlacement ? y + maxHeight - drawHeight - maxHeight * .012 : y + (maxHeight - drawHeight) / 2;
@@ -264,6 +268,11 @@ function loadImage(source: string): Promise<HTMLImageElement> {
     image.onload = () => finish(() => resolve(image)); image.onerror = () => finish(() => reject(new Error('تعذر تحميل صورة الملابس في القالب')));
     image.decoding = 'async'; if (!source.startsWith('blob:') && !source.startsWith('data:')) image.crossOrigin = 'anonymous'; image.src = source;
   });
+}
+
+function normalizeProductScale(value?: number) {
+  const scale = Number.isFinite(value) ? Number(value) : DEFAULT_PRODUCT_SCALE;
+  return Math.min(PRODUCT_SCALE_MAX, Math.max(PRODUCT_SCALE_MIN, scale));
 }
 
 async function waitForCanvasFonts() { if (typeof document !== 'undefined' && 'fonts' in document) try { await document.fonts.ready; } catch { /* Tahoma fallback */ } }

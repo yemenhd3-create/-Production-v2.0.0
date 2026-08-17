@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 import type { AdDetails, AdWorkflowStep, DesignSuggestion, TemplateSettings, TemplateSize, TryOnResult } from '@shared/types';
 import {
   DEFAULT_AD_DETAILS,
+  DEFAULT_PRODUCT_SCALE,
   DEFAULT_TEMPLATE_SETTINGS,
+  PRODUCT_SCALE_MAX,
+  PRODUCT_SCALE_MIN,
+  PRODUCT_SCALE_STEP,
   StorageKeys,
 } from '@shared/types';
 import {
@@ -32,6 +36,7 @@ import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localB
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { trpc } from '@/lib/trpc';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import type { DesignContractReport, DesignRepairId } from '@shared/designDocument';
 import type { DesignBenchmark, DesignQualityFingerprint, DesignRegression } from '@shared/designBenchmark';
@@ -422,7 +427,7 @@ export default function Home() {
     }
   };
 
-  const regenerateWithCurrentSettings = async () => {
+  const regenerateWithCurrentSettings = async (templateOverride?: TemplateSettings, successMessage = 'تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.') => {
     const source = lastVisualSource || productImage;
     if (!source) {
       setCurrentStep('upload');
@@ -437,26 +442,52 @@ export default function Home() {
     setVisualRepairSnapshot(null);
     setVisualRepairStatus('idle');
     try {
-      const dimensions = getCanvasDimensions(templateSettings.size);
+      const activeTemplate = templateOverride || templateSettings;
+      const dimensions = getCanvasDimensions(activeTemplate.size);
       const output = await withTimeout(
-        renderAd(adDetails, templateSettings, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: templateSettings.smartGarmentTransform }),
+        renderAd(adDetails, activeTemplate, source, { ...dimensions, visualMode: tryOnResult.transparentSubject === 'person' ? 'transparentPerson' : 'garment', garmentTransform: activeTemplate.smartGarmentTransform }),
         15_000,
         'انتهت مهلة إعادة بناء الإعلان. أعد المحاولة أو جرّب صورة أصغر.'
       );
       setGeneratedAd(output);
       setMarketingText(buildMarketingText(adDetails));
-      const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const document = compileDesignDocument(adDetails, activeTemplate, designSuggestion);
       const contract = evaluateDesignContract(document);
       const pixelTruth = await inspectRenderedPixelTruth(output, document);
       setDesignContractReport(contract);
-      setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === templateSettings.size), pixelTruth));
-      toast.success('تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.');
+      setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === activeTemplate.size), pixelTruth));
+      toast.success(successMessage);
+      return true;
     } catch (error) {
       console.error('Failed to regenerate advertisement with updated template:', error);
       toast.error('تعذرت إعادة توليد الإعلان بالتغييرات الجديدة. حاول مرة أخرى.');
+      return false;
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleProductScaleCommit = async (value: number) => {
+    const productScale = clampProductScale(value);
+    if (productScale === clampProductScale(templateSettings.productScale)) return;
+    const updatedTemplate = { ...templateSettings, productScale };
+    const updated = await regenerateWithCurrentSettings(updatedTemplate, 'تم تحديث حجم المنتج داخل القالب محلياً.');
+    if (!updated) return;
+    try {
+      const before = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+      const after = compileDesignDocument(adDetails, updatedTemplate, designSuggestion);
+      let history = designHistory || createDesignHistory(before);
+      const replayed = replayDesignHistory(history);
+      if (designDocumentFingerprint(replayed) !== designDocumentFingerprint(before)) history = appendDesignHistory(history, replayed, before, 'تحديث إعدادات التصميم');
+      history = appendDesignHistory(history, before, after, 'تغيير حجم المنتج');
+      if (designDocumentFingerprint(replayDesignHistory(history)) !== designDocumentFingerprint(after)) throw new Error('تعذر حفظ تغيير حجم المنتج في سجل التصميم.');
+      saveToStorage(StorageKeys.DESIGN_HISTORY, history);
+      setDesignHistory(history);
+      setDesignRedoEntries([]);
+    } catch (error) {
+      toast.message(error instanceof Error ? error.message : 'تم تحديث الحجم، لكن تعذر إضافة العملية إلى سجل التصميم.');
+    }
+    setTemplateSettings(updatedTemplate);
   };
 
   const evaluateCurrentQualityGate = async () => {
@@ -881,7 +912,7 @@ export default function Home() {
                   <h2 className="mt-3 text-2xl font-black text-primary">إعلانك أصبح جاهزاً</h2>
                   <p className="mt-1 text-sm text-muted-foreground">راجع النتيجة ثم نزّلها أو شاركها مباشرة.</p>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isGenerating} onClick={regenerateWithCurrentSettings} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button><button
+                <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isGenerating} onClick={() => { void regenerateWithCurrentSettings(); }} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button><button
                     type="button"
                     onClick={() => setCurrentStep('details')}
                     className="inline-flex items-center gap-1 rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary transition active:scale-95"
@@ -907,6 +938,7 @@ export default function Home() {
                     alt="معاينة الإعلان النهائي"
                     className="mx-auto max-h-[560px] w-full rounded-3xl border border-stone-100 bg-stone-50 object-contain shadow-sm"
                   />
+                  <ProductScaleControl scale={clampProductScale(templateSettings.productScale)} disabled={isGenerating} onCommit={handleProductScaleCommit} />
                   <React.Suspense fallback={null}><TryOnStatusNotice result={tryOnResult} /></React.Suspense>
                 </>
               )}
@@ -948,6 +980,27 @@ export default function Home() {
 
 function PageLoading({ label }: { label: string }) {
   return <div className="rounded-[28px] border border-primary/10 bg-white p-8 text-center shadow-[0_16px_40px_rgba(37,35,95,0.08)]"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LoaderCircle className="animate-spin" size={22} /></div><p className="text-sm font-black text-primary">{label}</p><p className="mt-1 text-xs text-muted-foreground">لا تغلق الصفحة، ستظهر أدواتك خلال لحظات.</p></div>;
+}
+
+function ProductScaleControl({ scale, disabled, onCommit }: { scale: number; disabled: boolean; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState(scale);
+  useEffect(() => setDraft(scale), [scale]);
+  const commit = (value: number) => {
+    const next = clampProductScale(value);
+    setDraft(next);
+    onCommit(next);
+  };
+  return <section className="mt-4 rounded-2xl border border-primary/10 bg-secondary/[0.18] p-4" dir="rtl" aria-label="حجم المنتج داخل الإعلان">
+    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-black text-primary">حجم المنتج</h3><p className="mt-1 text-xs text-muted-foreground">اسحب للتحكم؛ يعاد رسم الإعلان محلياً فقط بعد الإفلات.</p></div><span className="rounded-xl bg-white px-3 py-2 text-sm font-black text-primary">{Math.round(draft * 100)}%</span></div>
+    <div className="mt-4 flex items-center gap-3"><button type="button" disabled={disabled || draft <= PRODUCT_SCALE_MIN} onClick={() => commit(draft - PRODUCT_SCALE_STEP)} className="rounded-xl bg-white px-3 py-2 text-sm font-black text-primary shadow-sm disabled:opacity-50">أصغر</button><Slider value={[draft]} min={PRODUCT_SCALE_MIN} max={PRODUCT_SCALE_MAX} step={PRODUCT_SCALE_STEP} disabled={disabled} onValueChange={values => setDraft(clampProductScale(values[0] || DEFAULT_PRODUCT_SCALE))} onValueCommit={values => commit(values[0] || DEFAULT_PRODUCT_SCALE)} aria-label="تكبير أو تصغير المنتج" /><button type="button" disabled={disabled || draft >= PRODUCT_SCALE_MAX} onClick={() => commit(draft + PRODUCT_SCALE_STEP)} className="rounded-xl bg-primary px-3 py-2 text-sm font-black text-primary-foreground disabled:opacity-50">أكبر</button></div>
+    {draft !== DEFAULT_PRODUCT_SCALE && <button type="button" disabled={disabled} onClick={() => commit(DEFAULT_PRODUCT_SCALE)} className="mt-3 text-xs font-black text-primary disabled:opacity-50">إعادة الحجم المحسّن</button>}
+  </section>;
+}
+
+function clampProductScale(value?: number) {
+  const safe = Number.isFinite(value) ? Number(value) : DEFAULT_PRODUCT_SCALE;
+  const stepped = Math.round(safe / PRODUCT_SCALE_STEP) * PRODUCT_SCALE_STEP;
+  return Math.min(PRODUCT_SCALE_MAX, Math.max(PRODUCT_SCALE_MIN, Number(stepped.toFixed(2))));
 }
 
 function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnalyzing, localPreparation, benchmarks, regression, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; localPreparation: { status: 'idle' | 'analyzing' | 'ready' | 'failed'; cache?: 'hit' | 'miss'; elapsedMs?: number }; benchmarks: DesignBenchmark[]; regression: DesignRegression | null; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {

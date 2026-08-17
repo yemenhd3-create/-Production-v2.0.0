@@ -23,7 +23,7 @@ function createContext() {
   const fonts: string[] = [];
   const fillStyles: string[] = [];
   const context = {
-    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop,
+    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop, rect: noop,
     arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
     moveTo: noop, lineTo: noop, closePath: noop,
     measureText: (text: string) => ({ width: text.length * 12 }),
@@ -94,6 +94,18 @@ describe('Canvas advertisement renderer', () => {
     const personY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
 
     expect(personY).toBeGreaterThan(garmentY);
+  });
+
+  it('يكبر المنتج داخل منطقة البطل عند اختيار حجم أكبر من الافتراضي من دون تغيير عناصر القالب الأخرى', async () => {
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: 1 }, 'blob:garment-image', { width: 1080, height: 1350 });
+    const normalWidth = context.__drawImage.mock.calls.at(-1)?.[3] as number;
+
+    context.__drawImage.mockClear();
+    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: 1.4 }, 'blob:garment-image', { width: 1080, height: 1350 });
+    const enlargedWidth = context.__drawImage.mock.calls.at(-1)?.[3] as number;
+
+    expect(enlargedWidth).toBeGreaterThan(normalWidth);
   });
 
   it('لا يرسم إطاراً محيطاً بالإعلان حتى عند وجود إعداد قديم له ويحافظ على خط العنوان', async () => {

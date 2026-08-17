@@ -51,6 +51,15 @@ describe('Design Replay المحلي', () => {
     expect(replayDesignHistory(redone)).toEqual(changed);
   });
 
+  it('يسجل حجم المنتج ويعيده بدقة عبر Undo وRedo من دون إدخال صورة أو رابط', () => {
+    const enlarged = { ...base, productScale: 1.35 };
+    const history = appendDesignHistory(createDesignHistory(base), base, enlarged, 'تغيير حجم المنتج');
+    const undone = undoDesignHistory(history);
+
+    expect(replayDesignHistory(undone.history).productScale).toBeUndefined();
+    expect(replayDesignHistory(redoDesignHistory(undone.history, undone.removed!)).productScale).toBe(1.35);
+  });
+
   it('يرفض حذف عملية من المنتصف عندما تعتمد عليها عملية لاحقة', () => {
     const first = withLogo(base, .70);
     const second = withLogo(first, .62);

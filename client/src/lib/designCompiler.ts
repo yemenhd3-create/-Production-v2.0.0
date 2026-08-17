@@ -1,5 +1,5 @@
 import { getArtworkTransform, getDefaultArtworkTransform } from '@shared/artworkLayout';
-import type { AdDetails, DesignSuggestion, TemplateSettings } from '@shared/types';
+import { DEFAULT_PRODUCT_SCALE, PRODUCT_SCALE_MAX, PRODUCT_SCALE_MIN, type AdDetails, type DesignSuggestion, type TemplateSettings } from '@shared/types';
 import { getDesignGeometry, type NormalizedBox } from '@shared/designGeometry';
 import type { DesignDocument, DesignElementDocument, DesignRepairId } from '@shared/designDocument';
 
@@ -36,6 +36,7 @@ export function compileDesignDocument(details: AdDetails, template: TemplateSett
     schemaVersion: 1,
     template: template.size,
     visualTheme: template.visualTheme || 'classic',
+    productScale: resolveProductScale(template.productScale),
     elements,
     constraints: ['inside-canvas', 'product-inside-hero', 'logo-avoids-product', 'footer-avoids-price', 'footer-avoids-features', 'price-required'],
     evidence: suggestion ? { layout: suggestion.selectedLayout, confidence: round(suggestion.confidence), decisionSha256: undefined } : undefined,
@@ -88,8 +89,10 @@ export function applyDesignDocument(template: TemplateSettings, document: Design
     visualTheme: document.visualTheme || template.visualTheme || 'classic',
     artworkLayouts,
     smartGarmentTransform: productTransform,
+    productScale: resolveProductScale(document.productScale),
   };
 }
 
+function resolveProductScale(value?: number) { return Math.min(PRODUCT_SCALE_MAX, Math.max(PRODUCT_SCALE_MIN, Number.isFinite(value) ? Number(value) : DEFAULT_PRODUCT_SCALE)); }
 function clamp(value: number, minimum: number, maximum: number) { return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum)); }
 function round(value: number) { return Math.round(value * 10_000) / 10_000; }

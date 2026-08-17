@@ -185,6 +185,11 @@ export interface DesignSuggestion {
   preferenceApplied?: boolean;
 }
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
+/** حجم القطعة داخل مساحتها الآمنة؛ يحمي القص من التداخل مع عناصر القالب. */
+export const PRODUCT_SCALE_MIN = 0.85;
+export const PRODUCT_SCALE_MAX = 1.5;
+export const PRODUCT_SCALE_STEP = 0.05;
+export const DEFAULT_PRODUCT_SCALE = 1.15;
 /** نمط بصري محلي مستقل عن مقاس التصدير؛ يبقى اختياريًا لتوافق المسودات القديمة. */
 export type TemplateVisualTheme = 'classic' | 'midnight' | 'rose' | 'mint' | 'sand';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
@@ -232,6 +237,8 @@ export interface TemplateSettings {
   smartTextColor?: string;
   /** تحويل اختياري للقطعة اعتمده المستخدم من اقتراح المصمم المحلي. */
   smartGarmentTransform?: GarmentDesignTransform;
+  /** تكبير مرئي للقطعة داخل منطقتها الآمنة، من دون تغيير مكان السعر أو التذييل. */
+  productScale?: number;
 }
 
 // ========== Store Settings ==========
@@ -470,6 +477,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showFooterArtwork: false,
   footerArtwork: '',
   artworkLayouts: {},
+  productScale: DEFAULT_PRODUCT_SCALE,
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

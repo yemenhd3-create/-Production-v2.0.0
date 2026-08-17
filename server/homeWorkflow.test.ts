@@ -226,6 +226,24 @@ describe('Home Try-On workflow', () => {
     expect(mutateAsync.mock.calls).toHaveLength(requestsBefore);
   });
 
+  it('يعرض تحكم حجم المنتج ويعيد رسم الإعلان محلياً عند التكبير من دون إعادة إزالة الخلفية', async () => {
+    await startGeneration();
+    await screen.findByLabelText('حجم المنتج داخل الإعلان');
+    renderAd.mockClear();
+    const removalCallsBefore = removeBackgroundLocally.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'أكبر' }));
+
+    await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ productScale: 1.2 }),
+      'blob:transparent-garment',
+      expect.objectContaining({ visualMode: 'garment' })
+    ));
+    expect(removeBackgroundLocally.mock.calls).toHaveLength(removalCallsBefore);
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('lets the user return to editing and clear the completed advertising session', async () => {
     mutateAsync.mockRejectedValue(new Error('لا يوجد مزود مفعّل'));
     await startGeneration();
