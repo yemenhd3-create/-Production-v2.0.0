@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { MerchantCommand, MerchantProfile } from '@shared/merchantAssistant';
 import type { TemplateSettings } from '@shared/types';
 import { buildDeveloperInsight, describeMerchantCommands, parseMerchantCommands } from '@shared/merchantAssistant';
-import { CheckCircle2, Clipboard, MessageSquareText, RotateCcw, Send, ShieldCheck, Sparkles, Trash2, User } from 'lucide-react';
+import { CheckCircle2, Clipboard, MessageSquareText, Plus, RotateCcw, Send, ShieldCheck, Sparkles, Trash2, User } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 type MerchantAssistantWorkspaceProps = {
@@ -44,8 +44,8 @@ function profileFromDraft(profile: MerchantProfile, draft: ProfileDraft): Mercha
 export default function MerchantAssistantWorkspace({ profile, template, onCommitProfile, onApplyCommands, onClearProfile }: MerchantAssistantWorkspaceProps) {
   const [draft, setDraft] = useState<ProfileDraft>(() => toDraft(profile));
   const [pendingProfile, setPendingProfile] = useState<MerchantProfile | null>(null);
-  const [editingProfile, setEditingProfile] = useState(!profile.onboardingComplete);
-  const [messages, setMessages] = useState<LocalMessage[]>(() => [{ role: 'assistant', content: 'أهلاً بك. أساعدك في ضبط متجرك وإعداد الإعلان بأوامر واضحة ومحلية على هاتفك.' }]);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [messages, setMessages] = useState<LocalMessage[]>(() => [{ role: 'assistant', content: 'مرحباً! أنا مساعد متجرك المحلي. جاهز لضبط متجرك أو تحسين إعلانك خطوة بخطوة — ماذا نعمل أولاً؟' }]);
   const [pendingCommands, setPendingCommands] = useState<MerchantCommand[]>([]);
   const [isApplying, setIsApplying] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,14 +53,24 @@ export default function MerchantAssistantWorkspace({ profile, template, onCommit
 
   useEffect(() => {
     setDraft(toDraft(profile));
-    setEditingProfile(!profile.onboardingComplete);
   }, [profile]);
 
   const insight = useMemo(() => buildDeveloperInsight(profile), [profile]);
 
+  const startStoreSetup = () => {
+    setEditingProfile(true);
+    setMessages(current => [...current, { role: 'assistant', content: 'رائع. اكتب أساسيات متجرك في النموذج الذي ظهر الآن، ثم سأعرض عليك ملخصاً قبل أي حفظ محلي.' }]);
+  };
+
   const handleMessage = (content: string) => {
     const clean = content.trim();
     if (!clean) return;
+    if (/ضبط.*متجر|إعداد.*متجر|ابدأ.*متجر/.test(clean)) {
+      setMessages(current => [...current, { role: 'user', content: clean }]);
+      setCommandInput('');
+      startStoreSetup();
+      return;
+    }
     const commands = parseMerchantCommands(clean);
     setPendingCommands(commands);
     setMessages(current => [
@@ -97,16 +107,28 @@ export default function MerchantAssistantWorkspace({ profile, template, onCommit
 
   return (
     <section className="space-y-5" aria-label="مساعد التاجر المحلي">
-      <div className="reference-card overflow-hidden p-5 sm:p-7">
-        <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><Sparkles size={22} /></div>
-          <div className="min-w-0"><span className="text-xs font-bold text-primary">مساعد التاجر المحلي</span><h2 className="mt-1 text-2xl font-black text-foreground">رتّب متجرك وتحدث مع إعلانك</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">يفهم الأوامر الواضحة على هاتفك، ولا يرسل معلومات متجرك أو صورك إلى الإنترنت.</p></div>
+      <section className="reference-card overflow-hidden" aria-label="محادثة مساعد التاجر">
+        <div className="border-b border-primary/10 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><Sparkles size={22} /></div>
+            <div className="min-w-0"><span className="text-xs font-bold text-primary">مساعد التاجر المحلي</span><h2 className="mt-1 text-2xl font-black text-foreground">كيف أساعدك اليوم؟</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">تحدث معي أولاً، وسأفتح الإعداد المناسب أو أقترح تغييراً لا يطبق إلا بموافقتك.</p></div>
+          </div>
         </div>
-      </div>
+
+        <div className="space-y-3 bg-secondary p-4" style={{ minHeight: '20rem', maxHeight: '28rem', overflowY: 'auto' }} aria-live="polite">
+          {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div style={{ maxWidth: '85%' }} className={`rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-white text-foreground shadow-sm'}`}>{message.role === 'assistant' ? <Sparkles className="mb-1 text-primary" size={14} /> : <User className="mb-1" size={14} />}{message.content.split('\n').map((line, lineIndex) => <React.Fragment key={`${index}-${lineIndex}`}>{lineIndex > 0 && <br />}{line}</React.Fragment>)}</div></div>)}
+        </div>
+
+        <div className="border-t border-primary/10 bg-white p-4">
+          <div className="mb-3 flex flex-wrap gap-2"><button type="button" onClick={startStoreSetup} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">ضبط متجري</button>{['استخدم القالب الليلي', 'كبّر صورة الملابس', 'لا تظهر العنوان'].map(prompt => <button key={prompt} type="button" onClick={() => handleMessage(prompt)} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">{prompt}</button>)}</div>
+          <form onSubmit={event => { event.preventDefault(); handleMessage(commandInput); }} className="flex items-end gap-2"><Button type="button" variant="outline" size="icon" onClick={startStoreSetup} aria-label="ضبط المتجر"><Plus size={19} /></Button><Textarea value={commandInput} onChange={event => setCommandInput(event.target.value)} placeholder="اكتب ما تريد أن نعمله…" className="min-h-10 flex-1 resize-none" rows={1} aria-label="رد على مساعد التاجر" /><Button type="submit" size="icon" disabled={!commandInput.trim()} aria-label="إرسال طلب للمساعد"><Send size={17} /></Button></form>
+        </div>
+        {pendingCommands.length > 0 && <div className="border-t border-primary/10 bg-secondary p-4"><p className="text-xs leading-5 text-muted-foreground">سأنتظر تأكيدك؛ لا يُطبّق أي تغيير من المحادثة تلقائياً.</p><Button type="button" onClick={() => { void applyPendingCommands(); }} disabled={isApplying} className="mt-3 w-full"><Sparkles size={17} /> {isApplying ? 'جارٍ تطبيق التغيير…' : 'تأكيد تطبيق التغيير'}</Button></div>}
+      </section>
 
       {editingProfile && (
         <section className="reference-card p-5" aria-label="إعداد المتجر">
-          <div className="mb-5 flex items-start gap-3"><MessageSquareText className="mt-0.5 text-primary" size={21} /><div><h3 className="font-black text-primary">لنضبط أساس متجرك</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">أجب بما يناسبك أو اترك الحقل فارغاً. لن نحفظ شيئاً قبل أن تراجع الملخص.</p></div></div>
+          <div className="mb-5 flex items-start gap-3"><MessageSquareText className="mt-0.5 text-primary" size={21} /><div><h3 className="font-black text-primary">إعداد متجرك</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">هذا الجزء اختياري. لن نحفظ شيئاً قبل عرض الملخص وموافقتك الصريحة.</p></div></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input value={draft.storeName} onChange={event => setDraft(current => ({ ...current, storeName: event.target.value }))} placeholder="اسم المتجر" aria-label="اسم المتجر" />
             <Input value={draft.storeLocation} onChange={event => setDraft(current => ({ ...current, storeLocation: event.target.value }))} placeholder="المدينة أو الموقع — اختياري" aria-label="موقع المتجر" />
@@ -127,17 +149,8 @@ export default function MerchantAssistantWorkspace({ profile, template, onCommit
       )}
 
       {profile.onboardingComplete && !editingProfile && (
-        <section className="reference-card p-5"><div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold text-primary">ذاكرتك المحلية</span><h3 className="mt-1 font-black text-foreground">{profile.storeName || 'متجرك جاهز'}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{profile.storeCategory || 'اضبط فئة المتجر من هنا.'}{profile.defaultColors.length ? ` · ${profile.defaultColors.join('، ')}` : ''}</p></div><div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={() => setEditingProfile(true)}><RotateCcw size={15} /> تعديل</Button><Button type="button" variant="outline" size="sm" onClick={onClearProfile} aria-label="مسح ذاكرة المساعد"><Trash2 size={15} /></Button></div></div></section>
+        <section className="reference-card p-5"><div className="flex items-start justify-between gap-3"><div><span className="text-xs font-bold text-primary">ذاكرتك المحلية</span><h3 className="mt-1 font-black text-foreground">{profile.storeName || 'متجرك جاهز'}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{profile.storeCategory || 'اضبط فئة المتجر من هنا.'}{profile.defaultColors.length ? ` · ${profile.defaultColors.join('، ')}` : ''}</p></div><div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={startStoreSetup}><RotateCcw size={15} /> تعديل</Button><Button type="button" variant="outline" size="sm" onClick={onClearProfile} aria-label="مسح ذاكرة المساعد"><Trash2 size={15} /></Button></div></div></section>
       )}
-
-      <section className="reference-card overflow-hidden">
-        <div className="border-b border-primary/10 p-5"><h3 className="font-black text-primary">ماذا تريد أن تغيّر؟</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">جرّب: «استخدم القالب الليلي»، «كبّر صورة الملابس»، أو «لا تظهر العنوان».</p></div>
-        <div className="space-y-3 bg-secondary p-4" style={{ maxHeight: '18rem', overflowY: 'auto' }} aria-live="polite">
-          {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><div style={{ maxWidth: '85%' }} className={`rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-white text-foreground shadow-sm'}`}>{message.role === 'assistant' ? <Sparkles className="mb-1 text-primary" size={14} /> : <User className="mb-1" size={14} />}{message.content.split('\n').map((line, lineIndex) => <React.Fragment key={`${index}-${lineIndex}`}>{lineIndex > 0 && <br />}{line}</React.Fragment>)}</div></div>)}
-        </div>
-        <div className="border-t border-primary/10 bg-white p-4"><div className="mb-3 flex flex-wrap gap-2">{['استخدم القالب الليلي', 'كبّر صورة الملابس', 'لا تظهر العنوان'].map(prompt => <button key={prompt} type="button" onClick={() => handleMessage(prompt)} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">{prompt}</button>)}</div><form onSubmit={event => { event.preventDefault(); handleMessage(commandInput); }} className="flex items-end gap-2"><Textarea value={commandInput} onChange={event => setCommandInput(event.target.value)} placeholder="اكتب طلبك بالعربية…" className="min-h-10 flex-1 resize-none" rows={1} aria-label="طلب للمساعد" /><Button type="submit" size="icon" disabled={!commandInput.trim()} aria-label="إرسال طلب للمساعد"><Send size={17} /></Button></form></div>
-        {pendingCommands.length > 0 && <div className="border-t border-primary/10 bg-secondary p-4"><p className="text-xs leading-5 text-muted-foreground">لن يطبّق المساعد أي تغيير قبل ضغطك على الزر.</p><Button type="button" onClick={() => { void applyPendingCommands(); }} disabled={isApplying} className="mt-3 w-full"><Sparkles size={17} /> {isApplying ? 'جارٍ تطبيق التغيير…' : 'تطبيق التغيير المسموح'}</Button></div>}
-      </section>
 
       <section className="rounded-3xl border border-[#e9e5ef] bg-white p-5"><div className="flex items-start gap-3"><Clipboard className="mt-0.5 text-primary" size={20} /><div className="min-w-0 flex-1"><h3 className="font-black text-primary">ملاحظة تحسين للمطور</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{insight}</p><p className="mt-2 text-[11px] font-bold text-muted-foreground">هذه مسودة محلية فقط؛ لا تُرسل تلقائياً ولا تحتوي محادثتك أو صورك.</p></div></div><Button type="button" variant="outline" size="sm" onClick={() => { void copyInsight(); }} className="mt-4 w-full"><Clipboard size={15} /> {copied ? 'تم النسخ' : 'نسخ المسودة'}</Button></section>
 

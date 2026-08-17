@@ -173,7 +173,8 @@ describe('Home Try-On workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'المساعد' }));
 
     expect(await screen.findByText('مساعد التاجر المحلي')).toBeTruthy();
-    expect(screen.getByText('لنضبط أساس متجرك')).toBeTruthy();
+    expect(screen.getByText(/مرحباً! أنا مساعد متجرك المحلي/)).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'رد على مساعد التاجر' })).toBeTruthy();
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(removeBackgroundMutateAsync).not.toHaveBeenCalled();
   });
