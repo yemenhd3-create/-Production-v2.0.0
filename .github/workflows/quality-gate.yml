@@ -1,0 +1,44 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: تحقق الجودة
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: جلب النسخة
+        uses: actions/checkout@v4
+
+      - name: إعداد pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - name: إعداد Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: تثبيت الاعتماديات المقفلة
+        run: pnpm install --frozen-lockfile
+
+      - name: فحص الاختبارات والبناء والأداء
+        run: pnpm quality
+
+      - name: فحص الهاتف بعرض 390px
+        run: pnpm mobile:check
