@@ -9,7 +9,7 @@ import {
 } from './types';
 
 export type MerchantStoreField = 'storeName' | 'storePhone' | 'storeLocation' | 'storeCategory';
-export type MerchantVisibilityElement = 'headline' | 'price' | 'productName' | 'discount' | 'features';
+export type MerchantVisibilityElement = 'headline' | 'price' | 'productName' | 'discount' | 'features' | 'storeInfo' | 'storeLogo';
 export type MerchantUnsupportedCode = 'price-size' | 'store-name-position' | 'unknown';
 
 export type MerchantCommand =
@@ -37,12 +37,14 @@ export type MerchantProfile = {
 };
 
 const THEMES: TemplateVisualTheme[] = ['classic', 'midnight', 'rose', 'mint', 'sand'];
-const VISIBILITY_FIELDS: Record<MerchantVisibilityElement, keyof Pick<TemplateSettings, 'showHeadline' | 'showPrice' | 'showProductName' | 'showDiscount' | 'showFeatures'>> = {
+const VISIBILITY_FIELDS: Record<MerchantVisibilityElement, keyof Pick<TemplateSettings, 'showHeadline' | 'showPrice' | 'showProductName' | 'showDiscount' | 'showFeatures' | 'showStoreInfo' | 'showStoreLogo'>> = {
   headline: 'showHeadline',
   price: 'showPrice',
   productName: 'showProductName',
   discount: 'showDiscount',
   features: 'showFeatures',
+  storeInfo: 'showStoreInfo',
+  storeLogo: 'showStoreLogo',
 };
 
 function cleanText(value: unknown, limit = 80) {
@@ -94,7 +96,7 @@ export function normalizeMerchantProfile(value: unknown): MerchantProfile {
   const theme = THEMES.includes(source.preferredTheme as TemplateVisualTheme) ? source.preferredTheme as TemplateVisualTheme : undefined;
   const scale = Number(source.preferredProductScale);
   const hiddenElements = Array.isArray(source.hiddenElements)
-    ? source.hiddenElements.filter((entry): entry is MerchantVisibilityElement => ['headline', 'price', 'productName', 'discount', 'features'].includes(entry as string))
+    ? source.hiddenElements.filter((entry): entry is MerchantVisibilityElement => ['headline', 'price', 'productName', 'discount', 'features', 'storeInfo', 'storeLogo'].includes(entry as string))
     : [];
   const unsupported = source.unsupportedRequests && typeof source.unsupportedRequests === 'object'
     ? source.unsupportedRequests as Record<string, unknown>
@@ -155,7 +157,7 @@ export function parseMerchantCommands(raw: string): MerchantCommand[] {
   if (matchedTheme && hasAny(input, ['قالب', 'نمط', 'ثيم', 'استخدم'])) commands.push({ type: 'set-visual-theme', theme: matchedTheme[0] });
 
   const asksForProduct = hasAny(input, ['صوره الملابس', 'صورة الملابس', 'القطعه', 'القطعة', 'الملابس', 'المنتج']);
-  if (asksForProduct && hasAny(input, ['كبر', 'كبّر', 'اكبر', 'أكبر'])) commands.push({ type: 'adjust-product-scale', direction: 'increase' });
+  if (asksForProduct && hasAny(input, ['كبر', 'تكبير', 'اكبر', 'أكبر', 'زد الحجم', 'زيد الحجم'])) commands.push({ type: 'adjust-product-scale', direction: 'increase' });
   if (asksForProduct && hasAny(input, ['صغر', 'صغّر', 'اصغر', 'أصغر'])) commands.push({ type: 'adjust-product-scale', direction: 'decrease' });
 
   const visibility: Array<[MerchantVisibilityElement, string[]]> = [
@@ -164,12 +166,31 @@ export function parseMerchantCommands(raw: string): MerchantCommand[] {
     ['productName', ['اسم المنتج']],
     ['discount', ['الخصم']],
     ['features', ['المميزات', 'المزايا']],
+    ['storeInfo', ['الشعار النصي', 'اسم المتجر', 'معلومات المتجر']],
+    ['storeLogo', ['الشعار الصوري', 'الشعار الصورة', 'شعار المتجر']],
   ];
-  const hide = hasAny(input, ['لا تظهر', 'اخف', 'اخفي', 'اخفاء']);
-  const show = hasAny(input, ['اظهر', 'أظهر', 'اعرض']);
+  const hideActions = ['لا تظهر', 'اخف', 'اخفي', 'اخفاء'];
+  const showActions = ['اظهر', 'اعرض', 'اضف', 'اضافه'];
+  const allVisibilityActions = [...hideActions, ...showActions];
+  const hasActionForElement = (actions: string[], aliases: string[]) => aliases.some(alias => {
+    const normalizedAlias = normalizeArabic(alias);
+    return actions.some(action => {
+      if (input.includes(`${action} ${normalizedAlias}`) || input.includes(`${normalizedAlias} ${action}`)) return true;
+      const actionIndex = input.indexOf(`${action} `);
+      if (actionIndex < 0) return false;
+      const afterAction = input.slice(actionIndex + action.length + 1);
+      const nextActionIndex = allVisibilityActions
+        .filter(nextAction => nextAction !== action)
+        .map(nextAction => afterAction.indexOf(`${nextAction} `))
+        .filter(index => index >= 0)
+        .reduce((nearest, index) => Math.min(nearest, index), Number.POSITIVE_INFINITY);
+      const clause = afterAction.slice(0, Number.isFinite(nextActionIndex) ? nextActionIndex : undefined);
+      return clause.includes(normalizedAlias);
+    });
+  });
   visibility.forEach(([element, aliases]) => {
-    if (hasAny(input, aliases) && hide) commands.push({ type: 'set-element-visibility', element, visible: false });
-    if (hasAny(input, aliases) && show && !hide) commands.push({ type: 'set-element-visibility', element, visible: true });
+    if (hasActionForElement(hideActions, aliases)) commands.push({ type: 'set-element-visibility', element, visible: false });
+    else if (hasActionForElement(showActions, aliases)) commands.push({ type: 'set-element-visibility', element, visible: true });
   });
 
   const colors = parseColors(input);
@@ -240,10 +261,19 @@ export function applyMerchantCommands(template: TemplateSettings, profile: Merch
 }
 
 export function describeMerchantCommands(commands: MerchantCommand[]) {
+  const visibilityNames: Record<MerchantVisibilityElement, string> = {
+    headline: 'العنوان',
+    price: 'السعر',
+    productName: 'اسم المنتج',
+    discount: 'الخصم',
+    features: 'المميزات',
+    storeInfo: 'الشعار النصي ومعلومات المتجر',
+    storeLogo: 'الشعار الصوري',
+  };
   const descriptions = commands.map(command => {
     if (command.type === 'set-visual-theme') return `تغيير النمط إلى ${command.theme}.`;
-    if (command.type === 'adjust-product-scale') return command.direction === 'increase' ? 'تكبير صورة القطعة ضمن المنطقة الآمنة.' : 'تصغير صورة القطعة ضمن المنطقة الآمنة.';
-    if (command.type === 'set-element-visibility') return `${command.visible ? 'إظهار' : 'إخفاء'} ${command.element}.`;
+    if (command.type === 'adjust-product-scale') return command.direction === 'increase' ? 'سأكبّر القطعة خطوة واحدة داخل المساحة الآمنة، مع إبقاء السعر والتذييل واضحين.' : 'سأصغّر القطعة خطوة واحدة مع الحفاظ على توازن الإعلان.';
+    if (command.type === 'set-element-visibility') return command.visible ? `سأُظهر ${visibilityNames[command.element]} في الإعلان.` : `سأُخفي ${visibilityNames[command.element]} من الإعلان.`;
     if (command.type === 'set-store-field') return 'تحديث معلومة المتجر المحددة.';
     if (command.type === 'set-default-colors') return `حفظ الألوان المفضلة: ${command.colors.join('، ')}.`;
     if (command.code === 'price-size') return 'تكبير السعر غير متاح في إعدادات التصميم الحالية؛ يمكن حفظه كاقتراح للمطور فقط.';

@@ -32,7 +32,7 @@ import { createSuggestionFromMetrics } from '@/lib/localDesignIntelligence';
 import { prepareLocalAnalysis } from '@/lib/localAnalysisCache';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
 import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
-import { formatLocalFirstDownloadSize, formatLocalModelSize } from '@/lib/localBackgroundRemovalSupport';
+import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { clearMerchantProfile, loadMerchantProfile, saveMerchantProfile } from '@/lib/merchantMemory';
@@ -394,10 +394,19 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       message: 'نجهّز الصورة والقالب للإعلان…',
     });
 
+    let localImage;
     try {
-      const localImage = await removeBackgroundLocally(productImage, stage => {
+      localImage = await removeBackgroundLocally(productImage, stage => {
         setTryOnResult({ status: 'processing', message: getLocalStageMessage(stage) });
       });
+    } catch (error) {
+      console.error('Failed to prepare local image:', error);
+      setTryOnResult({ status: 'unavailable', message: getLocalRemovalUnavailableMessage(error) });
+      setIsGenerating(false);
+      return;
+    }
+
+    try {
       setTryOnResult({
         status: 'success',
         imageUrl: localImage.imageUrl,
@@ -422,10 +431,10 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       setDesignContractReport(contract);
       setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === templateSettings.size), pixelTruth));
     } catch (error) {
-      console.error('Failed to generate local advertisement:', error);
+      console.error('Failed to render local advertisement:', error);
       setTryOnResult({
         status: 'unavailable',
-        message: 'تعذّر تجهيز الصورة محلياً. جرّب قص الزوائد أو صورة أصغر وأوضح، ثم أعد المحاولة.',
+        message: error instanceof Error ? error.message : 'تعذّر إنشاء الإعلان محلياً. جرّب صورة أصغر ثم أعد المحاولة.',
       });
     } finally {
       setIsGenerating(false);
@@ -883,7 +892,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
-        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} /></React.Suspense>}
+        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
 
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 

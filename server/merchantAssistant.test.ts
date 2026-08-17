@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
-import { applyMerchantCommands, createMerchantProfile, normalizeMerchantProfile, parseMerchantCommands } from '../shared/merchantAssistant';
+import { applyMerchantCommands, createMerchantProfile, describeMerchantCommands, normalizeMerchantProfile, parseMerchantCommands } from '../shared/merchantAssistant';
 
 describe('Merchant Assistant rules-first commands', () => {
   it('يفهم أمراً عربياً متعدد التغييرات ويطبّق الحقول المسموحة فقط', () => {
@@ -23,6 +23,18 @@ describe('Merchant Assistant rules-first commands', () => {
     expect(result.unsupported).toEqual(['price-size']);
     expect(result.template).toEqual(DEFAULT_TEMPLATE_SETTINGS);
     expect(result.profile.unsupportedRequests['price-size']).toBe(1);
+  });
+
+  it('يفهم تعديل النتيجة النهائي: تكبير القطعة وإظهار العنوان وإخفاء الشعارين', () => {
+    const commands = parseMerchantCommands('تكبير الملابس وإضافة العنوان وإخفاء الشعار النصي والشعار الصوري');
+    const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS, showHeadline: false, showStoreInfo: true, showStoreLogo: true }, createMerchantProfile(), commands);
+
+    expect(result.template.productScale).toBe(1.2);
+    expect(result.template.showHeadline).toBe(true);
+    expect(result.template.showStoreInfo).toBe(false);
+    expect(result.template.showStoreLogo).toBe(false);
+    expect(describeMerchantCommands(commands)).toMatch(/سأكبّر القطعة/);
+    expect(describeMerchantCommands(commands)).toMatch(/الشعار النصي/);
   });
 
   it('يحفظ ألواناً محدودة للمستقبل من دون تحويلها إلى CSS أو تعديل ثيم الإعلان', () => {

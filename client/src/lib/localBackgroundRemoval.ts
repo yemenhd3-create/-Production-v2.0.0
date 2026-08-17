@@ -1,9 +1,9 @@
 import { LOCAL_BACKGROUND_MODEL_SIZE_BYTES, normalizeU2NetMask, withLocalRemovalTimeout } from './localBackgroundRemovalSupport';
 
-const LOCAL_MODEL_URL = '/manus-storage/u2netp_9be3adec.onnx';
-const ORT_WASM_URL = '/manus-storage/ort-wasm-simd-threaded_4e38bda3.wasm';
-const ORT_WASM_MJS_URL = '/manus-storage/ort-wasm-simd-threaded_59eec8fe.mjs';
-const MODEL_CACHE_NAME = 'clothing-ad-u2netp-v1';
+const LOCAL_MODEL_URL = '/local-runtime-assets/u2netp.onnx';
+const ORT_WASM_URL = '/local-runtime-assets/ort-wasm-simd-threaded.wasm';
+const ORT_WASM_MJS_URL = '/local-runtime-assets/ort-wasm-simd-threaded.mjs';
+const MODEL_CACHE_NAME = 'clothing-ad-u2netp-v2';
 const MODEL_IDB_NAME = 'clothing-ad-local-models-v1';
 const MODEL_IDB_STORE = 'models';
 const MODEL_IDB_KEY = 'u2netp-onnx';

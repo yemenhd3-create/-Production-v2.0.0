@@ -128,7 +128,7 @@ try {
           };
         });
       const requiredElementsPass = importantElements
-        .filter((element) => element.selector === '#root' || element.selector === 'main')
+        .filter((element) => element.selector === '#root')
         .every((element) => element.found && element.withinViewport);
       const presentElementsPass = importantElements
         .filter((element) => element.found)

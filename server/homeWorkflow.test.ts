@@ -119,7 +119,7 @@ describe('Home Try-On workflow', () => {
   it('يعرض فشل الإزالة المحلية مباشرة ولا يطلب أي مزود خارجي', async () => {
     removeBackgroundLocally.mockRejectedValueOnce(new Error('LOCAL_REMOVAL_UNAVAILABLE'));
     await startGeneration();
-    expect(await screen.findByText(/تعذّر تجهيز الصورة محلياً/)).toBeTruthy();
+    expect(await screen.findByText(/تعذّرت إزالة الخلفية محلياً/)).toBeTruthy();
     expect(renderAd).not.toHaveBeenCalled();
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(removeBackgroundMutateAsync).not.toHaveBeenCalled();

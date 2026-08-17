@@ -13,6 +13,7 @@ type MerchantAssistantWorkspaceProps = {
   onCommitProfile: (profile: MerchantProfile) => void;
   onApplyCommands: (commands: MerchantCommand[]) => Promise<boolean>;
   onClearProfile: () => void;
+  onOpenUpdatedResult?: () => void;
 };
 
 type ProfileDraft = Pick<MerchantProfile, 'storeName' | 'storePhone' | 'storeLocation' | 'storeCategory' | 'defaultColors'>;
@@ -41,7 +42,7 @@ function profileFromDraft(profile: MerchantProfile, draft: ProfileDraft): Mercha
   };
 }
 
-export default function MerchantAssistantWorkspace({ profile, template, onCommitProfile, onApplyCommands, onClearProfile }: MerchantAssistantWorkspaceProps) {
+export default function MerchantAssistantWorkspace({ profile, template, onCommitProfile, onApplyCommands, onClearProfile, onOpenUpdatedResult }: MerchantAssistantWorkspaceProps) {
   const [draft, setDraft] = useState<ProfileDraft>(() => toDraft(profile));
   const [pendingProfile, setPendingProfile] = useState<MerchantProfile | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -87,8 +88,9 @@ export default function MerchantAssistantWorkspace({ profile, template, onCommit
     const applied = await onApplyCommands(pendingCommands);
     setIsApplying(false);
     if (applied) {
-      setMessages(current => [...current, { role: 'assistant', content: 'تم تطبيق التغييرات المسموحة محلياً. يمكنك العودة إلى الإنشاء لمراجعة الإعلان.' }]);
+      setMessages(current => [...current, { role: 'assistant', content: 'تم التعديل محلياً وبهدوء. سأعيدك الآن إلى إعلانك المحدّث لتراه مباشرة.' }]);
       setPendingCommands([]);
+      onOpenUpdatedResult?.();
     }
   };
 
@@ -120,7 +122,7 @@ export default function MerchantAssistantWorkspace({ profile, template, onCommit
         </div>
 
         <div className="border-t border-primary/10 bg-white p-4">
-          <div className="mb-3 flex flex-wrap gap-2"><button type="button" onClick={startStoreSetup} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">ضبط متجري</button>{['استخدم القالب الليلي', 'كبّر صورة الملابس', 'لا تظهر العنوان'].map(prompt => <button key={prompt} type="button" onClick={() => handleMessage(prompt)} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">{prompt}</button>)}</div>
+          <div className="mb-3 flex flex-wrap gap-2"><button type="button" onClick={startStoreSetup} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">ضبط متجري</button>{['كبّر الملابس', 'أضف العنوان', 'أخفِ الشعار النصي', 'أخفِ الشعار الصوري'].map(prompt => <button key={prompt} type="button" onClick={() => handleMessage(prompt)} className="rounded-xl border border-primary/15 bg-secondary px-3 py-1.5 text-xs font-bold text-primary transition active:scale-95">{prompt}</button>)}</div>
           <form onSubmit={event => { event.preventDefault(); handleMessage(commandInput); }} className="flex items-end gap-2"><Button type="button" variant="outline" size="icon" onClick={startStoreSetup} aria-label="ضبط المتجر"><Plus size={19} /></Button><Textarea value={commandInput} onChange={event => setCommandInput(event.target.value)} placeholder="اكتب ما تريد أن نعمله…" className="min-h-10 flex-1 resize-none" rows={1} aria-label="رد على مساعد التاجر" /><Button type="submit" size="icon" disabled={!commandInput.trim()} aria-label="إرسال طلب للمساعد"><Send size={17} /></Button></form>
         </div>
         {pendingCommands.length > 0 && <div className="border-t border-primary/10 bg-secondary p-4"><p className="text-xs leading-5 text-muted-foreground">سأنتظر تأكيدك؛ لا يُطبّق أي تغيير من المحادثة تلقائياً.</p><Button type="button" onClick={() => { void applyPendingCommands(); }} disabled={isApplying} className="mt-3 w-full"><Sparkles size={17} /> {isApplying ? 'جارٍ تطبيق التغيير…' : 'تأكيد تطبيق التغيير'}</Button></div>}
