@@ -1,4 +1,5 @@
 import type { DesignDocument, DesignRepairPlan } from '@shared/designDocument';
+import { getTemplateTheme } from '@shared/templateThemes';
 
 export type PixelTruthStatus = 'pass' | 'warning' | 'block';
 export type PixelTruthRegionId = 'header' | 'price' | 'footer';
@@ -34,6 +35,20 @@ const luminance = ({ r, g, b }: Rgb) => (.2126 * toLinear(r)) + (.7152 * toLinea
 const contrast = (first: number, second: number) => (Math.max(first, second) + .05) / (Math.min(first, second) + .05);
 const emptyReport = (detail: string): PixelTruthReport => ({ version: 1, status: 'warning', checks: [{ id: 'render', status: 'warning', contrastRatio: null, foregroundCoverage: 0, detail }], repairs: [], sampledWidth: 0, sampledHeight: 0, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } });
 
+function hexToRgb(value: string): Rgb | null {
+  const matched = /^#([0-9a-f]{6})$/i.exec(value.trim());
+  if (!matched) return null;
+  const numeric = Number.parseInt(matched[1], 16);
+  return { r: (numeric >> 16) & 255, g: (numeric >> 8) & 255, b: numeric & 255 };
+}
+
+function headerForegroundForTheme(document: DesignDocument): RegionDefinition['preferredForeground'] {
+  const palette = getTemplateTheme(document.visualTheme).palette;
+  const foreground = hexToRgb(palette.primary);
+  const background = hexToRgb(palette.background);
+  return foreground && background && luminance(foreground) > luminance(background) ? 'light' : 'dark';
+}
+
 export function isLocalRenderedUrl(renderedUrl: string) {
   return LOCAL_RENDER_PREFIXES.some(prefix => renderedUrl.startsWith(prefix));
 }
@@ -45,7 +60,7 @@ export function getPixelTruthRegions(designDocument: DesignDocument): RegionDefi
     const element = byId.get(id);
     if (element?.visible) regions.push({ id, ...element.box, preferredForeground });
   };
-  add('header', 'dark');
+  add('header', headerForegroundForTheme(designDocument));
   add('price', 'light');
   add('footer', 'light');
   return regions;

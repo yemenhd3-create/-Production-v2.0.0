@@ -64,6 +64,25 @@ describe('Pixel Truth Gate', () => {
     expect(regions.every(region => region.width > 0 && region.height > 0)).toBe(true);
   });
 
+  it('يختار قطبية نص فاتحة لعنوان نمط Midnight حتى لا يحجب النص الأبيض الصحيح على الخلفية الداكنة', () => {
+    const document = compileDesignDocument(details, { ...DEFAULT_TEMPLATE_SETTINGS, visualTheme: 'midnight' });
+    const header = getPixelTruthRegions(document).find(region => region.id === 'header');
+
+    expect(header?.preferredForeground).toBe('light');
+  });
+
+  it('يمنح PASS لبكسلات عنوان Midnight البيضاء على خلفية داكنة فعلية', () => {
+    const document = compileDesignDocument(details, { ...DEFAULT_TEMPLATE_SETTINGS, visualTheme: 'midnight', showPrice: false, showStoreInfo: false });
+    const header = getPixelTruthRegions(document).find(region => region.id === 'header');
+    const data = pixels(100, 60, [18, 24, 38]);
+    paint(data, 100, 20, 20, 20, 8, [248, 250, 252]);
+
+    const report = inspectPixelTruthPixels(100, 60, data, header ? [{ ...header, x: 0, y: 0, width: 1, height: 1 }] : []);
+
+    expect(report.status).toBe('pass');
+    expect(report.checks[0]?.contrastRatio).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('يبقى حتمياً للنص RTL نفسه ولا ينهار عند غياب الإعلان النهائي أو محاولة رابط شبكة', async () => {
     const data = pixels(100, 60, [255, 255, 255]);
     paint(data, 100, 18, 18, 24, 9, [42, 40, 101]);
