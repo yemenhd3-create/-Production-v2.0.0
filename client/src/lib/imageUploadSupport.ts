@@ -6,3 +6,15 @@ export function getImagePreparationErrorMessage(error: unknown) {
   }
   return 'تعذّر تجهيز هذه الصورة. جرّب نسخة JPG أو PNG محفوظة في معرض الهاتف، وتأكد أن المتصفح يملك إذن الوصول للصور.';
 }
+
+/** رسالة موحدة لمسار الكاميرا المباشر من المتصفح. */
+export function getCameraCaptureErrorMessage(error: unknown) {
+  const name = error instanceof DOMException ? error.name : error instanceof Error ? error.name : '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'لم يُسمح للتطبيق باستخدام الكاميرا. افتح إعدادات الموقع في المتصفح، فعّل إذن «الكاميرا»، ثم اضغط «بالكاميرا» مرة أخرى.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return 'لم نعثر على كاميرا قابلة للاستخدام. أغلق أي تطبيق آخر يستعمل الكاميرا ثم أعد المحاولة.';
+  }
+  return 'تعذر فتح الكاميرا الآن. جرّب مرة أخرى، أو استخدم زر «من المعرض» لاختيار صورة محفوظة.';
+}

@@ -1,8 +1,8 @@
 import { AlertTriangle, BadgeCheck, Camera, ImageUp, LoaderCircle, ScanLine, Upload, X } from 'lucide-react';
 import * as React from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { prepareSelectedFile, readImageWithFallback } from '@/lib/imageUploadFlow';
-import { getImagePreparationErrorMessage } from '@/lib/imageUploadSupport';
+import { getCameraCaptureErrorMessage, getImagePreparationErrorMessage } from '@/lib/imageUploadSupport';
 import GarmentCropEditor from './GarmentCropEditor';
 import { Button } from './ui/button';
 
@@ -19,10 +19,79 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [pendingCrop, setPendingCrop] = useState<{ source: string; file: File } | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+
+  useEffect(() => {
+    const video = cameraVideoRef.current;
+    if (!cameraStream || !video) return;
+    video.srcObject = cameraStream;
+    void video.play().catch(() => undefined);
+    return () => {
+      video.srcObject = null;
+    };
+  }, [cameraStream]);
+
+  useEffect(() => () => {
+    cameraStream?.getTracks().forEach(track => track.stop());
+  }, [cameraStream]);
+
+  const stopCamera = () => {
+    cameraStream?.getTracks().forEach(track => track.stop());
+    setCameraStream(null);
+  };
+
+  const startCamera = async () => {
+    setErrorMessage('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      // تبقى هذه الخطة مهمة للمتصفحات التي تدعم capture في input فقط.
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    setIsCameraStarting(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' } },
+      });
+      setCameraStream(stream);
+    } catch (error) {
+      setErrorMessage(getCameraCaptureErrorMessage(error));
+    } finally {
+      setIsCameraStarting(false);
+    }
+  };
+
+  const captureCameraPhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video || video.videoWidth < 1 || video.videoHeight < 1) {
+      setErrorMessage('انتظر لحظة حتى تظهر معاينة الكاميرا بوضوح ثم التقط الصورة.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setErrorMessage('تعذر تجهيز صورة الكاميرا على هذا الجهاز. استخدم زر «من المعرض» كبديل.');
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async blob => {
+      if (!blob) {
+        setErrorMessage('تعذر حفظ لقطة الكاميرا. التقط صورة مرة أخرى أو استخدم المعرض.');
+        return;
+      }
+      stopCamera();
+      await handleFileSelect(new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.9);
+  };
 
   const handleFileSelect = async (file: File) => {
     setErrorMessage('');
@@ -160,7 +229,7 @@ export default function ImageUploader({
           <div className="mb-4 flex flex-wrap justify-center gap-2 text-[11px] font-bold text-muted-foreground"><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">قطعة واحدة واضحة</span><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">حتى 10 ميجابايت</span><span className="rounded-full bg-white px-2.5 py-1 shadow-sm">يُحسَّن تلقائياً</span></div>
 
           {isLoading && <div role="status" aria-live="polite" className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-primary/10 bg-primary/5 px-3 py-3 text-sm font-black text-primary"><LoaderCircle className="animate-spin" size={18} />جارٍ قراءة الصورة وتحسينها للهاتف…</div>}
-          {errorMessage && <div role="alert" className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={17} /><p>{errorMessage}</p></div><button type="button" onClick={() => cameraInputRef.current?.click()} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading}><Camera size={14} />جرّب التقاط صورة الآن</button></div>}
+          {errorMessage && <div role="alert" className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-medium leading-6 text-red-800"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={17} /><p>{errorMessage}</p></div><button type="button" onClick={() => void startCamera()} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-black text-red-800 shadow-sm" disabled={isLoading || isCameraStarting}><Camera size={14} />جرّب التقاط صورة الآن</button></div>}
 
           <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
             <Button
@@ -173,11 +242,11 @@ export default function ImageUploader({
             <Button
               type="button"
               variant="outline"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isLoading}
+              onClick={() => void startCamera()}
+              disabled={isLoading || isCameraStarting}
               className="reference-outline min-h-14 w-full"
             >
-              <Camera size={17} /> بالكاميرا
+              <Camera size={17} /> {isCameraStarting ? 'جارٍ فتح الكاميرا…' : 'بالكاميرا'}
             </Button>
           </div>
         </div>
@@ -199,6 +268,17 @@ export default function ImageUploader({
         onChange={handleFileInputChange}
         className="hidden"
       />
+
+      {cameraStream && (
+        <section role="dialog" aria-label="التقاط صورة الملابس بالكاميرا" className="space-y-3 rounded-[28px] border border-primary/10 bg-primary/5 p-3">
+          <video ref={cameraVideoRef} autoPlay muted playsInline className="max-h-96 w-full rounded-2xl bg-primary/5 object-contain" />
+          <p className="text-center text-sm font-bold text-muted-foreground">ضع قطعة الملابس داخل الإطار ثم التقط الصورة.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button type="button" onClick={captureCameraPhoto} className="reference-primary min-h-12 w-full"><Camera size={17} />التقط الصورة</Button>
+            <Button type="button" variant="outline" onClick={stopCamera} className="reference-outline min-h-12 w-full">إلغاء</Button>
+          </div>
+        </section>
+      )}
 
       {/* Image Info */}
       {currentImage && (

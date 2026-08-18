@@ -50,4 +50,19 @@ describe('ImageUploader على هاتف Android', () => {
     fireEvent.click(screen.getByRole('button', { name: 'جرّب التقاط صورة الآن' }));
     await waitFor(() => expect(cameraClick).toHaveBeenCalledOnce());
   });
+
+  it('يفتح معاينة كاميرا مباشرة قبل التقاط الصورة عندما يدعمها الهاتف', async () => {
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [] } satisfies Pick<MediaStream, 'getTracks'>);
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+
+    render(<ImageUploader onImageSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'بالكاميرا' }));
+
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' } },
+    }));
+    expect(await screen.findByRole('dialog', { name: 'التقاط صورة الملابس بالكاميرا' })).toBeTruthy();
+  });
 });

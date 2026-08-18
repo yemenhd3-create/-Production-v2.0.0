@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getImagePreparationErrorMessage } from '../client/src/lib/imageUploadSupport';
+import { getCameraCaptureErrorMessage, getImagePreparationErrorMessage } from '../client/src/lib/imageUploadSupport';
 
 describe('رسائل أخطاء رفع صور الهاتف', () => {
   it('يعرض إرشاداً خاصاً عند فشل موفر ملفات Android في القراءة', () => {
@@ -10,5 +10,10 @@ describe('رسائل أخطاء رفع صور الهاتف', () => {
 
   it('يحافظ على رسالة آمنة وعامة للأخطاء الأخرى', () => {
     expect(getImagePreparationErrorMessage(new Error('canvas unavailable'))).toContain('JPG أو PNG');
+  });
+
+  it('يشرح تفعيل إذن الكاميرا عند رفض المتصفح الوصول إليها', () => {
+    const denied = new DOMException('denied', 'NotAllowedError');
+    expect(getCameraCaptureErrorMessage(denied)).toContain('إذن «الكاميرا»');
   });
 });
