@@ -1,7 +1,7 @@
 # AI PROJECT SOURCE INDEX — READ ONLY
 
 فهرس صغير لملفات المشروع النصية مع روابط GitHub Raw. استخدمه عندما لا تستطيع قراءة الحزمة الكاملة دفعة واحدة.
-SHA المرجعي عند إنشاء الحزمة: 4973503cffb900ead9f956abc517b0be4391bac5
+SHA المرجعي عند إنشاء الحزمة: 35be3fb4111a39a8d854afe2a2605d380657cc11
 ابدأ بـ AI_CONTEXT.md وtodo.md وREADME.md ثم افتح الملفات القريبة من المهمة فقط.
 
 - .github/workflows/quality-gate.yml
