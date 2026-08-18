@@ -31,7 +31,7 @@ import { buildDesignBenchmarks, createQualityFingerprint, detectDesignRegression
 import { createSuggestionFromMetrics } from '@/lib/localDesignIntelligence';
 import { prepareLocalAnalysis } from '@/lib/localAnalysisCache';
 import { clearPreferenceProfile, loadPreferenceProfile, recordLayoutPreference, setPreferenceEnabled } from '@/lib/localArtDirectorPreferences';
-import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
+import { prewarmLocalBackgroundRemoval, removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBackgroundRemoval';
 import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
@@ -213,6 +213,18 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       if (active) setIsDesignAnalyzing(false);
     });
     return () => { active = false; };
+  }, [productImage]);
+
+  useEffect(() => {
+    if (!productImage) return;
+    const warm = () => { void prewarmLocalBackgroundRemoval().catch(() => undefined); };
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(warm, { timeout: 1_200 })
+      : window.setTimeout(warm, 700);
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+    };
   }, [productImage]);
 
   useEffect(() => {
@@ -412,7 +424,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
         status: 'success',
         imageUrl: localImage.imageUrl,
         providerId: 'local-u2netp',
-        message: 'تمت إزالة الخلفية محلياً على هذا الهاتف. لم تُرسل الصورة إلى أي خدمة خارجية.',
+        message: `تمت إزالة الخلفية محلياً خلال ${formatLocalDuration(localImage.timing.totalMs)}. لم تُرسل الصورة إلى أي خدمة خارجية.`,
         isTransparent: true,
         transparentSubject: 'garment',
       });
@@ -1115,6 +1127,12 @@ function getLocalStageMessage(stage: LocalRemovalStage) {
     finishing: 'نجهّز الصورة للإعلان…',
   };
   return messages[stage];
+}
+
+function formatLocalDuration(milliseconds: number) {
+  if (milliseconds < 1_000) return 'أقل من ثانية';
+  const seconds = milliseconds / 1_000;
+  return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)} ثانية`;
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {

@@ -17,23 +17,37 @@ const MODEL_DOWNLOAD_TIMEOUT_MS = 45_000;
 
 export type LocalRemovalStage = 'downloading' | 'loading' | 'processing' | 'finishing';
 
+export type LocalRemovalTiming = {
+  sessionMs: number;
+  sourcePreparationMs: number;
+  inferenceMs: number;
+  finishingMs: number;
+  totalMs: number;
+};
+
 export type LocalBackgroundRemovalResult = {
   imageUrl: string;
   modelSizeBytes: number;
+  timing: LocalRemovalTiming;
 };
 
 let sessionPromise: Promise<import('onnxruntime-web/wasm').InferenceSession> | null = null;
+const now = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
 
 /**
  * يشغّل U2NetP على الهاتف عبر WebAssembly. لا يرسل الصورة إلى خادم أو API.
  * يُحمّل النموذج ويخزّنه عند أول استخدام فقط، ثم يعاد استعمال جلسة الاستدلال في الجلسة نفسها.
  */
 export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stage: LocalRemovalStage) => void): Promise<LocalBackgroundRemovalResult> {
+  const startedAt = now();
   if (typeof WebAssembly === 'undefined') throw new Error('WebAssembly is unavailable');
   onStage?.('loading');
+  const sessionStartedAt = now();
   const session = await getSession(onStage);
+  const sessionMs = now() - sessionStartedAt;
   onStage?.('processing');
 
+  const sourceStartedAt = now();
   const source = await withLocalRemovalTimeout(loadImage(sourceUrl), SOURCE_IMAGE_TIMEOUT_MS, 'SOURCE_IMAGE_TIMEOUT');
   const inputCanvas = document.createElement('canvas');
   inputCanvas.width = INPUT_SIZE;
@@ -50,14 +64,18 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
       tensorData[channel * INPUT_SIZE * INPUT_SIZE + pixelIndex] = (rgb - IMAGE_NET_MEAN[channel]) / IMAGE_NET_STD[channel];
     }
   }
+  const sourcePreparationMs = now() - sourceStartedAt;
 
   const ort = await import('onnxruntime-web/wasm');
   const input = new ort.Tensor('float32', tensorData, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+  const inferenceStartedAt = now();
   const output = await withLocalRemovalTimeout(session.run({ [session.inputNames[0]]: input }), INFERENCE_TIMEOUT_MS, 'INFERENCE_TIMEOUT');
+  const inferenceMs = now() - inferenceStartedAt;
   const outputName = session.outputNames.includes('d0') ? 'd0' : session.outputNames[0];
   const alphaValues = normalizeU2NetMask(output[outputName].data as Float32Array);
 
   onStage?.('finishing');
+  const finishingStartedAt = now();
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width = INPUT_SIZE;
   maskCanvas.height = INPUT_SIZE;
@@ -67,10 +85,10 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
   for (let index = 0; index < alphaValues.length; index += 1) {
     const alpha = alphaValues[index];
     const offset = index * 4;
-    maskImageData.data[offset] = alpha;
-    maskImageData.data[offset + 1] = alpha;
-    maskImageData.data[offset + 2] = alpha;
-    maskImageData.data[offset + 3] = 255;
+    maskImageData.data[offset] = 255;
+    maskImageData.data[offset + 1] = 255;
+    maskImageData.data[offset + 2] = 255;
+    maskImageData.data[offset + 3] = alpha;
   }
   maskContext.putImageData(maskImageData, 0, 0);
 
@@ -80,21 +98,35 @@ export async function removeBackgroundLocally(sourceUrl: string, onStage?: (stag
   const outputContext = outputCanvas.getContext('2d', { willReadFrequently: true });
   if (!outputContext) throw new Error('Output canvas is unavailable');
   outputContext.drawImage(source, 0, 0, outputCanvas.width, outputCanvas.height);
-  const finalPixels = outputContext.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-  const scaledMaskCanvas = document.createElement('canvas');
-  scaledMaskCanvas.width = outputCanvas.width;
-  scaledMaskCanvas.height = outputCanvas.height;
-  const scaledMaskContext = scaledMaskCanvas.getContext('2d', { willReadFrequently: true });
-  if (!scaledMaskContext) throw new Error('Scaled mask canvas is unavailable');
-  scaledMaskContext.drawImage(maskCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
-  const scaledMaskPixels = scaledMaskContext.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-  for (let offset = 0; offset < finalPixels.data.length; offset += 4) {
-    finalPixels.data[offset + 3] = scaledMaskPixels.data[offset];
-  }
-  outputContext.putImageData(finalPixels, 0, 0);
+  // destination-in يطبق القناع بعد تكبيره داخل Canvas نفسه، ويمنع نسخ بكسلات
+  // كبيرة متعددة إلى JavaScript عند كل صورة، مع بقاء دقة الصورة النهائية كما هي.
+  outputContext.save();
+  outputContext.globalCompositeOperation = 'destination-in';
+  outputContext.drawImage(maskCanvas, 0, 0, outputCanvas.width, outputCanvas.height);
+  outputContext.restore();
 
   const blob = await canvasToBlob(outputCanvas);
-  return { imageUrl: URL.createObjectURL(blob), modelSizeBytes: LOCAL_BACKGROUND_MODEL_SIZE_BYTES };
+  const finishingMs = now() - finishingStartedAt;
+  return {
+    imageUrl: URL.createObjectURL(blob),
+    modelSizeBytes: LOCAL_BACKGROUND_MODEL_SIZE_BYTES,
+    timing: {
+      sessionMs: Math.round(sessionMs),
+      sourcePreparationMs: Math.round(sourcePreparationMs),
+      inferenceMs: Math.round(inferenceMs),
+      finishingMs: Math.round(finishingMs),
+      totalMs: Math.round(now() - startedAt),
+    },
+  };
+}
+
+/**
+ * يبدأ تنزيل النموذج وتجهيز جلسة WebAssembly بعد اختيار صورة الملابس، بينما
+ * يراجع المستخدم بيانات الإعلان. يعاد استعمال الوعد نفسه عند الضغط على التوليد.
+ */
+export async function prewarmLocalBackgroundRemoval(): Promise<void> {
+  if (typeof WebAssembly === 'undefined') return;
+  await getSession();
 }
 
 async function getSession(onStage?: (stage: LocalRemovalStage) => void) {

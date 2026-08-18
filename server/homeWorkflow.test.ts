@@ -9,6 +9,7 @@ const removeBackgroundMutateAsync = vi.fn();
 const renderAd = vi.fn();
 const removeFromStorage = vi.fn();
 const removeBackgroundLocally = vi.fn();
+const prewarmLocalBackgroundRemoval = vi.fn().mockResolvedValue(undefined);
 const inspectRenderedPixelTruth = vi.fn();
 let savedTemplateSettings: TemplateSettings | undefined;
 let savedAdDetails: AdDetails | undefined;
@@ -24,7 +25,7 @@ vi.mock('../client/src/lib/trpc', () => ({
   },
 }));
 vi.mock('../client/src/lib/canvasRenderer', () => ({ renderAd }));
-vi.mock('../client/src/lib/localBackgroundRemoval', () => ({ removeBackgroundLocally }));
+vi.mock('../client/src/lib/localBackgroundRemoval', () => ({ removeBackgroundLocally, prewarmLocalBackgroundRemoval }));
 vi.mock('../client/src/lib/pixelTruthGate', async () => {
   const actual = await vi.importActual<typeof import('../client/src/lib/pixelTruthGate')>('../client/src/lib/pixelTruthGate');
   return { ...actual, inspectRenderedPixelTruth };
@@ -68,7 +69,7 @@ describe('Home Try-On workflow', () => {
     savedAdDetails = undefined;
     localStorage.clear();
     renderAd.mockResolvedValue('blob:final-ad');
-    removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment' });
+    removeBackgroundLocally.mockResolvedValue({ imageUrl: 'blob:transparent-garment', timing: { sessionMs: 0, sourcePreparationMs: 20, inferenceMs: 600, finishingMs: 50, totalMs: 670 } });
     inspectRenderedPixelTruth.mockResolvedValue({ version: 1, status: 'pass', checks: [], repairs: [], sampledWidth: 1080, sampledHeight: 1350, privacy: { networkUsed: false, includedImage: false, includedPersonalFields: false } });
     removeBackgroundMutateAsync.mockRejectedValue(new Error('لا يوجد مزود إزالة خلفية مفعّل'));
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:prepared-tryon'), configurable: true });
@@ -106,12 +107,24 @@ describe('Home Try-On workflow', () => {
     expect(await screen.findByText('نموذج بيانات الاختبار')).toBeTruthy();
   });
 
+  it('يهيّئ محرك الإزالة محلياً بعد اختيار الصورة بدلاً من تأخير التنزيل إلى زر الإنشاء', async () => {
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+      callback();
+      return 1;
+    });
+    render(createElement(Home));
+
+    fireEvent.click(screen.getByRole('button', { name: 'رفع صورة اختبار' }));
+
+    await waitFor(() => expect(prewarmLocalBackgroundRemoval).toHaveBeenCalledOnce());
+  });
+
   it('يستخدم إزالة الخلفية المحلية تلقائياً قبل اللجوء إلى أي مسار بديل', async () => {
-    removeBackgroundLocally.mockResolvedValueOnce({ imageUrl: 'blob:transparent-garment' });
+    removeBackgroundLocally.mockResolvedValueOnce({ imageUrl: 'blob:transparent-garment', timing: { sessionMs: 0, sourcePreparationMs: 20, inferenceMs: 600, finishingMs: 50, totalMs: 670 } });
 
     await startGeneration();
 
-    await screen.findByText('تمت إزالة الخلفية محلياً على هذا الهاتف. لم تُرسل الصورة إلى أي خدمة خارجية.');
+    await screen.findByText('تمت إزالة الخلفية محلياً خلال أقل من ثانية. لم تُرسل الصورة إلى أي خدمة خارجية.');
     expect(renderAd).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'blob:transparent-garment', expect.objectContaining({ visualMode: 'garment' }));
     expect(mutateAsync).not.toHaveBeenCalled();
   });
