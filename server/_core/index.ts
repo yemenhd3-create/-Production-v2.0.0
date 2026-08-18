@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { registerLocalRuntimeAssets } from "./localRuntimeAssets";
+import { API_REQUEST_BODY_LIMIT } from "./requestLimits";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -32,9 +33,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Keep this aligned with the validated 12M-character image data contracts.
+  // Product images are otherwise processed locally in the browser, not posted as files.
+  app.use(express.json({ limit: API_REQUEST_BODY_LIMIT }));
+  app.use(express.urlencoded({ limit: API_REQUEST_BODY_LIMIT, extended: true }));
   registerStorageProxy(app);
   registerLocalRuntimeAssets(app);
   registerOAuthRoutes(app);
