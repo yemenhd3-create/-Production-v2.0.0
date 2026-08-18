@@ -35,8 +35,8 @@ import { removeBackgroundLocally, type LocalRemovalStage } from '@/lib/localBack
 import { formatLocalFirstDownloadSize, formatLocalModelSize, getLocalRemovalUnavailableMessage } from '@/lib/localBackgroundRemovalSupport';
 import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
-import { clearMerchantProfile, loadMerchantProfile, saveMerchantProfile } from '@/lib/merchantMemory';
-import { applyMerchantCommands, type MerchantCommand, type MerchantProfile } from '@shared/merchantAssistant';
+import { clearMerchantAssistantSession, clearMerchantProfile, loadMerchantAssistantSession, loadMerchantProfile, saveMerchantAssistantSession, saveMerchantProfile } from '@/lib/merchantMemory';
+import { applyMerchantCommands, type MerchantAssistantSession, type MerchantCommand, type MerchantProfile } from '@shared/merchantAssistant';
 import { trpc } from '@/lib/trpc';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -119,6 +119,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   const [selectedSuggestedSize, setSelectedSuggestedSize] = useState<TemplateSize>('portrait');
   const [preferenceProfile, setPreferenceProfile] = useState(() => loadPreferenceProfile());
   const [merchantProfile, setMerchantProfile] = useState(() => loadMerchantProfile());
+  const [merchantAssistantSession, setMerchantAssistantSession] = useState<MerchantAssistantSession>(() => loadMerchantAssistantSession());
   const [templateBeforeSuggestion, setTemplateBeforeSuggestion] = useState<TemplateSettings | null>(null);
   const [comparisonPreviews, setComparisonPreviews] = useState<{ current: string; suggested: string } | null>(null);
   const [isDesignAnalyzing, setIsDesignAnalyzing] = useState(false);
@@ -522,8 +523,17 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     toast.success('تم مسح ذاكرة المساعد المحلية من هذا الهاتف.');
   };
 
+  const handleMerchantAssistantSessionCommit = (session: MerchantAssistantSession) => {
+    setMerchantAssistantSession(saveMerchantAssistantSession(session));
+  };
+
+  const handleMerchantAssistantSessionClear = () => {
+    setMerchantAssistantSession(clearMerchantAssistantSession());
+    toast.success('تم مسح سجل مهام المساعد من هذا الهاتف.');
+  };
+
   const handleMerchantCommands = async (commands: MerchantCommand[]) => {
-    const application = applyMerchantCommands(templateSettings, merchantProfile, commands);
+    const application = applyMerchantCommands(templateSettings, merchantProfile, commands, adDetails);
     const nextDetails: AdDetails = { ...adDetails, ...application.detailsPatch };
     const templateChanged = JSON.stringify(application.template) !== JSON.stringify(templateSettings);
     const detailsChanged = JSON.stringify(nextDetails) !== JSON.stringify(adDetails);
@@ -892,7 +902,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
-        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
+        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} session={merchantAssistantSession} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onCommitSession={handleMerchantAssistantSessionCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} onClearSession={handleMerchantAssistantSessionClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
 
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 

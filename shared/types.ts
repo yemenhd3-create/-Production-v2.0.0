@@ -416,6 +416,7 @@ export enum StorageKeys {
   LOCAL_ANALYSIS_CACHE = 'clothing_ad_local_analysis_cache_v1',
   DESIGN_QUALITY_BASELINE = 'clothing_ad_design_quality_baseline_v1',
   MERCHANT_PROFILE = 'clothing_ad_merchant_profile_v1',
+  MERCHANT_ASSISTANT_SESSION = 'clothing_ad_merchant_assistant_session_v1',
 }
 
 // ========== Constants ==========

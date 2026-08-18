@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
-import { applyMerchantCommands, createMerchantProfile, describeMerchantCommands, normalizeMerchantProfile, parseMerchantCommands } from '../shared/merchantAssistant';
+import { DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS } from '../shared/types';
+import { applyMerchantCommands, completeMerchantAssistantTask, createMerchantAssistantSession, createMerchantAssistantTask, createMerchantProfile, describeMerchantCommands, normalizeMerchantAssistantSession, normalizeMerchantProfile, parseMerchantCommands } from '../shared/merchantAssistant';
 
 describe('Merchant Assistant rules-first commands', () => {
   it('يفهم أمراً عربياً متعدد التغييرات ويطبّق الحقول المسموحة فقط', () => {
@@ -62,5 +62,48 @@ describe('Merchant Assistant rules-first commands', () => {
     expect(profile.hiddenElements).toEqual(['headline']);
     expect(profile.unsupportedRequests['price-size']).toBe(1000);
     expect('arbitraryCode' in profile).toBe(false);
+  });
+
+  it('يفهم طلب تحسين النص التسويقي ويعيد توليده محلياً من بيانات الإعلان لا من خدمة خارجية', () => {
+    const commands = parseMerchantCommands('قم بتغيير النص التسويقي إلى أفضل وأقصر للواتساب');
+    const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS }, createMerchantProfile(), commands, {
+      ...DEFAULT_AD_DETAILS,
+      productName: 'فستان سهرة',
+      headline: 'أناقة لافتة',
+      storeName: 'متجر مروان',
+      storePhone: '770976559',
+    });
+
+    expect(commands).toContainEqual(expect.objectContaining({ type: 'regenerate-marketing-text' }));
+    expect(result.detailsPatch.marketingText).toContain('فستان سهرة');
+    expect(result.detailsPatch.marketingTextEngine).toBe('local');
+    expect(describeMerchantCommands(commands)).toMatch(/النص التسويقي محلياً/);
+  });
+
+  it('يفهم حذف الشعار بصيغته العامة ويخفي طبقتيه بعد التأكيد بدلاً من الرد بأنه لا يفهم', () => {
+    const commands = parseMerchantCommands('قم بحذف الشعار من القالب');
+    const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS, showStoreInfo: true, showStoreLogo: true }, createMerchantProfile(), commands);
+
+    expect(result.template.showStoreInfo).toBe(false);
+    expect(result.template.showStoreLogo).toBe(false);
+    expect(result.applied).toHaveLength(2);
+  });
+
+  it('يفهم حذف التذييل من القالب ويطبقه كإخفاء لمعلومات المتجر بدلاً من رفض الطلب', () => {
+    const commands = parseMerchantCommands('قم بحذف التذييل من القالب');
+    const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS, showStoreInfo: true }, createMerchantProfile(), commands);
+
+    expect(result.template.showStoreInfo).toBe(false);
+    expect(describeMerchantCommands(commands)).toMatch(/التذييل/);
+  });
+
+  it('يحفظ آخر مهمة ورسائلها بحجم محدود ويستعيدها بحالة مطبقة بعد العودة', () => {
+    const requested = createMerchantAssistantTask(createMerchantAssistantSession(), 'كبّر الملابس في العرض النهائي', parseMerchantCommands('كبّر الملابس في العرض النهائي'));
+    const task = requested.tasks.at(-1);
+    const completed = completeMerchantAssistantTask(requested, task!.id, 'applied');
+    const restored = normalizeMerchantAssistantSession(completed);
+
+    expect(restored.tasks.at(-1)).toMatchObject({ request: 'كبّر الملابس في العرض النهائي', status: 'applied' });
+    expect(restored.messages.at(-1)?.content).toMatch(/حُفظت في سجل الإعلان/);
   });
 });
