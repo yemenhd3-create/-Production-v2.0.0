@@ -1,3 +1,96 @@
+# AI PROJECT STARTER PACKET — READ ONLY
+
+هذه نسخة صغيرة للبدء عندما يكون الملف الكامل أكبر من حد القراءة لدى المساعد.
+اقرأها أولاً، ثم استخدم AI_PROJECT_SOURCE_INDEX.txt للوصول إلى الملفات الدقيقة اللازمة للمهمة.
+المستودع: https://github.com/yemenhd3-create/-Production-v2.0.0/tree/main
+SHA المرجعي عند إنشاء الحزمة: 4973503cffb900ead9f956abc517b0be4391bac5
+
+عدد الملفات الأساسية: 9
+
+## محتوى البدء
+
+===== FILE: AI_CONTEXT.md =====
+# سياق المشروع للنماذج المتنافسة
+
+## الإصدار المرجعي
+
+- **الاسم:** استوديو إعلانات الملابس.
+- **حالة النسخة:** مستقرة ومختبرة محلياً.
+- **المستودع المرجعي للقراءة والمراجعة:** https://github.com/yemenhd3-create/-Production-v2.0.0
+- **حالة الوصول:** قراءة عامة؛ لا تمنح صلاحية كتابة أو دمج مباشر لأي نموذج.
+- **نقطة الاستعادة المرجعية:** تُحدَّث بعد حفظ هذه النسخة ومزامنتها مع GitHub.
+- **آخر فحوص مكتملة قبل تحديث GitHub:** راجع آخر `TEST_RESULTS.md` أو بوابة GitHub؛ لا تنسب عدداً ثابتاً للاختبارات من هذا الملف. تعذر دخول OAuth الحي في المتصفح بسبب CAPTCHA؛ لا تدّعِ نجاحه.
+
+## ما هو مكتمل — لا تكرره
+
+1. مسار فردي ودفعة حتى 10 صور، قص حر، وإزالة خلفية محلية دون إنترنت بعد التنزيل الأول.
+2. Canvas عربي RTL بخمسة مقاسات، شعار وتذييل وشارات وإعدادات قالب.
+3. نصوص تسويقية محلية وواتساب ومشاركة وحفظ وPWA.
+4. لوحة مطور وإدارة مزودي AI ورسائل وإدارة مستخدمين.
+5. مصمم محلي ذكي: تحليل صورة خفيف، ثلاثة تخطيطات، درجات وأسباب، قص وألوان وتحويل للقطعة.
+6. معاينة Canvas قبل/بعد، قبول أو تجاهل أو تراجع، وتفضيلات محلية قابلة للمسح.
+7. اعتماد أو تجاهل مستقلان للاقتراح في كل عنصر دفعة.
+8. جواز تصميم محلي اختياري بعد الرسم: يفحص أبعاد الناتج وتجانس المحتوى والسطوع، وينشئ بصمة SHA-256 وJSON قابل للتنزيل؛ لا يقبل إلا نتائج `blob:` أو `data:image/` ولا يرسل بيانات إلى الشبكة.
+9. Quality Gate للتصدير محلياً: يبني على `DesignContract` و`DesignBenchmark` ويمنع الحفظ أو المشاركة عند الخطأ الهندسي الحرج فقط. التحذيرات، ومنها طول النص العربي والتباين المقدّر، لا تمنع التصدير. راجع `client/src/lib/designQualityGate.ts` و`server/designQualityGate.test.ts`.
+10. Pixel Truth Gate v1: يفحص بكسلات الإعلان النهائي المحلي بعد الرسم في مناطق العنوان والسعر والتذييل، ويصنف التباين إلى `PASS` و`WARNING` و`BLOCK`. لا يُسمح بإعادة اقتراح فحص نظري للألوان بدلاً منه؛ راجع `client/src/lib/pixelTruthGate.ts` و`server/pixelTruthGate.test.ts`.
+11. Visual Repair Loop v1 للعنوان فقط: يعيد رسم PNG عبر المحرك الحالي بعد إصلاح خلفية العنوان، ثم يعيد فحص Pixel Truth والعقد وبوابة الجودة قبل قبول النتيجة. إذا بقي `BLOCK` يحافظ على الإعلان الأصلي، وUndo يعيد Snapshot محلياً في الذاكرة؛ راجع `client/src/pages/Home.tsx` و`server/homeWorkflow.test.ts`.
+12. Theme Registry v1: خمسة أنماط بصرية محلية (`classic`, `midnight`, `rose`, `mint`, `sand`) مستقلة عن المقاسات، يستهلكها Canvas الحالي وتُحفظ في وثيقة التصميم وسجل Replay. راجع `shared/templateThemes.ts` و`server/templateThemes.test.ts`.
+13. رموز الدخول: مسار دخول بديل داخل التطبيق صادر من لوحة المطور، لا يغيّر بوابة Manus الخارجية. الرمز لا يُخزّن خاماً، وتكون له صلاحية وتعداد استخدام اختياريان وإبطال فوري؛ راجع `server/accessCodes.ts` و`server/accessCodes.test.ts` و`server/accessCodeRouter.test.ts`.
+14. تحكم حجم المنتج: يبدأ محرك Canvas بحجم مرئي محسّن 115% لمسار القطعة المستقلة، وتظهر بطاقة «حجم المنتج» مباشرة بعد التوليد (85%–150% مع زري أصغر/أكبر). يعاد الرسم من المصدر المحلي الجاهز فقط ولا تعاد إزالة الخلفية. يبقى القص داخل منطقة البطل الآمنة، ويحفظ الحجم في `TemplateSettings` و`DesignDocument` وDesign Replay؛ راجع `client/src/lib/canvasRenderer.ts` و`server/canvasRenderer.test.ts` و`server/homeWorkflow.test.ts`.
+
+## القيود الإلزامية
+
+- الهاتف أولاً وRTL.
+- لا مفاتيح أو أسرار أو `.env` في الشيفرة أو التقارير أو Patch.
+- المسار المحلي أساسي دائماً؛ أي خدمة سحابية اختيارية وبموافقة صريحة ورجوع محلي آمن.
+- لا تضف Try-On أو توليد صور إلى مسار المستخدم العادي.
+- لا تحذف ميزة قائمة ولا تعيد تنسيق المشروع كاملاً بلا سبب.
+- سلّم Patch واختبارات ونتائج فعلية، لا تقريراً نظرياً فقط.
+- رُفض تسليم «البصمة الذكية» في 16 أغسطس 2026 لعدم اكتماله وعدم توافقه مع المشروع؛ راجع `SMART_FINGERPRINT_RESPONSE_REVIEW_AR.md` قبل تكرار الفكرة.
+- رُفض تسليم «المحرك الهجين» في 16 أغسطس 2026 لتكراره ميزات قائمة ومساره السحابي غير الآمن وعدم اكتماله؛ راجع `SMART_HYBRID_ENGINE_RESPONSE_REVIEW_AR.md` قبل تكرار الفكرة.
+- رُفضت حزمة «الاستوديو الذكي المحلي» في 16 أغسطس 2026 لعدم صحة QR وعدم توافق Patch ومخاطر التخزين والنصوص المختلقة؛ راجع `SMART_LOCAL_STUDIO_PACKAGE_REVIEW_AR.md` قبل تكرار الفكرة.
+- نُفذ Pilot v1 لـ«عقد التصميم المحلي» في 16 أغسطس 2026: وثيقة حتمية، هندسة مشتركة للمقاسات الخمسة، فحص قيود محلي وإصلاحات قابلة للتراجع. لا يُعاد اقتراح Pilot نفسه؛ المرحلة التالية، إن طُلبت، يمكن أن تكون سجل عمليات محلياً منفصلاً فقط بعد مراجعة أثره. راجع `LOCAL_DESIGN_COMPILER_PROPOSAL_REVIEW_AR.md` والاختبارات `server/designContract.test.ts`.
+- نُفذ كذلك `Design Replay v1`: سجل دلالي محلي لوثيقة التصميم مع Replay وUndo وRedo وحذف عملية مشروط بعدم التعارض. يثبت المشروع تطابق **وثيقة التصميم** ببصمة حتمية؛ لا يجوز الادعاء بأن بصمة PNG متطابقة بين أجهزة أو متصفحات مختلفة. لا تتضمن السجلات صوراً أو بيانات متجر أو روابط. راجع `client/src/lib/designHistory.ts` و`server/designHistory.test.ts`.
+- نُفذ `Progressive Local Preparation v1`: Cache محلي لقياسات تحليل الصورة فقط، ببصمة Canvas محلية وحد 12 نتيجة وحالات hit/miss صادقة. لا يحفظ صورة أو URL أو بيانات متجر ولا يشغل ONNX بالتوازي. لا يعاد اقتراحه كفكرة جديدة؛ راجع `client/src/lib/localAnalysisCache.ts` و`server/localAnalysisCache.test.ts`.
+- نُفذ `Design Benchmark & Regression v1`: Benchmark حتمي للمرشحين مع Pareto محدود وبصمة جودة هندسية بلا صور أو بيانات متجر وتنبيه Regression عند المخالفات الجديدة أو الهبوط الملحوظ. توجد سبعة Golden fixtures رقمية واختبار خصائص بـ1000 حالة. لا يعاد اقتراحه كفكرة جديدة؛ راجع `client/src/lib/designBenchmark.ts` و`server/designBenchmark.test.ts`.
+- نُفذ `Quality Gate` للتصدير: تقرير محلي قابل للتفسير يترجم إخفاقات العقد إلى أخطاء مانعة، ويستعمل درجات Benchmark للتحذيرات والدرجة، ثم يعيد الفحص قبل كل حفظ ومشاركة. لا يتضمن التقرير صورة أو بيانات متجر أو اتصالاً بالشبكة؛ لا يعاد اقتراح طبقة منع تصدير مكررة فوقه.
+- نُفذ `Pixel Truth Gate v1`: فحص فعلي لبكسلات ناتج Canvas المحلي في مناطق النص الحرجة. `BLOCK` البصري ينتقل إلى Quality Gate ويمنع التصدير، و`WARNING` يبقى غير مانع، ويوفر `BLOCK` إصلاحاً حتمياً قابلًا للتراجع. لا تُستخدم مكتبة أو شبكة أو بيانات شخصية في التحليل.
+- **قرار Editorial Frame (مراجعة فقط، غير منفذ):** التطبيق لا يملك حالياً Registry لأنماط بصرية مستقلة؛ `TemplateSettings` يمثل المقاس والعناصر والهوية، وCanvas Renderer مسار رسم واحد. لذلك لا يجوز ادعاء دمج `editorial-frame` «داخل نظام القوالب الحالي» قبل بناء طبقة Theme Registry حتمية ومحدودة. أي تسليم يتجاوز هذه الخطوة يجب رفضه، خصوصاً إن أضاف Renderer أو Canvas أو Demo منفصلين أو خلط المقياس بالنمط البصري.
+- نُفذ `Visual Repair Loop v1` للعنوان فقط: `repair → render → Pixel Truth → DesignContract → Quality Gate → verify`. تحفظ الحلقة Snapshot من `TemplateSettings` وPNG والتقارير محلياً في الذاكرة للتراجع، ولا تقبل النتيجة المعاد رسمها إذا بقي فيها `BLOCK`. لا توجد إصلاحات تلقائية للسعر أو التذييل أو الشعار. اختبارات Vitest تغطي المسارات وحالات المقاسات الخمسة، لكن لا تدّع اختبار Canvas حقيقياً داخل JSDOM ولا تحقق متصفح حي؛ CAPTCHA منع تسجيل الدخول إلى التطبيق أثناء التحقق اليدوي.
+- نُفذ `Merchant Fast Studio: Theme Registry v1` بعد استبعاد المقترحات المكررة. يوجد سجل بيانات واحد للأنماط البصرية الخمسة، ولا يجوز إنشاء Canvas أو Renderer أو Demo ثانٍ لأي نمط جديد. النمط مستقل عن `TemplateSize` ويجب أن يدخل دائماً في `TemplateSettings` و`DesignDocument` وDesign Replay مع اختبار الحتمية قبل أي توسيع.
+- نُفذت صيانة شاملة: أصبح `Pixel Truth` يستمد قطبية نص العنوان من لوحة النمط، لذلك يعامل Midnight كنص فاتح على خلفية داكنة ولا ينتج `BLOCK` خاطئاً. رُقيت الاعتماديات المباشرة ذات التنبيهات الأمنية وفرضت نسخ lodash المصححة؛ تدقيق الإنتاج الحالي لا يعرض أي تنبيه حرج أو عالٍ. لا تعِد بتصفير التنبيهات المنخفضة/المتوسطة العابرة عبر ترقية رئيسية غير مختبرة.
+- نُفذ نظام رموز الدخول: يتم إنشاء الرمز في لوحة المطور ويعرض مرة واحدة فقط؛ تخزن قاعدة البيانات بصمته وبيانات الصلاحية والاستخدام فقط. الرمز غير المنتهي أو غير المحدود الاستخدام يظل صالحاً حتى الإلغاء، لكن Cookie المتصفح نفسها قد تحتاج لإعادة إدخال الرمز عند انتهاء جلسة المتصفح. لا تقترح تعديل صفحة Manus الخارجية أو إدخال رمز فيها؛ الحقل البديل موجود في `PersonalAccessGate` داخل التطبيق.
+- نُفذ تحسين حجم المنتج: لا تعالج المشكلة بتغيير `contain` إلى `cover`، لأن القص غير المسيطر عليه قد يخفي جزءاً من القطعة. استخدم `productScale` المقيد بين 0.85 و1.50 داخل قص منطقة البطل، مع الحجم الافتراضي 1.15، وحافظ على أن تعيد واجهة النتيجة رسم Canvas محلياً فقط عند إفلات الشريط. لا تكرر الميزة كمحرر مواضع معقد أو مقابض فوق الإعلان.
+
+## ما هو مؤجل
+
+1. مراجع بصري سحابي اختياري: يحتاج مزوداً رسمياً ومراجعة صلاحيات وصورة مصغرة وIdempotency دائمة.
+2. اختبار صور ملابس مرخصة على هاتف حقيقي وFirefox Android وSafari iPhone.
+
+## طريقة التسليم المطلوبة
+
+```text
+PATCH.diff
+changed-files/
+IMPLEMENTATION_REPORT.md
+TEST_RESULTS.md
+SECURITY_REVIEW.md
+ACCESS_AND_COMPATIBILITY.md
+```
+
+ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ. استخدم `EXTERNAL_ASSISTANT_TASK_TEMPLATE_AR.txt` كعقد تسليم موحد، و`AI_PROJECT_READING_PACKET.txt` كبديل UTF-8 لمن لا يستطيع فتح ZIP أو GitHub مباشرة.
+
+## رابط Snapshot العام للمراجعة
+
+- **المستودع العام للقطات المراجعة فقط:** https://github.com/yemenhd3-create/clothing-ad-snapshots
+- **اللقطة الحالية:** https://github.com/yemenhd3-create/clothing-ad-snapshots/tree/main/snapshot-2026-08-16
+- **ملف ZIP المباشر:** https://github.com/yemenhd3-create/clothing-ad-snapshots/raw/refs/heads/main/clothing-ad-generator-cloud-review-snapshot-2026-08-16.zip
+
+المستودع الأساسي عام للقراءة، ولا يمنح أي نموذج صلاحية كتابة أو دمج. لا ترفع إلى مستودع اللقطات أو الأساسي أي ملف بيئة أو مفتاح أو مادة شخصية؛ استخدم اللقطات فقط لملفات المراجعة المنتقاة بعد فحصها.
+
+===== END FILE =====
+
+===== FILE: todo.md =====
 # مولد إعلانات الملابس الاحترافي - قائمة المهام
 
 ## مراجعة ملاحظات الاستخدام الشخصي — أغسطس 2026
@@ -546,5 +639,1123 @@
 - [x] قياس زمن قراءة الصورة وتحضيرها وتنزيل نموذج الإزالة وتشغيله وتجهيز الإعلان لتحديد سبب البطء على الهاتف
 - [x] تحسين مسار إزالة الخلفية المحلي وتجهيز الإعلان وفق القياسات من دون رفع الصور أو خفض الجودة خفيةً
 - [x] إضافة اختبارات ومؤشرات أداء لمسار تجهيز الإعلان ثم التحقق على الهاتف وتحديث GitHub
-- [x] إعداد قالب TXT موحّد للمساعدين الخارجيين يحدد حرية الابتكار وعقد التسليم والاختبارات وشروط الدمج الآمن
-- [x] إعداد مسارات وصول بديلة للمستودع وملفات المشروع النصية للنماذج التي لا تقبل ZIP أو لا تستطيع قراءة GitHub مباشرة
+- [ ] إعداد قالب TXT موحّد للمساعدين الخارجيين يحدد حرية الابتكار وعقد التسليم والاختبارات وشروط الدمج الآمن
+- [ ] إعداد مسارات وصول بديلة للمستودع وملفات المشروع النصية للنماذج التي لا تقبل ZIP أو لا تستطيع قراءة GitHub مباشرة
+
+===== END FILE =====
+
+===== FILE: README.md =====
+# مولد إعلانات الملابس — Marwan Designer
+
+تطبيق ويب عربي موجّه للهاتف لتحويل **صورة قطعة ملابس** إلى إعلان جاهز للتنزيل والمشاركة. المشروع **شخصي وتعليمي وغير تجاري**، ويعتمد على Canvas محلياً لإنشاء الإعلان؛ أما تجربة الملابس بالذكاء الاصطناعي فهي طبقة اختيارية لا توقف التطبيق عند عدم توفرها.
+
+## تجربة الاستخدام
+
+| المرحلة | ما يفعله المستخدم | النتيجة |
+|---|---|---|
+| 1. رفع الملابس | يختار صورة القطعة بصيغة JPG أو PNG أو WebP. | ينتقل مباشرةً إلى بيانات الإعلان. |
+| 2. بيانات الإعلان | يضيف الاسم والعنوان والخصم والسعر والكمية والألوان والمزايا وبيانات المتجر، وكلها اختيارية. | يضغط **توليد الإعلان** مرة واحدة. |
+| 3. الإعلان النهائي | يراجع النتيجة ثم ينزّل PNG أو يشارك أو يفتح واتساب أو يعدّل البيانات. | إعلان عربي عمودي قابل للمشاركة. |
+
+> عند عدم توفر مزود Try‑On أو فشله، يستخدم التطبيق صورة القطعة الأصلية تلقائياً داخل القالب ويظهر تنبيهاً واضحاً للمستخدم. لا يفشل إنشاء الإعلان بسبب الذكاء الاصطناعي.
+
+## الميزات المنفذة
+
+| المجال | التنفيذ الحالي |
+|---|---|
+| واجهة الهاتف | RTL كامل، خطوط عربية، أزرار كبيرة، ثلاث مراحل واضحة، وتنقل سفلي: إنشاء، إعدادات، مطور. |
+| القالب | Canvas عربي بمقاس منشور عمودي **1080×1350** أو قصة/حالة **1080×1920**، مع شارة خصم وشريط متجر اختياري. |
+| الإعدادات | إظهار أو إخفاء اسم المنتج، العنوان، الخصم، الكمية، الألوان، المزايا، السعر، ومعلومات المتجر. |
+| Try‑On | مؤجل بطلب المالك؛ يبقى القص وإزالة الخلفية المحلية وCanvas والتصدير هي رحلة المستخدم الحالية. |
+| لوحة المطور | دخول خادمي باسم مستخدم وكلمة مرور، إدارة مزودي AI، فحص الاتصال، وسجل تشخيصي. |
+| الحماية | مفاتيح المزودين مشفّرة على الخادم ولا تُعاد إلى واجهة المستخدم أو تحفظ في Git. |
+| المشاركة | تنزيل PNG، مشاركة من الهاتف عبر Web Share عند توفرها، وبديل واتساب بالنص التسويقي. |
+| PWA | manifest وعامل خدمة للتثبيت والعمل دون اتصال في القلب المحلي. |
+
+## بنية المشروع
+
+```text
+client/src/
+  pages/Home.tsx                 # مسار الإنشاء والمشاركة
+  components/                    # الرفع، بيانات الإعلان، الإعدادات، المطور، حول التطبيق
+  lib/canvasRenderer.ts          # قالب Canvas والتصدير
+  lib/share.ts                   # التنزيل والمشاركة
+server/
+  routers.ts                     # إجراءات tRPC
+  tryOn.ts                       # الموصل السحابي الاختياري
+  developerAuth.ts               # مصادقة لوحة المطور
+  developerProviders.ts          # تشفير وإدارة المزودين
+shared/
+  adWorkflow.ts                  # قرار النجاح أو الرجوع المحلي
+  types.ts                       # عقود البيانات المشتركة
+drizzle/
+  schema.ts                      # جداول المزودين المشفرة
+```
+
+## التشغيل محلياً
+
+يتطلب المشروع Node.js 18 أو أحدث وpnpm. على الهاتف يمكن تشغيل أوامر Git وNode عبر Termux عند توافر بيئة مناسبة.
+
+```bash
+git clone https://github.com/yemenhd3-create/-Production-v2.0.0.git
+cd clothing-ad-generator-pro
+pnpm install
+pnpm dev
+```
+
+ثم افتح الرابط الذي يطبعه الخادم. للتحقق قبل النشر:
+
+```bash
+pnpm test
+pnpm check
+pnpm build
+```
+
+## إعداد لوحة المطور
+
+لا تُكتب بيانات الدخول أو مفاتيح API داخل الملفات أو في GitHub. تُضاف بيانات لوحة المطور كأسرار في بيئة النشر فقط:
+
+| المتغير | الغرض |
+|---|---|
+| `DEVELOPER_PANEL_USERNAME` | اسم مستخدم لوحة المطور. |
+| `DEVELOPER_PANEL_PASSWORD` | كلمة مرور لوحة المطور. |
+| `JWT_SECRET` | حماية جلسة المطور الموقعة. |
+
+بعد الدخول إلى **المطور**، يمكن إدارة مزودات اختيارية ثم اختبار الاتصال عند إعادة فتح مرحلتها. يبقى المفتاح مشفراً على الخادم؛ وتعرض الواجهة اسم المزود وحالته فقط.
+
+## تجربة الملابس بالذكاء الاصطناعي
+
+وضع Try-On مؤجل حالياً بطلب المالك ولا يدخل في رحلة المستخدم العادية. عند إعادة فتحه مستقبلاً، يجب اختيار مزود مرخّص واختبار محدود داخل لوحة المطور؛ عدم إضافة مزود لا يمنع استعمال التطبيق، إذ يستمر القالب المحلي في العمل بصورة القطعة بعد إزالة الخلفية محلياً.
+
+## الخصوصية والحدود
+
+لا تتضمن الشيفرة مفاتيح API أو كلمات مرور إنتاجية. لا يستخدم التطبيق صور العميل بعد انتهاء جلسة المتصفح في المسار المحلي. لا يقدم التخزين المحلي حماية مكافئة لخزنة أسرار خادمية؛ لذلك تحفظ مفاتيح مزود AI على الخادم فقط.
+
+## المراجعة والمساهمة
+
+المستودع متاح للقراءة العامة لمراجعة الشيفرة من النماذج والمطورين، لكنه لا يمنح صلاحية كتابة أو دمج مباشر. اقرأ [`AI_CONTEXT.md`](./AI_CONTEXT.md) و[`todo.md`](./todo.md) و[`PUBLIC_REPOSITORY_REVIEW_PROTOCOL_AR.md`](./PUBLIC_REPOSITORY_REVIEW_PROTOCOL_AR.md) قبل اقتراح أي تعديل. يسلّم المراجع Patch واختبارات وتقارير تحقق فقط، وتُراجع النتيجة محلياً قبل دمجها.
+
+لا تُضاف أي بيانات تواصل شخصية أو مفاتيح أو ملفات بيئة إلى المستودع العام. يمكن متابعة المشروع عبر [حساب GitHub](https://github.com/yemenhd3-create).
+
+## الترخيص والاستخدام
+
+هذا مشروع **MIT** مخصص للتعلم والاستخدام الشخصي. قبل أي استخدام تجاري أو رفع خدمة عامة، راجع تراخيص نموذج Try‑On المختار وشروط مزود API وسياسة الصور الخاصة بك.
+
+===== END FILE =====
+
+===== FILE: package.json =====
+{
+  "name": "clothing-ad-generator-pro",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
+    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "start": "NODE_ENV=production node dist/index.js",
+    "check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "perf:check": "node scripts/performance-check.mjs",
+    "mobile:check": "node scripts/mobile-layout-check.mjs",
+    "ai:packet": "node scripts/generate-ai-reading-packet.mjs",
+    "quality": "pnpm test && pnpm check && pnpm build && pnpm perf:check",
+    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1111.0",
+    "@aws-sdk/s3-request-presigner": "^3.1111.0",
+    "@hookform/resolvers": "^5.2.2",
+    "@mediapipe/tasks-vision": "1.0.1",
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-aspect-ratio": "^1.1.7",
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-hover-card": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-menubar": "^1.1.16",
+    "@radix-ui/react-navigation-menu": "^1.2.14",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-radio-group": "^1.3.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slider": "^1.3.6",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-toggle": "^1.1.10",
+    "@radix-ui/react-toggle-group": "^1.1.11",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@tanstack/react-query": "^5.90.2",
+    "@trpc/client": "^11.18.0",
+    "@trpc/react-query": "^11.18.0",
+    "@trpc/server": "^11.18.0",
+    "axios": "^1.19.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "cookie": "^1.0.2",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.45.2",
+    "embla-carousel-react": "^8.6.0",
+    "express": "^4.22.2",
+    "framer-motion": "^12.23.22",
+    "input-otp": "^1.4.2",
+    "jose": "6.1.0",
+    "lucide-react": "^0.453.0",
+    "mysql2": "^3.15.0",
+    "nanoid": "^5.1.16",
+    "next-themes": "^0.4.6",
+    "onnxruntime-web": "^1.27.0",
+    "react": "^19.2.1",
+    "react-day-picker": "^9.11.1",
+    "react-dom": "^19.2.1",
+    "react-hook-form": "^7.64.0",
+    "react-resizable-panels": "^3.0.6",
+    "recharts": "^2.15.2",
+    "sonner": "^2.0.7",
+    "streamdown": "^2.5.0",
+    "superjson": "^1.13.3",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "vaul": "^1.1.2",
+    "wouter": "^3.3.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@builder.io/vite-plugin-jsx-loc": "^0.1.1",
+    "@tailwindcss/typography": "^0.5.15",
+    "@tailwindcss/vite": "^4.1.3",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
+    "@types/express": "4.17.21",
+    "@types/google.maps": "^3.58.1",
+    "@types/node": "^24.7.0",
+    "@types/react": "^19.2.1",
+    "@types/react-dom": "^19.2.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "add": "^2.0.6",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.31.4",
+    "esbuild": "^0.25.0",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.0.1",
+    "pnpm": "^10.15.1",
+    "postcss": "^8.4.47",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.19.1",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "5.9.3",
+    "vite": "^7.1.7",
+    "vite-plugin-manus-runtime": "0.0.59",
+    "vitest": "^2.1.4"
+  },
+  "packageManager": "pnpm@10.15.1"
+}
+
+===== END FILE =====
+
+===== FILE: tsconfig.json =====
+{
+  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    "noEmit": true,
+    "module": "ESNext",
+    "strict": true,
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
+    }
+  }
+}
+
+===== END FILE =====
+
+===== FILE: drizzle/schema.ts =====
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+
+/**
+ * Core user table backing auth flow.
+ * Extend this file with additional tables as your product grows.
+ * Columns use camelCase to match both database fields and generated types.
+ */
+export const users = mysqlTable("users", {
+  /**
+   * Surrogate primary key. Auto-incremented numeric value managed by the database.
+   * Use this for relations between tables.
+   */
+  id: int("id").autoincrement().primaryKey(),
+  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  name: text("name"),
+  email: varchar("email", { length: 320 }),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  isDisabled: int("isDisabled").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+
+/** Encrypted credentials are never sent back to the browser once saved. */
+export const developerProviders = mysqlTable("developer_providers", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  baseUrl: varchar("baseUrl", { length: 500 }).notNull(),
+  model: varchar("model", { length: 160 }).notNull(),
+  encryptedApiKey: text("encryptedApiKey").notNull(),
+  isEnabled: int("isEnabled").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DeveloperProvider = typeof developerProviders.$inferSelect;
+
+/** رسالة عامة يحررها المطور وتظهر للحسابات المفعّلة فقط. */
+export const appAnnouncements = mysqlTable("app_announcements", {
+  id: int("id").autoincrement().primaryKey(),
+  message: text("message").notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** رسالة قصيرة من حساب مستخدم إلى المطور؛ لا تحفظ صوراً أو أسراراً. */
+export const userMessages = mysqlTable("user_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  message: text("message").notNull(),
+  status: mysqlEnum("status", ["new", "read", "archived"]).default("new").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AppAnnouncement = typeof appAnnouncements.$inferSelect;
+export type UserMessage = typeof userMessages.$inferSelect;
+
+/** رمز وصول يصدره المطور. لا يُخزّن الرمز الخام؛ تحفظ بصمة SHA-256 فقط. */
+export const accessCodes = mysqlTable("access_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  codeHash: varchar("codeHash", { length: 64 }).notNull().unique(),
+  sessionOpenId: varchar("sessionOpenId", { length: 96 }).notNull().unique(),
+  label: varchar("label", { length: 120 }).notNull(),
+  expiresAt: timestamp("expiresAt"),
+  maxUses: int("maxUses"),
+  useCount: int("useCount").default(0).notNull(),
+  isRevoked: int("isRevoked").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastUsedAt: timestamp("lastUsedAt"),
+});
+
+export type AccessCode = typeof accessCodes.$inferSelect;
+
+===== END FILE =====
+
+===== FILE: shared/types.ts =====
+/**
+ * Core Types for Clothing Ad Generator
+ * All types are shared between client and server
+ */
+
+// ========== Product Data Types ==========
+export interface ProductData {
+  id?: string;
+  productName: string;
+  subtitle: string;
+  storeName: string;
+  oldPrice: string;
+  newPrice: string;
+  currency: string;
+  season?: string;
+  colors?: string[];
+  sizes?: string[];
+  quantity?: number;
+  description?: string;
+}
+
+// ========== Three-step Ad Workflow ==========
+/**
+ * Data entered by a regular user on the second screen. Every field is optional
+ * so the local poster can always be generated from the uploaded garment image.
+ */
+export interface AdDetails {
+  productName: string;
+  headline: string;
+  discount: string;
+  quantity: string;
+  colors: string[];
+  price: string;
+  currency: string;
+  features: string[];
+  storeName: string;
+  storePhone: string;
+  marketingText: string;
+  marketingPreferences?: MarketingTextPreferences;
+  marketingTextEngine?: MarketingTextEngine;
+}
+
+export type MarketingTextTone = 'exciting' | 'persuasive' | 'formal' | 'playful';
+export type MarketingTextLength = 'short' | 'medium' | 'long';
+export type MarketingTextGoal = 'purchase' | 'inquiry' | 'showcase';
+export type MarketingTextEngine = 'local' | 'cloud';
+export type MarketingTextFormat = 'whatsapp' | 'plain';
+
+/** اختيارات توليد النص، وهي اختيارية حتى تبقى المسودات القديمة متوافقة. */
+export interface MarketingTextPreferences {
+  tone: MarketingTextTone;
+  length: MarketingTextLength;
+  goal: MarketingTextGoal;
+  format: MarketingTextFormat;
+}
+
+export type AdWorkflowStep = 'upload' | 'details' | 'final';
+
+export type TryOnStatus = 'idle' | 'processing' | 'success' | 'fallback' | 'unavailable';
+
+export interface TryOnResult {
+  status: TryOnStatus;
+  imageUrl?: string;
+  message: string;
+  providerId?: string;
+  isTransparent?: boolean;
+  transparentSubject?: 'person' | 'garment';
+}
+
+// ========== Batch advertisement workflow ==========
+export const BATCH_MAX_IMAGES = 10;
+export const BATCH_EXPIRY_MS = 24 * 60 * 60 * 1000;
+export type BatchItemStatus = 'ready' | 'preparing' | 'processing' | 'success' | 'failed' | 'stopped';
+
+/** بيانات عنصر واحد في دفعة محلية؛ تحفظ الصور نفسها في IndexedDB وليس localStorage. */
+export interface BatchAdItem {
+  id: string;
+  fileName: string;
+  sourceUrl: string;
+  thumbnailUrl: string;
+  status: BatchItemStatus;
+  outputUrl?: string;
+  error?: string;
+  /** وصف قصير لمرحلة المعالجة المحلية الجارية لهذه الصورة. */
+  progressMessage?: string;
+  usedLocalRemoval?: boolean;
+  /** بيانات أساسية خاصة بهذه الصورة؛ عند غيابها تستخدم الدفعة البيانات المشتركة. */
+  details?: Partial<Pick<AdDetails, 'productName' | 'headline' | 'discount' | 'price' | 'quantity' | 'colors'>>;
+  /** نص مستقل اختياري لهذا الإعلان عند اعتماد وضع النصوص الفردية. */
+  marketingText?: string;
+  /** اقتراح محلي مستقل لهذه الصورة؛ لا يحتوي على الصورة ولا يُرسل للخادم. */
+  designSuggestion?: DesignSuggestion;
+  /** لا يطبق اقتراح الدفعة على Canvas إلا بعد لمس المستخدم لهذا الخيار. */
+  designSuggestionApplied?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface BatchAdDraft {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number;
+  details: AdDetails;
+  template: TemplateSettings;
+  useLocalBackgroundRemoval: boolean;
+  marketingTextMode?: BatchMarketingTextMode;
+  items: BatchAdItem[];
+}
+
+export type BatchMarketingTextMode = 'shared' | 'perItem';
+
+export type TemplateSize = 'portrait' | 'square' | 'story' | 'whatsapp' | 'landscape';
+
+// ========== Local design intelligence ==========
+/** موضع نسبي داخل منطقة بطل الإعلان وليس داخل كامل Canvas. */
+export interface GarmentDesignTransform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type DesignQualityVerdict = 'excellent' | 'good' | 'usable' | 'needs-attention';
+
+export interface DesignColorSwatch {
+  hex: string;
+  label: string;
+  weight: number;
+}
+
+/** سبب صريح قابل للعرض؛ الأرقام ناتجة من قواعد محلية وليست من مزود خارجي. */
+export interface DesignDecisionReason {
+  title: string;
+  explanation: string;
+  metrics: Record<string, number>;
+}
+
+export interface DesignLayoutCandidate {
+  size: TemplateSize;
+  score: number;
+  garmentTransform: GarmentDesignTransform;
+  reasons: DesignDecisionReason[];
+}
+
+/** نتيجة هندسية قابلة للتفسير تمنع تداخل منطقة القطعة مع النصوص والشعار والسعر. */
+export interface CompositionScore {
+  size: TemplateSize;
+  score: number;
+  metrics: Record<string, number>;
+  reason: DesignDecisionReason;
+  garmentTransform: GarmentDesignTransform;
+}
+
+/** تفضيلات صغيرة محلية فقط؛ لا تحتوي صورة أو بيانات متجر أو أي مفتاح. */
+export interface PreferenceProfile {
+  version: 1;
+  enabled: boolean;
+  acceptedLayouts: Partial<Record<TemplateSize, number>>;
+  rejectedLayouts: Partial<Record<TemplateSize, number>>;
+  updatedAt: number;
+}
+
+/**
+ * ناتج محلل التصميم المحلي. يحفظ metadata صغيرة فقط ولا يحتوي على الصورة أو أي مفتاح.
+ * الإصدار يجعل المسودات القديمة قابلة للاسترجاع بأمان.
+ */
+export interface DesignSuggestion {
+  version: 1;
+  status: 'ready' | 'degraded';
+  generatedAt: number;
+  confidence: number;
+  warnings: string[];
+  quality: { score: number; verdict: DesignQualityVerdict; brightness: number; contrast: number; sharpness: number };
+  foreground: { x: number; y: number; width: number; height: number; coverage: number };
+  crop: { x: number; y: number; width: number; height: number; safeMargin: number };
+  colors: DesignColorSwatch[];
+  suggestedBackground: string;
+  suggestedTextColor: string;
+  selectedLayout: TemplateSize;
+  candidates: DesignLayoutCandidate[];
+  suggestedText: string;
+  /** درجات تكوين اختيارية مضافة للإصدارات الحديثة؛ تبقى المسودات القديمة متوافقة. */
+  compositionScores?: CompositionScore[];
+  preferenceApplied?: boolean;
+}
+export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
+/** حجم القطعة داخل مساحتها الآمنة؛ يحمي القص من التداخل مع عناصر القالب. */
+export const PRODUCT_SCALE_MIN = 0.85;
+export const PRODUCT_SCALE_MAX = 1.5;
+export const PRODUCT_SCALE_STEP = 0.05;
+export const DEFAULT_PRODUCT_SCALE = 1.15;
+/** نمط بصري محلي مستقل عن مقاس التصدير؛ يبقى اختياريًا لتوافق المسودات القديمة. */
+export type TemplateVisualTheme = 'classic' | 'midnight' | 'rose' | 'mint' | 'sand';
+export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
+export type ArtworkFitMode = 'contain' | 'cover' | 'stretch';
+
+/** موضع وحجم نسبيان داخل مساحة الإعلان، حتى يحفظان بصورة مستقلة لكل مقاس تصدير. */
+export interface ArtworkLayerTransform {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fit: ArtworkFitMode;
+}
+
+export type ArtworkLayoutsBySize = Partial<Record<TemplateSize, Partial<Record<ArtworkLayerKey, ArtworkLayerTransform>>>>;
+
+/** Settings exposed to the regular user. AI providers and API keys are deliberately excluded. */
+export interface TemplateSettings {
+  size: TemplateSize;
+  visualTheme?: TemplateVisualTheme;
+  showProductName: boolean;
+  showHeadline: boolean;
+  showDiscount: boolean;
+  showQuantity: boolean;
+  showColors: boolean;
+  showFeatures: boolean;
+  showPrice: boolean;
+  showStoreInfo: boolean;
+  showFrame: boolean;
+  showQualityMark: boolean;
+  badgeType: TemplateBadgeType;
+  /** قائمة الشارات المختارة؛ يبقى badgeType لقراءة الإعدادات القديمة. */
+  badgeTypes?: Array<Exclude<TemplateBadgeType, 'none'>>;
+  badgeText: string;
+  showHeaderArtwork: boolean;
+  headerArtwork?: string;
+  showStoreLogo: boolean;
+  storeLogoArtwork?: string;
+  showFooterArtwork: boolean;
+  footerArtwork?: string;
+  artworkLayouts?: ArtworkLayoutsBySize;
+  /** لون خلفية اختياري اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartBackgroundColor?: string;
+  /** لون نص اختياري اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartTextColor?: string;
+  /** تحويل اختياري للقطعة اعتمده المستخدم من اقتراح المصمم المحلي. */
+  smartGarmentTransform?: GarmentDesignTransform;
+  /** تكبير مرئي للقطعة داخل منطقتها الآمنة، من دون تغيير مكان السعر أو التذييل. */
+  productScale?: number;
+}
+
+// ========== Store Settings ==========
+export interface StoreSettings {
+  storeName: string;
+  storePhone: string;
+  storeLocation: string;
+  storeCategory?: string;
+  storeLogo?: string;
+  defaultCurrency: string;
+  defaultColors?: string[];
+  defaultFonts?: {
+    title: string;
+    subtitle: string;
+    body: string;
+  };
+  backgroundColor: string;
+  textColor: string;
+  accentColor: string;
+  showQualityBadge: boolean;
+  showDiscount: boolean;
+}
+
+// ========== Canvas Settings ==========
+export interface CanvasSettings extends StoreSettings {
+  productName: string;
+  subtitle: string;
+  oldPrice: string;
+  newPrice: string;
+  currency: string;
+  season?: string;
+  colors?: string[];
+  sizes?: string[];
+  quantity?: number;
+}
+
+// ========== AI Provider Configuration ==========
+export interface AIProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+  enabled: boolean;
+  type?: 'text' | 'image' | 'both';
+}
+
+/** Public provider metadata shown to the authenticated developer. API keys are never returned. */
+export interface DeveloperProviderSummary {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  hasApiKey: boolean;
+  updatedAt: number;
+}
+
+// ========== Subscription Token ==========
+export interface SubscriptionToken {
+  id: string;
+  token: string;
+  createdAt: number;
+  expiresAt?: number;
+  isActive: boolean;
+  usageCount: number;
+  maxUsage?: number;
+}
+
+// ========== User Preferences ==========
+export interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: 'ar' | 'en';
+  notifications: boolean;
+  autoSave: boolean;
+  defaultFormat: 'png' | 'jpg' | 'webp';
+}
+
+// ========== Generated Ad ==========
+export interface GeneratedAd {
+  id: string;
+  imageUrl: string;
+  productData: ProductData;
+  settings: CanvasSettings;
+  createdAt: number;
+  updatedAt: number;
+  shareCount: number;
+  downloadCount: number;
+}
+
+// ========== API Response Types ==========
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface TextGenerationResponse {
+  text: string;
+  title?: string;
+  description?: string;
+  keywords?: string[];
+}
+
+export interface ImageGenerationResponse {
+  imageUrl: string;
+  imageBase64?: string;
+  format: string;
+  width: number;
+  height: number;
+}
+
+// ========== Developer Panel Types ==========
+export interface DeveloperPanelState {
+  unlocked: boolean;
+  password: string;
+  devKey: string;
+  lastAccessTime?: number;
+  accessCount: number;
+}
+
+// ========== Canvas Render Options ==========
+export interface CanvasRenderOptions {
+  width?: number;
+  height?: number;
+  quality?: number;
+  format?: 'png' | 'jpg' | 'webp';
+  includeWatermark?: boolean;
+}
+
+// ========== Share Options ==========
+export interface ShareOptions {
+  platform: 'whatsapp' | 'email' | 'clipboard' | 'download';
+  includeCaption: boolean;
+  caption?: string;
+  fileName?: string;
+}
+
+// ========== Error Types ==========
+export interface AppError {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+  timestamp: number;
+}
+
+// ========== Notification Types ==========
+export interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+// ========== Local Storage Keys ==========
+export enum StorageKeys {
+  STORE_SETTINGS = 'clothing_ad_store_settings',
+  AI_PROVIDERS = 'clothing_ad_ai_providers',
+  SUBSCRIPTION_TOKENS = 'clothing_ad_subscription_tokens',
+  USER_PREFERENCES = 'clothing_ad_user_preferences',
+  GENERATED_ADS = 'clothing_ad_generated_ads',
+  DEVELOPER_STATE = 'clothing_ad_developer_state',
+  LAST_PRODUCT_DATA = 'clothing_ad_last_product_data',
+  LAST_AD_DETAILS = 'clothing_ad_last_ad_details',
+  TEMPLATE_SETTINGS = 'clothing_ad_template_settings',
+  LAST_WORKFLOW_STEP = 'clothing_ad_last_workflow_step',
+  LAST_APP_SECTION = 'clothing_ad_last_app_section',
+  DESIGN_SUGGESTION = 'clothing_ad_design_suggestion_v1',
+  DESIGN_HISTORY = 'clothing_ad_design_history_v1',
+  LOCAL_ANALYSIS_CACHE = 'clothing_ad_local_analysis_cache_v1',
+  DESIGN_QUALITY_BASELINE = 'clothing_ad_design_quality_baseline_v1',
+  MERCHANT_PROFILE = 'clothing_ad_merchant_profile_v1',
+  MERCHANT_ASSISTANT_SESSION = 'clothing_ad_merchant_assistant_session_v1',
+}
+
+// ========== Constants ==========
+export const DEFAULT_CANVAS_WIDTH = 1080;
+export const DEFAULT_CANVAS_HEIGHT = 1350;
+export const DEFAULT_CURRENCY = 'ريال';
+export const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  storeName: 'متجري',
+  storePhone: '',
+  storeLocation: '',
+  defaultCurrency: DEFAULT_CURRENCY,
+  backgroundColor: '#FFFFFF',
+  textColor: '#000000',
+  accentColor: '#C41A1A',
+  showQualityBadge: true,
+  showDiscount: true,
+};
+
+export const DEFAULT_AD_DETAILS: AdDetails = {
+  productName: '',
+  headline: '',
+  discount: '',
+  quantity: '',
+  colors: [],
+  price: '',
+  currency: DEFAULT_CURRENCY,
+  features: ['خامة عالية الجودة', 'قطن ناعم ومريح'],
+  storeName: '',
+  storePhone: '',
+  marketingText: '',
+  marketingPreferences: {
+    tone: 'persuasive',
+    length: 'medium',
+    goal: 'purchase',
+    format: 'whatsapp',
+  },
+  marketingTextEngine: 'local',
+};
+
+export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
+  size: 'portrait',
+  visualTheme: 'classic',
+  showProductName: true,
+  showHeadline: true,
+  showDiscount: true,
+  showQuantity: true,
+  showColors: true,
+  showFeatures: true,
+  showPrice: true,
+  showStoreInfo: true,
+  showFrame: false,
+  showQualityMark: true,
+  badgeType: 'discount',
+  badgeTypes: ['discount'],
+  badgeText: '',
+  showHeaderArtwork: false,
+  headerArtwork: '',
+  showStoreLogo: false,
+  storeLogoArtwork: '',
+  showFooterArtwork: false,
+  footerArtwork: '',
+  artworkLayouts: {},
+  productScale: DEFAULT_PRODUCT_SCALE,
+};
+
+export const DISCOUNT_BADGE_COLOR = '#C41A1A';
+export const DISCOUNT_BADGE_GOLD = '#F5C200';
+export const FOOTER_COLOR = '#8B0000';
+export const QUALITY_BADGE_COLOR = '#4CAF50';
+
+===== END FILE =====
+
+===== FILE: client/src/App.tsx =====
+import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
+import { Route, Switch } from "wouter";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { isFriendTestMode } from "./lib/friendTestMode";
+
+const CanvasVisualCheck = lazy(() => import('./components/CanvasVisualCheck'));
+const PersonalAccessGate = lazy(() => import('./components/PersonalAccessGate'));
+const AuthenticatedApplication = lazy(() => import('./components/AuthenticatedApplication'));
+const DeviceCompatibilityCheck = lazy(() => import('./pages/DeviceCompatibilityCheck'));
+const LocalBackgroundVisualCheck = lazy(() => import('./components/LocalBackgroundVisualCheck'));
+const ArtworkEditorVisualCheck = lazy(() => import('./components/ArtworkEditorVisualCheck'));
+const BatchVisualCheck = lazy(() => import('./components/BatchVisualCheck'));
+const Home = lazy(() => import('./pages/Home'));
+
+function Router() {
+  // make sure to consider if you need authentication for certain routes
+  return (
+    <Switch>
+      <Route path={"/"} component={PersonalHome} />
+      <Route path={"/device-check"} component={DeviceCheckHome} />
+      <Route path={"/404"} component={NotFound} />
+      {/* Final fallback route */}
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function PersonalHome() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('canvas-visual-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز معاينة القالب…" />}><CanvasVisualCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('device-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ فتح فحص توافق الهاتف…" />}><DeviceCompatibilityCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('local-background-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز فحص الإزالة المحلية…" />}><LocalBackgroundVisualCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('artwork-editor-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز محرر الطبقات…" />}><ArtworkEditorVisualCheck /></Suspense>;
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('batch-visual-check')) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز مساحة الدفعة…" />}><BatchVisualCheck /></Suspense>;
+  }
+  const friendTestMode = isFriendTestMode(import.meta.env.VITE_FRIEND_TEST_MODE);
+  if (friendTestMode) {
+    return <Suspense fallback={<LoadingScreen text="جارٍ تجهيز وضع الاختبار…" />}><AuthenticatedApplication friendTestMode /></Suspense>;
+  }
+  return <Suspense fallback={<LoadingScreen text="جارٍ فتح مساحتك الشخصية…" />}><PersonalAccessGate><Suspense fallback={<LoadingScreen text="جارٍ تجهيز مولد الإعلانات…" />}><AuthenticatedApplication /></Suspense></PersonalAccessGate></Suspense>;
+}
+
+function DeviceCheckHome() {
+  return <Suspense fallback={<LoadingScreen text="جارٍ فتح فحص توافق الهاتف…" />}><PersonalAccessGate><DeviceCompatibilityCheck /></PersonalAccessGate></Suspense>;
+}
+
+function LoadingScreen({ text }: { text: string }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[#fffdf6] p-6" dir="rtl"><section className="rounded-3xl bg-white px-7 py-6 text-center shadow-[0_12px_32px_rgba(37,35,95,0.08)]"><span className="mx-auto block h-7 w-7 animate-spin rounded-full border-[3px] border-primary/20 border-t-primary" /><p className="mt-3 text-sm font-bold text-primary">{text}</p></section></main>;
+}
+
+// NOTE: About Theme
+// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
+//   to keep consistent foreground/background color across components
+// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <ThemeProvider
+        defaultTheme="light"
+        // switchable
+      >
+        <Router />
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
+
+===== END FILE =====
+
+===== FILE: server/routers.ts =====
+import { COOKIE_NAME } from "@shared/const";
+import { getSessionCookieOptions } from "./_core/cookies";
+import { systemRouter } from "./_core/systemRouter";
+import { developerProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import { authenticateDeveloper } from "./developerAuth";
+import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSession, issueDeveloperSession } from './developerSession';
+import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
+import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
+import { generateMarketingTextWithFallback } from './marketingText';
+import { createAccessCode, listAccessCodes, redeemAccessCode, revokeAccessCode } from './accessCodes';
+import { sdk } from './_core/sdk';
+import {
+  createUserMessage,
+  getActiveAnnouncement,
+  getUserAccess,
+  listAnnouncements,
+  listDeveloperMessages,
+  listPersonalUsers,
+  saveAnnouncement,
+  setPersonalUserAccess,
+  updateUserMessageStatus,
+} from './personalWorkspace';
+
+async function assertPersonalUserIsActive(userId: number) {
+  const access = await getUserAccess(userId);
+  if (!access.exists || access.isDisabled) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'تم إيقاف هذا الحساب من مساحة المشروع الشخصية. تواصل مع المطور إذا كان ذلك غير متوقع.' });
+  }
+  return access;
+}
+
+export const appRouter = router({
+    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
+  system: systemRouter,
+  auth: router({
+    me: publicProcedure.query(opts => opts.ctx.user),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return {
+        success: true,
+      } as const;
+    }),
+  }),
+  developer: router({
+    login: publicProcedure
+      .input(z.object({ username: z.string().min(1), password: z.string().min(1) }))
+      .mutation(({ ctx, input }) => {
+        if (!authenticateDeveloper(input.username, input.password)) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "بيانات المطور غير صحيحة" });
+        }
+        ctx.res.cookie(DEVELOPER_SESSION_COOKIE, issueDeveloperSession(), {
+          ...getSessionCookieOptions(ctx.req),
+          maxAge: DEVELOPER_SESSION_MAX_AGE_MS,
+        });
+        return { authenticated: true } as const;
+      }),
+    status: publicProcedure.query(({ ctx }) => ({ authenticated: isDeveloperSession(ctx.req) })),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      ctx.res.clearCookie(DEVELOPER_SESSION_COOKIE, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
+      return { success: true } as const;
+    }),
+    providers: router({
+      list: developerProcedure.query(() => listDeveloperProviders()),
+      save: developerProcedure
+        .input(z.object({
+          id: z.string().uuid().optional(),
+          name: z.string().min(1).max(120),
+          baseUrl: z.string().url().max(500),
+          model: z.string().min(1).max(160),
+          apiKey: z.string().min(1).optional(),
+          enabled: z.boolean(),
+        }))
+        .mutation(({ input }) => saveDeveloperProvider(input)),
+      check: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => checkDeveloperProvider(input.id)),
+      remove: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteDeveloperProvider(input.id)),
+    }),
+    personal: router({
+      announcements: developerProcedure.query(() => listAnnouncements()),
+      saveAnnouncement: developerProcedure
+        .input(z.object({ id: z.number().int().positive().optional(), message: z.string().trim().min(1).max(1200), isActive: z.boolean() }))
+        .mutation(({ input }) => saveAnnouncement(input)),
+      messages: developerProcedure.query(() => listDeveloperMessages()),
+      updateMessageStatus: developerProcedure
+        .input(z.object({ id: z.number().int().positive(), status: z.enum(['new', 'read', 'archived']) }))
+        .mutation(({ input }) => updateUserMessageStatus(input.id, input.status)),
+      users: developerProcedure.query(() => listPersonalUsers()),
+      setUserAccess: developerProcedure
+        .input(z.object({ id: z.number().int().positive(), isDisabled: z.boolean() }))
+        .mutation(({ input }) => setPersonalUserAccess(input.id, input.isDisabled)),
+      accessCodes: router({
+        list: developerProcedure.query(() => listAccessCodes()),
+        create: developerProcedure
+          .input(z.object({
+            label: z.string().trim().min(1).max(120),
+            expiresAt: z.number().int().positive().optional(),
+            maxUses: z.number().int().positive().max(1_000_000).optional(),
+          }))
+          .mutation(({ input }) => createAccessCode({
+            label: input.label,
+            expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+            maxUses: input.maxUses,
+          })),
+        revoke: developerProcedure
+          .input(z.object({ id: z.number().int().positive() }))
+          .mutation(({ input }) => revokeAccessCode(input.id)),
+      }),
+    }),
+  }),
+  accessCodes: router({
+    redeem: publicProcedure
+      .input(z.object({ code: z.string().trim().min(12).max(80) }))
+      .mutation(async ({ ctx, input }) => {
+        const redeemed = await redeemAccessCode(input.code);
+        const remainingMs = redeemed.expiresAt
+          ? Math.max(1_000, redeemed.expiresAt.getTime() - Date.now())
+          : undefined;
+        const token = await sdk.createSessionToken(redeemed.openId, { name: redeemed.name, expiresInMs: remainingMs });
+        ctx.res.cookie(COOKIE_NAME, token, {
+          ...getSessionCookieOptions(ctx.req),
+          maxAge: remainingMs,
+        });
+        return { success: true } as const;
+      }),
+  }),
+  personal: router({
+    access: protectedProcedure.query(async ({ ctx }) => assertPersonalUserIsActive(ctx.user.id)),
+    announcement: protectedProcedure.query(async ({ ctx }) => {
+      await assertPersonalUserIsActive(ctx.user.id);
+      return getActiveAnnouncement();
+    }),
+    sendMessage: protectedProcedure
+      .input(z.object({ message: z.string().trim().min(1).max(1200) }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return createUserMessage({ userId: ctx.user.id, message: input.message });
+      }),
+  }),
+  tryOn: router({
+    run: protectedProcedure
+      .input(z.object({
+        productImageData: z.string().startsWith('data:image/').max(12_000_000),
+        aspectRatio: z.enum(['4:5', '9:16']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return runProductToModelTryOn(input.productImageData, input.aspectRatio);
+      }),
+    removeBackground: protectedProcedure
+      .input(z.object({ productImageData: z.string().startsWith('data:image/').max(12_000_000) }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return removeBackgroundFromProduct(input.productImageData);
+      }),
+  }),
+
+  marketingText: router({
+    generate: protectedProcedure
+      .input(z.object({
+        details: z.object({
+          productName: z.string().max(160),
+          headline: z.string().max(220),
+          discount: z.string().max(32),
+          quantity: z.string().max(80),
+          colors: z.array(z.string().max(80)).max(8),
+          price: z.string().max(80),
+          currency: z.string().max(32),
+          features: z.array(z.string().max(160)).max(8),
+          storeName: z.string().max(160),
+          storePhone: z.string().max(80),
+          marketingText: z.string().max(520),
+          marketingPreferences: z.object({
+            tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
+            length: z.enum(['short', 'medium', 'long']),
+            goal: z.enum(['purchase', 'inquiry', 'showcase']),
+            format: z.enum(['whatsapp', 'plain']).optional(),
+          }).optional(),
+        }),
+        preferences: z.object({
+          tone: z.enum(['exciting', 'persuasive', 'formal', 'playful']),
+          length: z.enum(['short', 'medium', 'long']),
+          goal: z.enum(['purchase', 'inquiry', 'showcase']),
+          format: z.enum(['whatsapp', 'plain']),
+        }),
+        variant: z.number().int().min(0).max(20).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return generateMarketingTextWithFallback(
+          { ...input.details, marketingText: '', marketingPreferences: undefined },
+          input.preferences,
+          input.variant
+        );
+      }),
+  }),
+
+  // TODO: add feature routers here, e.g.
+  // todo: router({
+  //   list: protectedProcedure.query(({ ctx }) =>
+  //     db.getUserTodos(ctx.user.id)
+  //   ),
+  // }),
+});
+
+export type AppRouter = typeof appRouter;
+
+===== END FILE =====

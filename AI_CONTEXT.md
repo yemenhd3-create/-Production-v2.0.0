@@ -7,7 +7,7 @@
 - **المستودع المرجعي للقراءة والمراجعة:** https://github.com/yemenhd3-create/-Production-v2.0.0
 - **حالة الوصول:** قراءة عامة؛ لا تمنح صلاحية كتابة أو دمج مباشر لأي نموذج.
 - **نقطة الاستعادة المرجعية:** تُحدَّث بعد حفظ هذه النسخة ومزامنتها مع GitHub.
-- **آخر فحوص مكتملة قبل تحديث GitHub:** 190 اختبار Vitest، TypeScript، بناء الإنتاج، ميزانية الحزمة، وفحص هاتف بعرض 390px. تعذر دخول OAuth الحي في المتصفح بسبب CAPTCHA؛ لا تدّعِ نجاحه.
+- **آخر فحوص مكتملة قبل تحديث GitHub:** راجع آخر `TEST_RESULTS.md` أو بوابة GitHub؛ لا تنسب عدداً ثابتاً للاختبارات من هذا الملف. تعذر دخول OAuth الحي في المتصفح بسبب CAPTCHA؛ لا تدّعِ نجاحه.
 
 ## ما هو مكتمل — لا تكرره
 
@@ -63,9 +63,10 @@ changed-files/
 IMPLEMENTATION_REPORT.md
 TEST_RESULTS.md
 SECURITY_REVIEW.md
+ACCESS_AND_COMPATIBILITY.md
 ```
 
-ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ.
+ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ. استخدم `EXTERNAL_ASSISTANT_TASK_TEMPLATE_AR.txt` كعقد تسليم موحد، و`AI_PROJECT_READING_PACKET.txt` كبديل UTF-8 لمن لا يستطيع فتح ZIP أو GitHub مباشرة.
 
 ## رابط Snapshot العام للمراجعة
 
@@ -73,4 +74,4 @@ SECURITY_REVIEW.md
 - **اللقطة الحالية:** https://github.com/yemenhd3-create/clothing-ad-snapshots/tree/main/snapshot-2026-08-16
 - **ملف ZIP المباشر:** https://github.com/yemenhd3-create/clothing-ad-snapshots/raw/refs/heads/main/clothing-ad-generator-cloud-review-snapshot-2026-08-16.zip
 
-المستودع الأساسي يظل خاصاً. لا ترفع إلى مستودع اللقطات أي ملف بيئة أو مفتاح أو مادة شخصية أو ملف مشروع كامل؛ استخدمه فقط لملفات المراجعة المنتقاة بعد فحصها.
+المستودع الأساسي عام للقراءة، ولا يمنح أي نموذج صلاحية كتابة أو دمج. لا ترفع إلى مستودع اللقطات أو الأساسي أي ملف بيئة أو مفتاح أو مادة شخصية؛ استخدم اللقطات فقط لملفات المراجعة المنتقاة بعد فحصها.

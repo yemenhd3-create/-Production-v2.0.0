@@ -12,6 +12,7 @@
     "test": "vitest run",
     "perf:check": "node scripts/performance-check.mjs",
     "mobile:check": "node scripts/mobile-layout-check.mjs",
+    "ai:packet": "node scripts/generate-ai-reading-packet.mjs",
     "quality": "pnpm test && pnpm check && pnpm build && pnpm perf:check",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
