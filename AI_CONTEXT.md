@@ -66,7 +66,7 @@ SECURITY_REVIEW.md
 ACCESS_AND_COMPATIBILITY.md
 ```
 
-ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ. استخدم `EXTERNAL_ASSISTANT_TASK_TEMPLATE_AR.txt` كعقد تسليم موحد، و`AI_PROJECT_READING_PACKET.txt` كبديل UTF-8 لمن لا يستطيع فتح ZIP أو GitHub مباشرة.
+ابدأ دائماً من آخر commit في `main`، واقرأ هذا الملف و`todo.md` قبل تنفيذ أي تحدٍّ. استخدم `EXTERNAL_ASSISTANT_TASK_TEMPLATE_AR.txt` كعقد تسليم موحد، و`AI_PROJECT_READING_PACKET.txt` كبديل UTF-8 لمن لا يستطيع فتح ZIP أو GitHub مباشرة. المالك لا يعدّل الملفات الأربعة ولا يكتب المواصفات التقنية؛ نص المهمة لكل جولة يصدر منفصلاً من المطور الرئيسي ويصل مع الحزمة.
 
 ## رابط Snapshot العام للمراجعة
 

@@ -9,8 +9,9 @@ describe('حزمة وصول المساعدين الخارجيين', () => {
   it('تحتوي قالب المهمة على عقد التسليم والخصوصية ومسارات العمل المحلية', () => {
     const template = read('EXTERNAL_ASSISTANT_TASK_TEMPLATE_AR.txt');
 
-    expect(template).toContain('رسالة الجولة المستقلة');
-    expect(template).toContain('[اكتب مطلوبك هنا في سطر أو سطرين فقط]');
+    expect(template).toContain('لا تعدّل هذا الملف ولا أي ملف من الملفات الأربعة');
+    expect(template).toContain('سيعطيك المطور الرئيسي في كل جولة نص مهمة مستقل جاهزاً للنسخ');
+    expect(template).toContain('المهمة لا تُكتب داخل هذا الملف');
     expect(template).toContain('PATCH.diff');
     expect(template).toContain('DELIVERY_MANIFEST.json');
     expect(template).toContain('الوضع المحلي/دون إنترنت');
