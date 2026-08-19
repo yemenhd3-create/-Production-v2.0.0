@@ -15,6 +15,7 @@ import {
   getCanvasDimensions,
 } from '@shared/adWorkflow';
 import ImageUploader from '@/components/ImageUploader';
+import { TryOnOptIn, type TryOnSelection } from '@/components/TryOnOptIn';
 import LocalDesignSuggestionCard from '@/components/LocalDesignSuggestionCard';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import DesignPassportCard from '@/components/DesignPassportCard';
@@ -111,6 +112,9 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     status: 'idle',
     message: '',
   });
+  const [tryOnPreview, setTryOnPreview] = useState<TryOnResult | null>(null);
+  const [isTryOnRunning, setIsTryOnRunning] = useState(false);
+  const tryOnRequestRef = React.useRef(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isReviewingImage, setIsReviewingImage] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
@@ -142,6 +146,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     return saved === 'batch' || saved === 'assistant' || saved === 'settings' ? saved : 'create';
   });
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
+  const tryOnMutation = trpc.tryOn.run.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery(undefined, { enabled: !friendTestMode });
 
   useEffect(() => {
@@ -256,6 +261,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   }, [productImage, designSuggestion, selectedSuggestedSize, templateSettings, adDetails]);
 
   const handleImageSelect = (imageUrl: string) => {
+    tryOnRequestRef.current += 1;
     setProductImage(imageUrl);
     setGeneratedAd('');
     setDesignPassport(null);
@@ -277,6 +283,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   };
 
   const handleImageRemove = () => {
+    tryOnRequestRef.current += 1;
     setProductImage('');
     setGeneratedAd('');
     setDesignPassport(null);
@@ -317,6 +324,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
 
   const clearAdSession = () => {
     if (!window.confirm('هل تريد مسح صورة الملابس وبيانات الإعلان والتصميم الحالي؟')) return;
+    tryOnRequestRef.current += 1;
     if (productImage.startsWith('blob:')) URL.revokeObjectURL(productImage);
     if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
     setProductImage('');
@@ -407,6 +415,31 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       message: 'نجهّز الصورة والقالب للإعلان…',
     });
 
+    const acceptedPersonSource = tryOnResult.status === 'success' && tryOnResult.transparentSubject === 'person' ? lastVisualSource : '';
+    if (acceptedPersonSource) {
+      try {
+        setTryOnResult(current => ({ ...current, message: 'نجهّز إعلانك من نتيجة التلبيس التي اعتمدتها…' }));
+        const dimensions = getCanvasDimensions(templateSettings.size);
+        const output = await withTimeout(
+          renderAd(adDetails, templateSettings, acceptedPersonSource, { ...dimensions, visualMode: 'transparentPerson', garmentTransform: templateSettings.smartGarmentTransform }),
+          15_000,
+          'انتهت مهلة إنشاء الإعلان. أعد المحاولة أو استخدم الصورة الأصلية.'
+        );
+        setGeneratedAd(output);
+        setMarketingText(buildMarketingText(adDetails));
+        const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
+        const contract = evaluateDesignContract(document);
+        const pixelTruth = await inspectRenderedPixelTruth(output, document);
+        setDesignContractReport(contract);
+        setQualityGateReport(evaluateDesignQuality(document, contract, adDetails, designBenchmarks.find(item => item.template === templateSettings.size), pixelTruth));
+        setIsGenerating(false);
+        return;
+      } catch (error) {
+        setTryOnResult({ status: 'fallback', message: error instanceof Error ? `تعذر استخدام نتيجة التلبيس؛ أبقينا صورة القطعة المحلية. ${error.message}` : 'تعذر استخدام نتيجة التلبيس؛ أبقينا صورة القطعة المحلية.' });
+        setLastVisualSource('');
+      }
+    }
+
     let localImage;
     try {
       localImage = await removeBackgroundLocally(productImage, stage => {
@@ -452,6 +485,54 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const tryOnAspectRatio = (): '4:5' | '9:16' => templateSettings.size === 'story' ? '9:16' : '4:5';
+
+  const handleTryOnRequest = async (selection: TryOnSelection) => {
+    if (!productImage || isTryOnRunning) return;
+    const requestId = tryOnRequestRef.current + 1;
+    tryOnRequestRef.current = requestId;
+    setIsTryOnRunning(true);
+    setTryOnPreview(null);
+    try {
+      const result = await tryOnMutation.mutateAsync({
+        productImageData: productImage,
+        aspectRatio: tryOnAspectRatio(),
+        presentation: selection.presentation,
+        pose: selection.pose,
+        consent: true,
+        consentVersion: 'tryon-v1',
+      });
+      if (tryOnRequestRef.current !== requestId) return;
+      setTryOnPreview(result);
+    } catch (error) {
+      if (tryOnRequestRef.current !== requestId) return;
+      const detail = error instanceof Error ? error.message : 'تعذر إكمال معاينة التلبيس.';
+      setTryOnResult({ status: 'fallback', message: `لم نغير إعلانك: ${detail} استخدمنا مسار تجهيز صورة القطعة المحلي.` });
+    } finally {
+      if (tryOnRequestRef.current === requestId) setIsTryOnRunning(false);
+    }
+  };
+
+  const handleTryOnCancel = () => {
+    tryOnRequestRef.current += 1;
+    setIsTryOnRunning(false);
+    setTryOnPreview(null);
+    setTryOnResult({ status: 'fallback', message: 'ألغيت معاينة التلبيس. ستبقى صورة القطعة والمسار المحلي من دون تغيير.' });
+  };
+
+  const handleTryOnReject = () => {
+    setTryOnPreview(null);
+    setTryOnResult({ status: 'fallback', message: 'اخترت استخدام صورة القطعة الأصلية. لم نغير القالب أو الإعلان المحلي.' });
+  };
+
+  const handleTryOnAccept = () => {
+    if (!tryOnPreview?.imageUrl || !tryOnPreview.isTransparent || tryOnPreview.transparentSubject !== 'person') return;
+    setLastVisualSource(tryOnPreview.imageUrl);
+    setTryOnResult(tryOnPreview);
+    setTryOnPreview(null);
+    toast.success('اعتمدت نتيجة التلبيس. ستستخدم داخل القالب عند إنشاء الإعلان.');
   };
 
   const regenerateWithCurrentSettings = async (templateOverride?: TemplateSettings, successMessage = 'تمت إعادة توليد الإعلان بالإعدادات الجديدة من دون طلب الذكاء الاصطناعي مرة أخرى.', detailsOverride?: AdDetails) => {
@@ -956,7 +1037,10 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
               <button type="button" onClick={discardRestoredDraft} className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-primary shadow-sm transition active:scale-95">بدء جديد</button>
             </div>}
             {isReviewingImage && productImage ? (
-              <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} localPreparation={localPreparation} benchmarks={designBenchmarks} regression={designRegression} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+              <div className="space-y-4">
+                <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} localPreparation={localPreparation} benchmarks={designBenchmarks} regression={designRegression} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
+                {!friendTestMode && <TryOnOptIn isRunning={isTryOnRunning} preview={tryOnPreview} onRequest={handleTryOnRequest} onCancel={handleTryOnCancel} onAcceptPreview={handleTryOnAccept} onRejectPreview={handleTryOnReject} />}
+              </div>
             ) : (
               <ImageUploader
                 onImageSelect={handleImageSelect}

@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { developerProviders } from '../drizzle/schema';
 import { PERFECT_CORP_BACKGROUND_REMOVE } from '../shared/providerPresets';
+import type { TryOnPose, TryOnPresentation } from '../shared/types';
 import { getDb } from './db';
 import { decryptProviderKey } from './developerProviders';
 import { removeBackgroundWithPerfectCorp } from './perfectCorp';
@@ -12,6 +13,7 @@ const POLL_INTERVAL_MS = 3_000;
 const MAX_POLL_ATTEMPTS = 20;
 
 export type TryOnAspectRatio = '4:5' | '9:16';
+export type TryOnSelection = { presentation: TryOnPresentation; pose: TryOnPose };
 export type CloudTryOnResult = {
   status: 'success';
   imageUrl: string;
@@ -28,6 +30,24 @@ type TryOnRuntimeOptions = {
 
 type ProviderRecord = typeof developerProviders.$inferSelect;
 type FashnStatusResponse = { status?: string; output?: unknown; error?: string };
+
+const PROMPT_BY_PRESENTATION: Record<TryOnPresentation, string> = {
+  'women-fashion': 'adult fashion model wearing the garment, modest professional fashion studio styling',
+  'men-fashion': 'adult fashion model wearing the garment, professional fashion studio styling',
+  'kids-fashion': 'child fashion mannequin-style catalog presentation wearing the garment, family-friendly studio styling',
+  accessories: 'adult fashion model presenting the accessory, clean professional studio styling',
+};
+
+const PROMPT_BY_POSE: Record<TryOnPose, string> = {
+  'studio-standing': 'front-facing full-body standing pose, white studio background',
+  'lifestyle-standing': 'natural standing pose, minimal neutral lifestyle background',
+};
+
+/** لا يقبل مزود الصور Prompt حراً من الواجهة؛ الاختيارات المحددة فقط تتحول إلى وصف ثابت. */
+export function buildSafeTryOnPrompt(selection?: TryOnSelection) {
+  if (!selection) return undefined;
+  return `${PROMPT_BY_PRESENTATION[selection.presentation]}, ${PROMPT_BY_POSE[selection.pose]}`;
+}
 
 function asUrl(value: unknown): string | undefined {
   return typeof value === 'string' && /^https?:\/\//.test(value) ? value : undefined;
@@ -141,7 +161,8 @@ async function getBackgroundRemovalProvider() {
 export async function runProductToModelTryOn(
   productImageData: string,
   aspectRatio: TryOnAspectRatio,
-  options: TryOnRuntimeOptions = {}
+  options: TryOnRuntimeOptions = {},
+  selection?: TryOnSelection,
 ): Promise<CloudTryOnResult> {
   const db = await getDb();
   if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
@@ -154,6 +175,10 @@ export async function runProductToModelTryOn(
     product_image: productImageData,
     aspect_ratio: aspectRatio,
     resolution: '1k',
+    generation_mode: 'fast',
+    num_images: 1,
+    output_format: 'png',
+    ...(buildSafeTryOnPrompt(selection) ? { prompt: buildSafeTryOnPrompt(selection) } : {}),
   }, options);
 
   const backgroundProvider = await getBackgroundRemovalProvider();

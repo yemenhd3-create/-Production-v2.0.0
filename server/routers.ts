@@ -143,10 +143,17 @@ export const appRouter = router({
       .input(z.object({
         productImageData: z.string().startsWith('data:image/').max(12_000_000),
         aspectRatio: z.enum(['4:5', '9:16']),
+        presentation: z.enum(['women-fashion', 'men-fashion', 'kids-fashion', 'accessories']),
+        pose: z.enum(['studio-standing', 'lifestyle-standing']),
+        consent: z.literal(true),
+        consentVersion: z.literal('tryon-v1'),
       }))
       .mutation(async ({ ctx, input }) => {
         await assertPersonalUserIsActive(ctx.user.id);
-        return runProductToModelTryOn(input.productImageData, input.aspectRatio);
+        return runProductToModelTryOn(input.productImageData, input.aspectRatio, undefined, {
+          presentation: input.presentation,
+          pose: input.pose,
+        });
       }),
     removeBackground: protectedProcedure
       .input(z.object({ productImageData: z.string().startsWith('data:image/').max(12_000_000) }))

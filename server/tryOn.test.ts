@@ -22,9 +22,16 @@ vi.mock('./db', () => ({
 vi.mock('./developerProviders', () => ({ decryptProviderKey: () => 'server-only-api-key' }));
 vi.mock('./storage', () => ({ storagePut: storagePutMock }));
 
-const { extractOutputImageUrl, removeBackgroundFromProduct, runProductToModelTryOn } = await import('./tryOn');
+const { buildSafeTryOnPrompt, extractOutputImageUrl, removeBackgroundFromProduct, runProductToModelTryOn } = await import('./tryOn');
 
 describe('FASHN output parsing', () => {
+  it('builds provider prompts only from the restricted presentation and pose selections', () => {
+    expect(buildSafeTryOnPrompt({ presentation: 'women-fashion', pose: 'studio-standing' })).toContain('adult fashion model');
+    expect(buildSafeTryOnPrompt({ presentation: 'women-fashion', pose: 'studio-standing' })).toContain('front-facing');
+    expect(buildSafeTryOnPrompt({ presentation: 'kids-fashion', pose: 'lifestyle-standing' })).toContain('family-friendly');
+    expect(buildSafeTryOnPrompt()).toBeUndefined();
+  });
+
   it('finds an image URL across common output shapes without accepting unsafe values', () => {
     expect(extractOutputImageUrl('https://images.example.com/result.png')).toBe('https://images.example.com/result.png');
     expect(extractOutputImageUrl({ images: [{ url: 'https://images.example.com/result.png' }] })).toBe('https://images.example.com/result.png');

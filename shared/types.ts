@@ -58,6 +58,10 @@ export type AdWorkflowStep = 'upload' | 'details' | 'final';
 
 export type TryOnStatus = 'idle' | 'processing' | 'success' | 'fallback' | 'unavailable';
 
+/** اختيارات محدودة يتحول كل منها إلى Prompt ثابت على الخادم؛ لا تستقبل الواجهة وصفاً حراً للمزود. */
+export type TryOnPresentation = 'women-fashion' | 'men-fashion' | 'kids-fashion' | 'accessories';
+export type TryOnPose = 'studio-standing' | 'lifestyle-standing';
+
 export interface TryOnResult {
   status: TryOnStatus;
   imageUrl?: string;
