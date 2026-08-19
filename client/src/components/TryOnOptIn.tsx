@@ -3,6 +3,8 @@ import { LoaderCircle, ShieldCheck, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
 
+export const KOLORS_EXPERIMENTAL_URL = 'https://kwai-kolors-kolors-virtual-try-on.hf.space/';
+
 export type TryOnSelection = {
   presentation: TryOnPresentation;
   pose: TryOnPose;
@@ -44,7 +46,10 @@ export function TryOnOptIn({ isRunning, preview, onRequest, onCancel, onAcceptPr
   }
 
   if (!expanded) {
-    return <button type="button" onClick={() => setExpanded(true)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 py-3 text-sm font-black text-primary transition hover:bg-primary/5 active:scale-95" data-testid="tryon-open"><Sparkles size={18} />جرّب على نموذج افتراضي — اختياري</button>;
+    return <>
+      <button type="button" onClick={() => setExpanded(true)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 py-3 text-sm font-black text-primary transition hover:bg-primary/5 active:scale-95" data-testid="tryon-open"><Sparkles size={18} />جرّب على نموذج افتراضي — اختياري</button>
+      <a href={KOLORS_EXPERIMENTAL_URL} target="_blank" rel="noreferrer" className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 py-3 text-sm font-black text-primary transition hover:bg-primary/5 active:scale-95" data-testid="kolors-external-open"><Sparkles size={18} />تجربة Kolors المجانية خارج التطبيق — تحتاج صورة شخص وقطعة</a>
+    </>;
   }
 
   return (

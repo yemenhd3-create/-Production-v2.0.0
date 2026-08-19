@@ -1,10 +1,30 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TryOnOptIn } from '../client/src/components/TryOnOptIn';
 
 describe('TryOnOptIn', () => {
+  afterEach(cleanup);
+
+  it('offers the Kolors demo as an external opt-in without requesting a cloud preview', () => {
+    const onRequest = vi.fn();
+    render(createElement(TryOnOptIn, {
+      isRunning: false,
+      preview: null,
+      onRequest,
+      onCancel: vi.fn(),
+      onAcceptPreview: vi.fn(),
+      onRejectPreview: vi.fn(),
+    }));
+
+    const link = screen.getByTestId('kolors-external-open');
+    expect(link.getAttribute('href')).toBe('https://kwai-kolors-kolors-virtual-try-on.hf.space/');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noreferrer');
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
   it('does not request a cloud preview until the user opens the feature and gives explicit consent', () => {
     const onRequest = vi.fn();
     render(createElement(TryOnOptIn, {
