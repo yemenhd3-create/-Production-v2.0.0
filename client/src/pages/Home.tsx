@@ -664,6 +664,21 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     return true;
   };
 
+  const handleMerchantArtwork = async (kind: 'logo' | 'footer', source: string) => {
+    const updatedTemplate: TemplateSettings = kind === 'logo'
+      ? { ...templateSettings, storeLogoArtwork: source, showStoreLogo: true }
+      : { ...templateSettings, footerArtwork: source, showFooterArtwork: true };
+    if (!generatedAd || !(lastVisualSource || productImage)) {
+      setTemplateSettings(updatedTemplate);
+      toast.success(`تم حفظ ${kind === 'logo' ? 'الشعار' : 'التذييل'} محلياً للقالب التالي.`);
+      return true;
+    }
+    const updated = await regenerateWithCurrentSettings(updatedTemplate, `تم وضع ${kind === 'logo' ? 'الشعار' : 'التذييل'} وإعادة بناء الإعلان محلياً.`);
+    if (!updated) return false;
+    setTemplateSettings(updatedTemplate);
+    return true;
+  };
+
   const evaluateCurrentQualityGate = async () => {
     const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
     const contract = evaluateDesignContract(document);
@@ -995,7 +1010,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
-        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساعد التاجر…" />}><MerchantAssistantWorkspace profile={merchantProfile} session={merchantAssistantSession} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onCommitSession={handleMerchantAssistantSessionCommit} onApplyCommands={handleMerchantCommands} onClearProfile={handleMerchantProfileClear} onClearSession={handleMerchantAssistantSessionClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
+        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح القائد المحلي…" />}><MerchantAssistantWorkspace profile={merchantProfile} session={merchantAssistantSession} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onCommitSession={handleMerchantAssistantSessionCommit} onApplyCommands={handleMerchantCommands} onApplyArtwork={handleMerchantArtwork} onClearProfile={handleMerchantProfileClear} onClearSession={handleMerchantAssistantSessionClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
 
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 
@@ -1151,7 +1166,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
         <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={20} />الإعدادات</button>
           <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={20} />دفعات</button>
-          <button type="button" onClick={() => setActiveView('assistant')} aria-current={activeView === 'assistant' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'assistant' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Bot size={20} />المساعد</button>
+          <button type="button" onClick={() => setActiveView('assistant')} aria-current={activeView === 'assistant' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'assistant' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Bot size={20} />القائد</button>
           <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary/10 text-primary shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><span className={`flex h-9 w-9 items-center justify-center rounded-full ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-white text-muted-foreground'}`}><Sparkles size={19} /></span>إنشاء</button>
         </div>
       </nav>

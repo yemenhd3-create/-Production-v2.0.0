@@ -180,14 +180,14 @@ describe('Home Try-On workflow', () => {
     expect(screen.getByRole('button', { name: /الإعلان جاهز/ }).disabled).toBe(true);
   });
 
-  it('يفتح تبويبة مساعد التاجر المحلية من التنقل السفلي من دون استدعاء أي مزود سحابي', async () => {
+  it('يفتح تبويبة القائد المحلي من التنقل السفلي من دون استدعاء أي مزود سحابي', async () => {
     render(createElement(Home));
 
-    fireEvent.click(screen.getByRole('button', { name: 'المساعد' }));
+    fireEvent.click(screen.getByRole('button', { name: 'القائد' }));
 
-    expect(await screen.findByText('مساعد التاجر المحلي')).toBeTruthy();
-    expect(screen.getByText(/مرحباً! أنا مساعد متجرك المحلي/)).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'رد على مساعد التاجر' })).toBeTruthy();
+    expect(await screen.findByText('القائد المحلي')).toBeTruthy();
+    expect(screen.getByText(/مرحباً! أنا القائد المحلي/)).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'رد على القائد المحلي' })).toBeTruthy();
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(removeBackgroundMutateAsync).not.toHaveBeenCalled();
   });

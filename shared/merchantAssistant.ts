@@ -201,7 +201,7 @@ export function createMerchantAssistantSession(): MerchantAssistantSession {
   const now = Date.now();
   return {
     version: 1,
-    messages: [createMessage('assistant', 'مرحباً! أنا مساعد متجرك المحلي. أخبرني بما تريد تغييره، وسأشرح ما سأفعله ثم أطبّقه بعد تأكيدك. سأحتفظ بسجل مهامك على هذا الهاتف حتى لا يضيع آخر طلب.', now)],
+    messages: [createMessage('assistant', 'مرحباً! أنا القائد المحلي لمشروعك. أفهم طلبك، وأستعين بخبراء القالب والملابس والجودة والخصوصية داخل الهاتف. سأشرح ما سأفعله ثم أطبّقه بعد تأكيدك، وسأحتفظ بسجل مهامك حتى لا يضيع آخر طلب.', now)],
     tasks: [],
     updatedAt: now,
   };
