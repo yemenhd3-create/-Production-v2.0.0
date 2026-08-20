@@ -11,7 +11,7 @@ describe('تجربة المساعد فوق الإعلان النهائي', () =>
     const onApplyCommands = vi.fn().mockResolvedValue(true);
     const onOpenUpdatedResult = vi.fn();
     const onCommitSession = vi.fn();
-    render(<MerchantAssistantWorkspace profile={createMerchantProfile()} session={createMerchantAssistantSession()} template={DEFAULT_TEMPLATE_SETTINGS} onCommitProfile={vi.fn()} onCommitSession={onCommitSession} onApplyCommands={onApplyCommands} onApplyArtwork={vi.fn().mockResolvedValue(true)} onClearProfile={vi.fn()} onClearSession={vi.fn()} onOpenUpdatedResult={onOpenUpdatedResult} />);
+    render(<MerchantAssistantWorkspace profile={createMerchantProfile()} session={createMerchantAssistantSession()} template={DEFAULT_TEMPLATE_SETTINGS} onCommitProfile={vi.fn()} onCommitSession={onCommitSession} onApplyCommands={onApplyCommands} onApplyArtwork={vi.fn().mockResolvedValue(true)} onRestoreBackup={vi.fn()} onClearProfile={vi.fn()} onClearSession={vi.fn()} onOpenUpdatedResult={onOpenUpdatedResult} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'كبّر الملابس' }));
     expect(await screen.findByRole('button', { name: 'تأكيد تطبيق التغيير' })).toBeTruthy();

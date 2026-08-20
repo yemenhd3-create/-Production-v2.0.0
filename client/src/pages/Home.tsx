@@ -38,6 +38,7 @@ import { downloadImage, shareToWhatsApp, shareViaWebAPI } from '@/lib/share';
 import { getFromStorage, removeFromStorage, saveToStorage } from '@/lib/storage';
 import { clearMerchantAssistantSession, clearMerchantProfile, loadMerchantAssistantSession, loadMerchantProfile, saveMerchantAssistantSession, saveMerchantProfile } from '@/lib/merchantMemory';
 import { applyMerchantCommands, type MerchantAssistantSession, type MerchantCommand, type MerchantProfile } from '@shared/merchantAssistant';
+import type { LocalProjectBackup } from '@/lib/localProjectBackup';
 import { trpc } from '@/lib/trpc';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -147,6 +148,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   });
   const marketingTextMutation = trpc.marketingText.generate.useMutation();
   const tryOnMutation = trpc.tryOn.run.useMutation();
+  const connectedLeaderMutation = trpc.leader.connected.useMutation();
   const announcementQuery = trpc.personal.announcement.useQuery(undefined, { enabled: !friendTestMode });
 
   useEffect(() => {
@@ -625,6 +627,16 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     toast.success('تم مسح سجل مهام المساعد من هذا الهاتف.');
   };
 
+  const handleLocalProjectBackupRestore = (backup: LocalProjectBackup) => {
+    const restoredProfile = saveMerchantProfile(backup.profile);
+    const restoredSession = saveMerchantAssistantSession(backup.session);
+    setMerchantProfile(restoredProfile);
+    setMerchantAssistantSession(restoredSession);
+    setTemplateSettings({ ...DEFAULT_TEMPLATE_SETTINGS, ...backup.template });
+    setAdDetails(current => ({ ...current, storeName: restoredProfile.storeName || current.storeName, storePhone: restoredProfile.storePhone || current.storePhone, colors: restoredProfile.defaultColors.length ? restoredProfile.defaultColors : current.colors }));
+    toast.success('استعدنا إعدادات القالب وذاكرة القائد من النسخة المحلية.');
+  };
+
   const handleMerchantCommands = async (commands: MerchantCommand[]) => {
     const application = applyMerchantCommands(templateSettings, merchantProfile, commands, adDetails);
     const nextDetails: AdDetails = { ...adDetails, ...application.detailsPatch };
@@ -1010,7 +1022,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             onDeveloper={friendTestMode ? undefined : () => setActiveView('developer')}
           /></React.Suspense>)}
 
-        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح القائد المحلي…" />}><MerchantAssistantWorkspace profile={merchantProfile} session={merchantAssistantSession} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onCommitSession={handleMerchantAssistantSessionCommit} onApplyCommands={handleMerchantCommands} onApplyArtwork={handleMerchantArtwork} onClearProfile={handleMerchantProfileClear} onClearSession={handleMerchantAssistantSessionClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
+        {activeView === 'assistant' && <React.Suspense fallback={<PageLoading label="جارٍ فتح القائد المحلي…" />}><MerchantAssistantWorkspace profile={merchantProfile} session={merchantAssistantSession} template={templateSettings} onCommitProfile={handleMerchantProfileCommit} onCommitSession={handleMerchantAssistantSessionCommit} onApplyCommands={handleMerchantCommands} onApplyArtwork={handleMerchantArtwork} onRequestOnlineReply={friendTestMode ? undefined : (message) => connectedLeaderMutation.mutateAsync({ message })} onRestoreBackup={handleLocalProjectBackupRestore} onClearProfile={handleMerchantProfileClear} onClearSession={handleMerchantAssistantSessionClear} onOpenUpdatedResult={() => { setActiveView('create'); setCurrentStep('final'); }} /></React.Suspense>}
 
         {activeView === 'batch' && <React.Suspense fallback={<PageLoading label="جارٍ فتح مساحة الدفعة…" />}><BatchWorkspace details={adDetails} template={templateSettings} onDetailsChange={setAdDetails} onBack={() => setActiveView('create')} generateCloudText={friendTestMode ? undefined : (details, preferences, variant) => marketingTextMutation.mutateAsync({ details, preferences, variant })} /></React.Suspense>}
 

@@ -9,6 +9,7 @@ import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSess
 import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
 import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
 import { generateMarketingTextWithFallback } from './marketingText';
+import { getConnectedLeaderReply } from './connectedLeader';
 import { createAccessCode, listAccessCodes, redeemAccessCode, revokeAccessCode } from './accessCodes';
 import { sdk } from './_core/sdk';
 import {
@@ -136,6 +137,14 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await assertPersonalUserIsActive(ctx.user.id);
         return createUserMessage({ userId: ctx.user.id, message: input.message });
+      }),
+  }),
+  leader: router({
+    connected: protectedProcedure
+      .input(z.object({ message: z.string().trim().min(1).max(1_200) }))
+      .mutation(async ({ ctx, input }) => {
+        await assertPersonalUserIsActive(ctx.user.id);
+        return getConnectedLeaderReply(input.message);
       }),
   }),
   tryOn: router({

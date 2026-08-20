@@ -21,6 +21,7 @@ vi.mock('../client/src/lib/trpc', () => ({
       removeBackground: { useMutation: () => ({ mutateAsync: removeBackgroundMutateAsync }) },
     },
     marketingText: { generate: { useMutation: () => ({ mutateAsync: vi.fn() }) } },
+    leader: { connected: { useMutation: () => ({ mutateAsync: vi.fn() }) } },
     personal: { announcement: { useQuery: () => ({ data: null }) } },
   },
 }));
@@ -180,12 +181,12 @@ describe('Home Try-On workflow', () => {
     expect(screen.getByRole('button', { name: /الإعلان جاهز/ }).disabled).toBe(true);
   });
 
-  it('يفتح تبويبة القائد المحلي من التنقل السفلي من دون استدعاء أي مزود سحابي', async () => {
+  it('يفتح تبويبة القائد الذكي من التنقل السفلي من دون استدعاء أي مزود سحابي', async () => {
     render(createElement(Home));
 
     fireEvent.click(screen.getByRole('button', { name: 'القائد' }));
 
-    expect(await screen.findByText('القائد المحلي')).toBeTruthy();
+    expect(await screen.findByText('القائد الذكي')).toBeTruthy();
     expect(screen.getByText(/مرحباً! أنا القائد المحلي/)).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'رد على القائد المحلي' })).toBeTruthy();
     expect(mutateAsync).not.toHaveBeenCalled();
