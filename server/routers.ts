@@ -7,6 +7,7 @@ import { z } from "zod";
 import { authenticateDeveloper } from "./developerAuth";
 import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSession, issueDeveloperSession } from './developerSession';
 import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
+import { inspectPrivateKeyBatch } from './privateKeyInspector';
 import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
 import { generateMarketingTextWithFallback } from './marketingText';
 import { getConnectedLeaderReply } from './connectedLeader';
@@ -77,6 +78,11 @@ export const appRouter = router({
         .mutation(({ input }) => saveDeveloperProvider(input)),
       check: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => checkDeveloperProvider(input.id)),
       remove: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteDeveloperProvider(input.id)),
+    }),
+    privateKeyChat: router({
+      inspectBatch: developerProcedure
+        .input(z.object({ rawKeys: z.string().trim().min(1).max(12_000) }).strict())
+        .mutation(({ input }) => inspectPrivateKeyBatch(input.rawKeys)),
     }),
     personal: router({
       announcements: developerProcedure.query(() => listAnnouncements()),

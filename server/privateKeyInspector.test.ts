@@ -1,0 +1,59 @@
+import { describe, expect, it, vi } from 'vitest';
+import { MAX_PARALLEL_PRIVATE_KEY_CHECKS, identifyPrivateKeyProvider, inspectPrivateKeyBatch, splitPrivateKeyBatch } from './privateKeyInspector';
+
+describe('private API-key batch inspector', () => {
+  it('recognizes only explicit provider signatures and keeps unknown keys local', () => {
+    expect(identifyPrivateKeyProvider('AIza' + 'a'.repeat(32))?.id).toBe('gemini');
+    expect(identifyPrivateKeyProvider('hf_' + 'a'.repeat(32))?.id).toBe('hugging-face');
+    expect(identifyPrivateKeyProvider('sk-or-v1-' + 'a'.repeat(32))?.id).toBe('openrouter');
+    expect(identifyPrivateKeyProvider('gsk_' + 'a'.repeat(32))?.id).toBe('groq');
+    expect(identifyPrivateKeyProvider('r8_' + 'a'.repeat(32))?.id).toBe('replicate');
+    expect(identifyPrivateKeyProvider('sk-unknown-provider')).toBeUndefined();
+  });
+
+  it('never calls an external provider for a key whose provider is not recognized', async () => {
+    const request = vi.fn();
+    const raw = 'sk-unknown-provider-token';
+    const [result] = await inspectPrivateKeyBatch(raw, request);
+    expect(request).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ provider: null, state: 'unrecognized' });
+    expect(JSON.stringify(result)).not.toContain(raw);
+  });
+
+  it('uses a fixed official route and returns a result that never exposes the submitted key', async () => {
+    const raw = 'AIza' + 'a'.repeat(32);
+    const request = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    const [result] = await inspectPrivateKeyBatch(raw, request);
+    expect(request).toHaveBeenCalledWith('https://generativelanguage.googleapis.com/v1beta/models', expect.objectContaining({ method: 'GET' }));
+    expect(result).toMatchObject({ provider: 'gemini', state: 'valid' });
+    expect(JSON.stringify(result)).not.toContain(raw);
+  });
+
+  it('reports rejected and quota-limited keys without response bodies', async () => {
+    const raw = `gsk_${'b'.repeat(32)}\nr8_${'c'.repeat(32)}`;
+    const request = vi.fn().mockResolvedValueOnce(new Response('forbidden-body', { status: 403 })).mockResolvedValueOnce(new Response('provider-limit-body', { status: 429 }));
+    const results = await inspectPrivateKeyBatch(raw, request);
+    expect(results.map(result => result.state)).toEqual(['invalid', 'limited']);
+    expect(JSON.stringify(results)).not.toContain('forbidden-body');
+    expect(JSON.stringify(results)).not.toContain('provider-limit-body');
+  });
+
+  it('limits an unlabelled batch to a safe bounded size', () => {
+    expect(() => splitPrivateKeyBatch(Array.from({ length: 41 }, (_, index) => `key-${index}`).join('\n'))).toThrow('40');
+  });
+
+  it('limits parallel recognized-provider checks to protect external quotas', async () => {
+    let active = 0;
+    let highestActive = 0;
+    const request = vi.fn().mockImplementation(async () => {
+      active += 1;
+      highestActive = Math.max(highestActive, active);
+      await new Promise(resolve => setTimeout(resolve, 1));
+      active -= 1;
+      return new Response('{}', { status: 200 });
+    });
+    const raw = Array.from({ length: MAX_PARALLEL_PRIVATE_KEY_CHECKS + 2 }, (_, index) => `AIza${String(index).padStart(2, '0')}${'a'.repeat(30)}`).join('\n');
+    await inspectPrivateKeyBatch(raw, request);
+    expect(highestActive).toBeLessThanOrEqual(MAX_PARALLEL_PRIVATE_KEY_CHECKS);
+  });
+});

@@ -7,6 +7,7 @@ import { Input } from './ui/input';
 
 const DeveloperPersonalConsole = lazy(() => import('./DeveloperPersonalConsole'));
 const OpenImageModelsCatalog = lazy(() => import('./OpenImageModelsCatalog'));
+const PrivateKeyChat = lazy(() => import('./PrivateKeyChat'));
 
 type ProviderDraft = {
   id?: string;
@@ -210,6 +211,7 @@ export default function DeveloperWorkspace({ onBack }: { onBack: () => void }) {
           {providersQuery.data?.map(provider => <div key={provider.id} className="rounded-2xl border border-stone-100 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-foreground">{provider.name}</p><p className="mt-1 text-xs text-muted-foreground" dir="ltr">{provider.baseUrl}</p><p className="mt-1 text-xs text-muted-foreground">{provider.model} · {provider.enabled ? 'مفعّل' : 'متوقف'} · {provider.hasApiKey ? 'مفتاح محفوظ' : 'لا يوجد مفتاح'}</p></div><div className="flex flex-wrap justify-end gap-1"><button type="button" disabled={toggleMutation.isPending} onClick={() => toggleMutation.mutate({ id: provider.id, name: provider.name, baseUrl: provider.baseUrl, model: provider.model, enabled: !provider.enabled })} className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-black disabled:opacity-50 ${provider.enabled ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`} aria-label={`${provider.enabled ? 'إيقاف' : 'تشغيل'} ${provider.name}`}><Power size={14} />{provider.enabled ? 'إيقاف' : 'تشغيل'}</button><button type="button" onClick={() => setDraft(providerToDraft(provider))} className="rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-primary">تعديل</button><button type="button" disabled={checkMutation.isPending || !provider.enabled} onClick={() => checkMutation.mutate({ id: provider.id })} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 disabled:opacity-50">اختبار</button><button type="button" disabled={removeMutation.isPending} onClick={() => removeMutation.mutate({ id: provider.id })} className="flex h-8 w-8 items-center justify-center rounded-lg text-red-600" aria-label={`حذف ${provider.name}`}><Trash2 size={17} /></button></div></div></div>)}
         </div>
       </section>
+      <Suspense fallback={<section className="rounded-[28px] bg-white p-6 text-center text-sm text-muted-foreground shadow-[0_12px_30px_rgba(37,35,95,0.06)]">جارٍ فتح المحادثة الخاصة…</section>}><PrivateKeyChat /></Suspense>
       <Suspense fallback={<section className="rounded-[28px] bg-white p-6 text-center text-sm text-muted-foreground shadow-[0_12px_30px_rgba(37,35,95,0.06)]">جارٍ فتح كتالوج النماذج…</section>}><OpenImageModelsCatalog /></Suspense>
       <section className="rounded-[28px] bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)] sm:p-7">
         <div className="mb-4 flex items-center justify-between gap-3 text-primary"><div className="flex items-center gap-2"><KeyRound size={19} /><h3 className="font-black">السجل التشخيصي</h3></div><button type="button" onClick={() => setDiagnostics([])} className="text-xs font-bold text-muted-foreground">مسح السجل</button></div>
