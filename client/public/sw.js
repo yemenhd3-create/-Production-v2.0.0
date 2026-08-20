@@ -3,8 +3,8 @@
  * Handles offline support, caching, and background sync
  */
 
-const CACHE_NAME = 'clothing-ad-generator-v4';
-const RUNTIME_CACHE = 'clothing-ad-runtime-v4';
+const CACHE_NAME = 'clothing-ad-generator-v5';
+const RUNTIME_CACHE = 'clothing-ad-runtime-v5';
 const LOCAL_BACKGROUND_MODEL_CACHE = 'clothing-ad-u2netp-v1';
 const LOCAL_POSE_MODEL_CACHE = 'clothing-ad-pose-landmarker-lite-v1';
 const ASSETS_TO_CACHE = [
@@ -12,6 +12,10 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
   '/offline.html',
+  '/pwa-icon-192.png',
+  '/pwa-icon-512.png',
+  '/pwa-icon-maskable-512.png',
+  '/badge-72x72.png',
 ];
 
 /**

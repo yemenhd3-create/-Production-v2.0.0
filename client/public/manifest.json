@@ -1,78 +1,38 @@
 {
+  "id": "/?source=pwa",
   "name": "استوديو إعلانات الملابس — مشروع شخصي تعليمي",
   "short_name": "استوديو الملابس",
   "description": "تطبيق شخصي تعليمي لتجهيز صور الملابس محلياً وإنشاء نتائج بصرية عربية.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "launch_handler": { "client_mode": "navigate-existing" },
   "background_color": "#ffffff",
-  "theme_color": "#C41A1A",
+  "theme_color": "#4B168A",
   "dir": "rtl",
   "lang": "ar",
   "categories": ["productivity", "utilities"],
   "prefer_related_applications": false,
-  "screenshots": [
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23C41A1A' width='512' height='512'/><text x='50%' y='50%' font-size='200' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
-  ],
   "icons": [
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23C41A1A' width='512' height='512'/><text x='50%' y='50%' font-size='200' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    }
+    { "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     {
       "name": "إنشاء إعلان جديد",
       "short_name": "إعلان جديد",
       "description": "ابدأ بإنشاء إعلان منتج جديد",
-      "url": "/?action=new",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>+</text></svg>",
-          "sizes": "192x192",
-          "type": "image/svg+xml"
-        }
-      ]
+      "url": "/?action=new&source=pwa",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "الإعدادات",
       "short_name": "الإعدادات",
       "description": "اذهب إلى إعدادات التطبيق",
-      "url": "/?action=settings",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>⚙</text></svg>",
-          "sizes": "192x192",
-          "type": "image/svg+xml"
-        }
-      ]
+      "url": "/?action=settings&source=pwa",
+      "icons": [{ "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "share_target": {
@@ -83,12 +43,7 @@
       "title": "title",
       "text": "text",
       "url": "url",
-      "files": [
-        {
-          "name": "image",
-          "accept": ["image/*"]
-        }
-      ]
+      "files": [{ "name": "image", "accept": ["image/*"] }]
     }
   }
 }

@@ -28,6 +28,7 @@ export default function PwaInstallPrompt() {
   const [isHidden, setIsHidden] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [desktop, setDesktop] = useState(false);
+  const [showPhoneSteps, setShowPhoneSteps] = useState(false);
 
   useEffect(() => {
     setDesktop(isDesktopBrowser());
@@ -75,13 +76,15 @@ export default function PwaInstallPrompt() {
     }
   };
 
-  if (isHidden || !deferredPrompt) return null;
+  if (isHidden || (desktop && !deferredPrompt)) return null;
 
   const DeviceIcon = desktop ? MonitorDown : Smartphone;
   const title = desktop ? 'ثبّت الاستوديو كتطبيق سطح مكتب' : 'ثبّت مولد الإعلانات على هاتفك';
   const description = desktop
     ? 'سيظهر كأيقونة ويفتح في نافذة مستقلة. بعد أول فتح مع الإنترنت، يبقى مسار الإنشاء والقائد المحلي متاحين دون اتصال.'
-    : 'يفتح بسرعة من الشاشة الرئيسية ويبقى متاحاً عند ضعف الشبكة.';
+    : deferredPrompt
+      ? 'سيظهر كأيقونة ويفتح بسرعة من الشاشة الرئيسية ويبقى متاحاً عند ضعف الشبكة.'
+      : 'اختر «عرض خطوات التثبيت» لإضافة التطبيق من Chrome حتى لو لم يظهر زر التثبيت التلقائي.';
 
   return (
     <section className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-right" dir="rtl" aria-label="تثبيت التطبيق">
@@ -89,7 +92,8 @@ export default function PwaInstallPrompt() {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black text-primary">{title}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
-        <button type="button" onClick={install} disabled={isInstalling} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground transition active:scale-95 disabled:opacity-60"><Download size={16} />{isInstalling ? 'جارٍ فتح التثبيت…' : 'تثبيت التطبيق'}</button>
+        {deferredPrompt ? <button type="button" onClick={install} disabled={isInstalling} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground transition active:scale-95 disabled:opacity-60"><Download size={16} />{isInstalling ? 'جارٍ فتح التثبيت…' : 'تثبيت التطبيق'}</button> : <button type="button" onClick={() => setShowPhoneSteps(current => !current)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground transition active:scale-95"><Smartphone size={16} />عرض خطوات التثبيت</button>}
+        {!desktop && showPhoneSteps && <div className="mt-3 rounded-xl border border-primary/15 bg-white p-3 text-xs leading-6 text-foreground"><p className="font-black text-primary">في Chrome: افتح قائمة ⋮ ثم اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</p><p className="mt-2 text-muted-foreground">إذا ظهرت رسالة أن تخطيط الشاشة الرئيسية مقفّل، ألغِ «قفل تخطيط الشاشة الرئيسية» من إعدادات الشاشة الرئيسية في هاتفك، ثم أعد المحاولة. لا يستطيع الموقع تجاوز هذا القفل لأنه حماية من نظام Android.</p></div>}
       </div>
       <button type="button" onClick={dismiss} className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-white" aria-label="تأجيل تثبيت التطبيق لمدة أسبوع"><X size={17} /></button>
     </section>

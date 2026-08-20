@@ -1,8 +1,9 @@
 import { startLogin } from '@/const';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 import { KeyRound, LockKeyhole, LogIn, ShieldAlert } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 export default function PersonalAccessGate({ children }: { children: ReactNode }) {
@@ -23,7 +24,7 @@ export default function PersonalAccessGate({ children }: { children: ReactNode }
         icon={<LockKeyhole size={28} />}
         title="دخول إلى المساحة الشخصية"
         description="أدخل رمز الوصول الذي أنشأه المطور، أو استخدم حسابك المعتاد إذا كان لديك."
-        action={<AccessCodeEntry onPlatformLogin={() => startLogin()} />}
+        action={<><AccessCodeEntry onPlatformLogin={() => startLogin()} /><PwaInstallPrompt /></>}
       />
     );
   }

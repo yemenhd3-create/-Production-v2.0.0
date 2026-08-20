@@ -33,7 +33,7 @@ describe('PWA service worker behavior', () => {
     harness.listeners.install({ waitUntil: (promise: Promise<unknown>) => { installation = promise; } });
     await installation;
 
-    expect(harness.cache.addAll).toHaveBeenCalledWith(['/', '/index.html', '/manifest.json', '/offline.html']);
+    expect(harness.cache.addAll).toHaveBeenCalledWith(['/', '/index.html', '/manifest.json', '/offline.html', '/pwa-icon-192.png', '/pwa-icon-512.png', '/pwa-icon-maskable-512.png', '/badge-72x72.png']);
     expect(harness.self.skipWaiting).toHaveBeenCalled();
   });
 
@@ -78,7 +78,7 @@ describe('PWA service worker behavior', () => {
     const postMessage = vi.fn();
     harness.listeners.message({ data: { type: 'CLEAR_CACHE' }, ports: [{ postMessage }] });
     await Promise.resolve();
-    expect(harness.caches.delete).toHaveBeenCalledWith('clothing-ad-runtime-v4');
+    expect(harness.caches.delete).toHaveBeenCalledWith('clothing-ad-runtime-v5');
     expect(postMessage).toHaveBeenCalledWith({ success: true });
   });
 });

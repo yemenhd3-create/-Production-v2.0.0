@@ -29,10 +29,15 @@ describe('بطاقة تثبيت PWA', () => {
     vi.restoreAllMocks();
   });
 
-  it('تظهر فقط بعد أن يعلن المتصفح إمكانية تثبيت التطبيق وتستدعي نافذة التثبيت', async () => {
+  it('تعرض خطوات تثبيت الهاتف دائماً عندما لا يعلن المتصفح نافذة التثبيت بعد', async () => {
     render(createElement(PwaInstallPrompt));
-    expect(screen.queryByText('ثبّت مولد الإعلانات على هاتفك')).toBeNull();
+    expect(await screen.findByText('ثبّت مولد الإعلانات على هاتفك')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'عرض خطوات التثبيت' }));
+    expect(screen.getByText(/قفل تخطيط الشاشة الرئيسية/)).toBeTruthy();
+  });
 
+  it('يستدعي نافذة Chrome الأصلية عندما يعلن المتصفح أن التطبيق قابل للتثبيت', async () => {
+    render(createElement(PwaInstallPrompt));
     await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
     const installEvent = dispatchInstallableEvent();
     expect(await screen.findByText('ثبّت مولد الإعلانات على هاتفك')).toBeTruthy();
