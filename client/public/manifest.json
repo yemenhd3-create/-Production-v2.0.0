@@ -1,16 +1,18 @@
 {
-  "name": "مولد إعلانات الملابس الاحترافي",
-  "short_name": "مولد الإعلانات",
-  "description": "تطبيق ويب احترافي لتوليد إعلانات الملابس بشكل تلقائي وسريع",
+  "name": "استوديو إعلانات الملابس — مشروع شخصي تعليمي",
+  "short_name": "استوديو الملابس",
+  "description": "تطبيق شخصي تعليمي لتجهيز صور الملابس محلياً وإنشاء نتائج بصرية عربية.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "background_color": "#ffffff",
   "theme_color": "#C41A1A",
   "dir": "rtl",
   "lang": "ar",
-  "categories": ["shopping", "productivity"],
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false,
   "screenshots": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23C41A1A' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>إ</text></svg>",

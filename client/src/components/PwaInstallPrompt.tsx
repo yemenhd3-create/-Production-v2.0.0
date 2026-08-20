@@ -1,4 +1,4 @@
-import { Download, Smartphone, X } from 'lucide-react';
+import { Download, MonitorDown, Smartphone, X } from 'lucide-react';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 
@@ -18,12 +18,19 @@ function canShowInstallPrompt() {
   }
 }
 
+function isDesktopBrowser() {
+  const agent = navigator.userAgent || '';
+  return /(Windows|Macintosh|Linux|X11)/i.test(agent) && !/(Android|iPhone|iPad|Mobile)/i.test(agent);
+}
+
 export default function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isHidden, setIsHidden] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [desktop, setDesktop] = useState(false);
 
   useEffect(() => {
+    setDesktop(isDesktopBrowser());
     const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
     if (standalone || !canShowInstallPrompt()) {
       setIsHidden(true);
@@ -70,12 +77,18 @@ export default function PwaInstallPrompt() {
 
   if (isHidden || !deferredPrompt) return null;
 
+  const DeviceIcon = desktop ? MonitorDown : Smartphone;
+  const title = desktop ? 'ثبّت الاستوديو كتطبيق سطح مكتب' : 'ثبّت مولد الإعلانات على هاتفك';
+  const description = desktop
+    ? 'سيظهر كأيقونة ويفتح في نافذة مستقلة. بعد أول فتح مع الإنترنت، يبقى مسار الإنشاء والقائد المحلي متاحين دون اتصال.'
+    : 'يفتح بسرعة من الشاشة الرئيسية ويبقى متاحاً عند ضعف الشبكة.';
+
   return (
     <section className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-right" dir="rtl" aria-label="تثبيت التطبيق">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm"><Smartphone size={20} /></div>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm"><DeviceIcon size={20} /></div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-primary">ثبّت مولد الإعلانات على هاتفك</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">يفتح بسرعة من الشاشة الرئيسية ويبقى متاحاً عند ضعف الشبكة.</p>
+        <p className="text-sm font-black text-primary">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         <button type="button" onClick={install} disabled={isInstalling} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground transition active:scale-95 disabled:opacity-60"><Download size={16} />{isInstalling ? 'جارٍ فتح التثبيت…' : 'تثبيت التطبيق'}</button>
       </div>
       <button type="button" onClick={dismiss} className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-white" aria-label="تأجيل تثبيت التطبيق لمدة أسبوع"><X size={17} /></button>

@@ -3,14 +3,15 @@
  * Handles offline support, caching, and background sync
  */
 
-const CACHE_NAME = 'clothing-ad-generator-v3';
-const RUNTIME_CACHE = 'clothing-ad-runtime-v3';
+const CACHE_NAME = 'clothing-ad-generator-v4';
+const RUNTIME_CACHE = 'clothing-ad-runtime-v4';
 const LOCAL_BACKGROUND_MODEL_CACHE = 'clothing-ad-u2netp-v1';
 const LOCAL_POSE_MODEL_CACHE = 'clothing-ad-pose-landmarker-lite-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/offline.html',
 ];
 
 /**
@@ -90,7 +91,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then(response => response || caches.match('/index.html')))
+        .catch(() => caches.match(request).then(response => response || caches.match('/index.html')).then(response => response || caches.match('/offline.html')))
     );
     return;
   }

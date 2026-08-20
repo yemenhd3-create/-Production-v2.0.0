@@ -21,6 +21,7 @@ describe('بطاقة تثبيت PWA', () => {
   beforeEach(() => {
     localStorage.clear();
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: false })) });
+    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Android 14; Mobile)' });
   });
 
   afterEach(() => {
@@ -49,5 +50,13 @@ describe('بطاقة تثبيت PWA', () => {
     fireEvent.click(screen.getByRole('button', { name: 'تأجيل تثبيت التطبيق لمدة أسبوع' }));
     expect(screen.queryByText('ثبّت مولد الإعلانات على هاتفك')).toBeNull();
     expect(Number(localStorage.getItem('clothing_ad_install_dismissed_until'))).toBeGreaterThan(Date.now());
+  });
+
+  it('يعرض وصف تطبيق سطح المكتب عند وجود متصفح مكتبي قابل للتثبيت', async () => {
+    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' });
+    render(createElement(PwaInstallPrompt));
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+    dispatchInstallableEvent();
+    expect(await screen.findByText('ثبّت الاستوديو كتطبيق سطح مكتب')).toBeTruthy();
   });
 });

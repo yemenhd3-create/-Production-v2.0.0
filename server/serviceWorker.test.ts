@@ -33,7 +33,7 @@ describe('PWA service worker behavior', () => {
     harness.listeners.install({ waitUntil: (promise: Promise<unknown>) => { installation = promise; } });
     await installation;
 
-    expect(harness.cache.addAll).toHaveBeenCalledWith(['/', '/index.html', '/manifest.json']);
+    expect(harness.cache.addAll).toHaveBeenCalledWith(['/', '/index.html', '/manifest.json', '/offline.html']);
     expect(harness.self.skipWaiting).toHaveBeenCalled();
   });
 
@@ -55,6 +55,14 @@ describe('PWA service worker behavior', () => {
     await expect(offlineResponse).resolves.toBe('offline-shell');
   });
 
+  it('returns the dedicated offline page when no application shell was cached yet', async () => {
+    const offline = createWorkerHarness(vi.fn().mockRejectedValue(new Error('offline')));
+    offline.caches.match.mockImplementation((value: unknown) => Promise.resolve(value === '/offline.html' ? 'offline-page' : undefined));
+    let response: Promise<unknown> | undefined;
+    offline.listeners.fetch({ request: { method: 'GET', url: 'https://app.test/new', mode: 'navigate' }, respondWith: (promise: Promise<unknown>) => { response = promise; } });
+    await expect(response).resolves.toBe('offline-page');
+  });
+
   it('يبقي نموذج الإزالة المحلية المخزن عند تفعيل إصدار جديد من العامل', async () => {
     const harness = createWorkerHarness(vi.fn());
     let activation: Promise<unknown> | undefined;
@@ -70,7 +78,7 @@ describe('PWA service worker behavior', () => {
     const postMessage = vi.fn();
     harness.listeners.message({ data: { type: 'CLEAR_CACHE' }, ports: [{ postMessage }] });
     await Promise.resolve();
-    expect(harness.caches.delete).toHaveBeenCalledWith('clothing-ad-runtime-v3');
+    expect(harness.caches.delete).toHaveBeenCalledWith('clothing-ad-runtime-v4');
     expect(postMessage).toHaveBeenCalledWith({ success: true });
   });
 });
