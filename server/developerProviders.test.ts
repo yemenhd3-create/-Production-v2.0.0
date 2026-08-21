@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decryptProviderKey, encryptProviderKey, resolveProviderCheckUrl, toProviderSummary } from './developerProviders';
+import { connectedLeaderVerificationFailure, decryptProviderKey, encryptProviderKey, resolveProviderCheckUrl, toProviderSummary } from './developerProviders';
 
 describe('developer provider protection', () => {
   it('encrypts and decrypts an API key only on the server', () => {
@@ -28,5 +28,10 @@ describe('developer provider protection', () => {
   it('uses fixed catalog routes for leader presets instead of a free-form provider address', () => {
     expect(resolveProviderCheckUrl({ baseUrl: 'https://api.llm7.io/v1', model: 'connected-leader:llm7:default' }).toString()).toBe('https://api.llm7.io/v1/models');
     expect(resolveProviderCheckUrl({ baseUrl: 'https://api.free.ai/v1', model: 'connected-leader:free-ai:qwen7b' }).toString()).toBe('https://api.free.ai/v1/models');
+  });
+
+  it('distinguishes a rate limit from an invalid saved key without returning a provider response body', () => {
+    expect(connectedLeaderVerificationFailure('Free.ai للقائد المتصل', 429)).toMatchObject({ verified: false, status: 429, message: expect.stringContaining('لم يُرفض المفتاح') });
+    expect(connectedLeaderVerificationFailure('LLM7 للقائد المتصل', 401)).toMatchObject({ verified: false, status: 401, message: expect.stringContaining('رفض') });
   });
 });

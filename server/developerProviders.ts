@@ -28,6 +28,19 @@ export type EnabledConnectedLeaderProvider = {
   apiKey: string;
 };
 
+export type ConnectedLeaderProviderVerification = {
+  verified: boolean;
+  status?: number;
+  message: string;
+};
+
+export function connectedLeaderVerificationFailure(presetLabel: string, status: number): ConnectedLeaderProviderVerification {
+  if (status === 402) return { verified: false, status: 402, message: `وصل ${presetLabel} لكن الحصة أو الرصيد غير متاح حالياً. سيستمر القائد المحلي.` };
+  if (status === 429) return { verified: false, status: 429, message: `وصل ${presetLabel} لكنه يطبق حد الطلبات حالياً. لم يُرفض المفتاح؛ انتظر قليلاً ثم أعد التحقق.` };
+  if (status === 401 || status === 403) return { verified: false, status, message: `رفض ${presetLabel} المفتاح أو الصلاحية. راجع المفتاح في حساب المزود.` };
+  return { verified: false, status, message: `تعذر اعتماد ${presetLabel} بسبب استجابة الخدمة.` };
+}
+
 function encryptionKey() {
   const secret = process.env.JWT_SECRET ?? '';
   if (!secret) throw new Error('JWT_SECRET is required for provider encryption');
@@ -121,6 +134,47 @@ export async function listEnabledConnectedLeaderProviders(): Promise<EnabledConn
       return [];
     }
   });
+}
+
+/** يرسل رسالة نصية ثابتة قصيرة فقط ويعيد الحالة، لا المفتاح ولا نص رد المزوّد. */
+export async function verifyConnectedLeaderProvider(id: string): Promise<ConnectedLeaderProviderVerification> {
+  const db = await getDb();
+  if (!db) throw new Error('قاعدة البيانات غير متاحة حالياً');
+  const provider = (await db.select().from(developerProviders).where(eq(developerProviders.id, id)).limit(1))[0];
+  if (!provider) throw new Error('المزود غير موجود');
+  if (provider.isEnabled !== 1) throw new Error('فعّل المزود أولاً قبل التحقق النصي');
+  const preset = parseConnectedLeaderPreset(provider.model);
+  if (!preset || provider.baseUrl !== preset.baseUrl) throw new Error('هذا ليس بديلاً متصلاً مثبتاً للقائد');
+
+  const url = preset.id === 'free-ai' ? `${preset.baseUrl}/chat/` : `${preset.baseUrl}/chat/completions`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${decryptProviderKey(provider.encryptedApiKey)}` },
+      body: JSON.stringify({
+        model: preset.model.split(':').at(-1),
+        messages: [{ role: 'user', content: 'أجب بكلمة: جاهز' }],
+        max_tokens: 12,
+        temperature: 0,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+    if (response.ok) {
+      const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      const hasText = Boolean(body.choices?.[0]?.message?.content?.trim());
+      return hasText
+        ? { verified: true, status: response.status, message: `نجح رد نصي قصير من ${preset.label}. المفتاح والمسار جاهزان للقائد المتصل.` }
+        : { verified: false, status: response.status, message: `استجاب ${preset.label} دون نص صالح؛ لم نعتمد المزود.` };
+    }
+    return connectedLeaderVerificationFailure(preset.label, response.status);
+  } catch {
+    return { verified: false, message: `تعذر الوصول إلى ${preset.label} خلال مهلة التحقق. لم نستخدم أي محتوى أو صورة.` };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function assertSafeProviderUrl(value: string) {

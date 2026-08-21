@@ -6,7 +6,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { authenticateDeveloper } from "./developerAuth";
 import { DEVELOPER_SESSION_COOKIE, DEVELOPER_SESSION_MAX_AGE_MS, isDeveloperSession, issueDeveloperSession } from './developerSession';
-import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider } from './developerProviders';
+import { checkDeveloperProvider, deleteDeveloperProvider, listDeveloperProviders, saveDeveloperProvider, verifyConnectedLeaderProvider } from './developerProviders';
 import { inspectPrivateKeyBatch } from './privateKeyInspector';
 import { removeBackgroundFromProduct, runProductToModelTryOn } from './tryOn';
 import { generateMarketingTextWithFallback } from './marketingText';
@@ -77,6 +77,7 @@ export const appRouter = router({
         }))
         .mutation(({ input }) => saveDeveloperProvider(input)),
       check: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => checkDeveloperProvider(input.id)),
+      verifyLeader: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => verifyConnectedLeaderProvider(input.id)),
       remove: developerProcedure.input(z.object({ id: z.string().uuid() })).mutation(({ input }) => deleteDeveloperProvider(input.id)),
     }),
     privateKeyChat: router({
