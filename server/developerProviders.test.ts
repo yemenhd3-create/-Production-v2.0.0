@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decryptProviderKey, encryptProviderKey, toProviderSummary } from './developerProviders';
+import { decryptProviderKey, encryptProviderKey, resolveProviderCheckUrl, toProviderSummary } from './developerProviders';
 
 describe('developer provider protection', () => {
   it('encrypts and decrypts an API key only on the server', () => {
@@ -23,5 +23,10 @@ describe('developer provider protection', () => {
     expect(summary).toMatchObject({ id: 'provider-1', hasApiKey: true, enabled: true });
     expect('apiKey' in summary).toBe(false);
     expect(JSON.stringify(summary)).not.toContain('test-secret-key');
+  });
+
+  it('uses fixed catalog routes for leader presets instead of a free-form provider address', () => {
+    expect(resolveProviderCheckUrl({ baseUrl: 'https://api.llm7.io/v1', model: 'connected-leader:llm7:default' }).toString()).toBe('https://api.llm7.io/v1/models');
+    expect(resolveProviderCheckUrl({ baseUrl: 'https://api.free.ai/v1', model: 'connected-leader:free-ai:qwen7b' }).toString()).toBe('https://api.free.ai/v1/models');
   });
 });

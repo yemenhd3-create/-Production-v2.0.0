@@ -30,7 +30,7 @@ type MerchantAssistantWorkspaceProps = {
   onCommitSession: (session: MerchantAssistantSession) => void;
   onApplyCommands: (commands: MerchantCommand[]) => Promise<boolean>;
   onApplyArtwork: (kind: ArtworkKind, source: string) => Promise<boolean>;
-  onRequestOnlineReply?: (message: string) => Promise<{ reply: string; source: 'gemini-flash' | 'gemini-flash-lite' | 'local-fallback'; usedFallback: boolean }>;
+  onRequestOnlineReply?: (message: string) => Promise<{ reply: string; source: 'gemini-flash' | 'gemini-flash-lite' | 'llm7' | 'free-ai' | 'local-fallback'; usedFallback: boolean }>;
   onRestoreBackup: (backup: LocalProjectBackup) => void;
   onClearProfile: () => void;
   onClearSession: () => void;
@@ -103,7 +103,7 @@ export default function MerchantAssistantWorkspace({ profile, session, template,
       setIsOnlineLeaderReplying(true);
       try {
         const onlineReply = await onRequestOnlineReply(clean);
-        const source = onlineReply.source === 'gemini-flash' ? 'القائد المتصل' : onlineReply.source === 'gemini-flash-lite' ? 'القائد المتصل السريع' : 'القائد المحلي الاحتياطي';
+        const source = onlineReply.source === 'gemini-flash' ? 'القائد المتصل' : onlineReply.source === 'gemini-flash-lite' ? 'القائد المتصل السريع' : onlineReply.source === 'llm7' ? 'بديل LLM7 المتصل' : onlineReply.source === 'free-ai' ? 'بديل Free.ai المتصل' : 'القائد المحلي الاحتياطي';
         commitSession(appendMerchantAssistantMessage(plannedSession, 'assistant', `${source}: ${onlineReply.reply}`));
       } catch {
         commitSession(appendMerchantAssistantMessage(plannedSession, 'assistant', 'القائد المحلي الاحتياطي: تعذر الرد المتصل الآن. استمر العمل محلياً من دون توقف.'));

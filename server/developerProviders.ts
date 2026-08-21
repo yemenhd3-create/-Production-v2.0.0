@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { desc, eq } from 'drizzle-orm';
 import { developerProviders } from '../drizzle/schema';
 import { PERFECT_CORP_API_BASE_URL, PERFECT_CORP_BACKGROUND_REMOVE } from '../shared/providerPresets';
+import { parseConnectedLeaderPreset, type ConnectedLeaderAdapter } from '../shared/connectedLeaderPresets';
 import type { DeveloperProviderSummary } from '../shared/types';
 import { getDb } from './db';
 
@@ -18,6 +19,13 @@ export type ProviderConnectionResult = {
   reachable: boolean;
   status?: number;
   message: string;
+};
+
+export type EnabledConnectedLeaderProvider = {
+  adapter: ConnectedLeaderAdapter;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
 };
 
 function encryptionKey() {
@@ -99,6 +107,22 @@ export async function deleteDeveloperProvider(id: string): Promise<void> {
   await db.delete(developerProviders).where(eq(developerProviders.id, id));
 }
 
+/** يعيد بدائل القائد المثبتة مسبقاً فقط؛ لا يقبل روابط أو عمليات حرة عند وقت التنفيذ. */
+export async function listEnabledConnectedLeaderProviders(): Promise<EnabledConnectedLeaderProvider[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const providers = await db.select().from(developerProviders).where(eq(developerProviders.isEnabled, 1));
+  return providers.flatMap(provider => {
+    const preset = parseConnectedLeaderPreset(provider.model);
+    if (!preset || provider.baseUrl !== preset.baseUrl || !provider.encryptedApiKey) return [];
+    try {
+      return [{ adapter: preset.id, baseUrl: preset.baseUrl, model: preset.model.split(':').at(-1) ?? '', apiKey: decryptProviderKey(provider.encryptedApiKey) }];
+    } catch {
+      return [];
+    }
+  });
+}
+
 function assertSafeProviderUrl(value: string) {
   const url = new URL(value);
   const blockedHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$/i.test(url.hostname)
@@ -111,6 +135,14 @@ function assertSafeProviderUrl(value: string) {
   return url;
 }
 
+export function resolveProviderCheckUrl(provider: Pick<typeof developerProviders.$inferSelect, 'baseUrl' | 'model'>) {
+  const connectedLeaderPreset = parseConnectedLeaderPreset(provider.model);
+  if (connectedLeaderPreset && provider.baseUrl === connectedLeaderPreset.baseUrl) {
+    return new URL('models', `${connectedLeaderPreset.baseUrl}/`);
+  }
+  return assertSafeProviderUrl(provider.baseUrl);
+}
+
 /** Performs a lightweight reachability check without returning a key or provider response body. */
 export async function checkDeveloperProvider(id: string): Promise<ProviderConnectionResult> {
   const db = await getDb();
@@ -119,9 +151,10 @@ export async function checkDeveloperProvider(id: string): Promise<ProviderConnec
   if (!provider) throw new Error('المزود غير موجود');
 
   const isPerfectCorpBackgroundRemoval = provider.model === PERFECT_CORP_BACKGROUND_REMOVE;
+  const connectedLeaderPreset = parseConnectedLeaderPreset(provider.model);
   const url = isPerfectCorpBackgroundRemoval
     ? new URL('/s2s/v2.0/file', PERFECT_CORP_API_BASE_URL)
-    : assertSafeProviderUrl(provider.baseUrl);
+    : resolveProviderCheckUrl(provider);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
@@ -138,7 +171,11 @@ export async function checkDeveloperProvider(id: string): Promise<ProviderConnec
     return {
       reachable: response.ok,
       status: response.status,
-      message: response.ok ? 'تم التحقق من اتصال المزود والمفتاح.' : response.status === 401 ? 'تعذر التحقق من المفتاح؛ راجعه في حساب المزود.' : 'استجاب المزود بخطأ عند اختبار الاتصال.',
+      message: response.ok
+        ? connectedLeaderPreset?.id === 'llm7'
+          ? 'وصل كتالوج LLM7. تُؤكَّد صلاحية المفتاح عند أول رد نصي فقط لأن الكتالوج متاح علناً.'
+          : 'تم التحقق من اتصال المزود والمفتاح.'
+        : response.status === 401 ? 'تعذر التحقق من المفتاح؛ راجعه في حساب المزود.' : 'استجاب المزود بخطأ عند اختبار الاتصال.',
     };
   } catch {
     return { reachable: false, message: 'تعذر الوصول إلى المزود خلال مهلة الاختبار.' };

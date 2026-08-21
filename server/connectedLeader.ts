@@ -1,8 +1,10 @@
 import { ENV } from "./_core/env";
 import { parseMerchantCommands } from "@shared/merchantAssistant";
 import { resolveLocalLeaderPlan } from "@shared/localLeader";
+import { listEnabledConnectedLeaderProviders, type EnabledConnectedLeaderProvider } from "./developerProviders";
 
-export type ConnectedLeaderSource = "gemini-flash" | "gemini-flash-lite" | "local-fallback";
+export type ConnectedLeaderSource = "gemini-flash" | "gemini-flash-lite" | "llm7" | "free-ai" | "local-fallback";
+type GeminiLeaderSource = "gemini-flash" | "gemini-flash-lite";
 
 export type ConnectedLeaderReply = {
   reply: string;
@@ -10,7 +12,7 @@ export type ConnectedLeaderReply = {
   usedFallback: boolean;
 };
 
-const GEMINI_MODELS: Array<{ id: string; source: Exclude<ConnectedLeaderSource, "local-fallback">; thinkingLevel?: "LOW" }> = [
+const GEMINI_MODELS: Array<{ id: string; source: GeminiLeaderSource; thinkingLevel?: "LOW" }> = [
   { id: "gemini-flash-latest", source: "gemini-flash", thinkingLevel: "LOW" },
   { id: "gemini-flash-lite-latest", source: "gemini-flash-lite" },
 ];
@@ -56,14 +58,52 @@ async function askGemini(model: string, message: string, thinkingLevel?: "LOW"):
   return text.slice(0, 4_000);
 }
 
+function extractOpenAiReply(payload: unknown) {
+  const record = payload as { choices?: Array<{ message?: { content?: string } }> };
+  const text = record.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("Connected provider returned an empty reply");
+  return text.slice(0, 4_000);
+}
+
+async function askStoredProvider(provider: EnabledConnectedLeaderProvider, message: string): Promise<string> {
+  const url = provider.adapter === "free-ai"
+    ? `${provider.baseUrl}/chat/`
+    : `${provider.baseUrl}/chat/completions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: `Bearer ${provider.apiKey}` },
+    body: JSON.stringify({
+      model: provider.model,
+      messages: [{ role: "system", content: buildPrompt(message) }],
+      temperature: 0.55,
+      max_tokens: 900,
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error(`Connected provider returned ${response.status}`);
+  return extractOpenAiReply(await response.json());
+}
+
 export async function getConnectedLeaderReply(message: string): Promise<ConnectedLeaderReply> {
-  if (!ENV.geminiApiKey) return localFallback(message);
-  for (const candidate of GEMINI_MODELS) {
+  if (ENV.geminiApiKey) {
+    for (const candidate of GEMINI_MODELS) {
+      try {
+        const reply = await askGemini(candidate.id, message, candidate.thinkingLevel);
+        return { reply, source: candidate.source, usedFallback: candidate.source !== "gemini-flash" };
+      } catch {
+        // Try the independent model tier before checking an owner-enabled alternative.
+      }
+    }
+  }
+
+  const alternatives = await Promise.resolve(listEnabledConnectedLeaderProviders()).catch(() => []);
+  for (const provider of alternatives ?? []) {
     try {
-      const reply = await askGemini(candidate.id, message, candidate.thinkingLevel);
-      return { reply, source: candidate.source, usedFallback: candidate.source !== "gemini-flash" };
+      const reply = await askStoredProvider(provider, message);
+      return { reply, source: provider.adapter, usedFallback: true };
     } catch {
-      // Try the independent model tier before returning the always-available local leader.
+      // A stored provider must never prevent the local leader from answering.
     }
   }
   return localFallback(message);
