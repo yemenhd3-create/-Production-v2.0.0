@@ -53,6 +53,7 @@ describe('PrivateKeyChat', () => {
   it('clears visible session messages on demand', () => {
     render(<PrivateKeyChat />);
     fireEvent.click(screen.getByRole('button', { name: 'مسح محادثة المفاتيح' }));
-    expect(screen.getByText('ألصق دفعة المفاتيح مرة واحدة. سنصنف الصيغ المعروفة محلياً، ثم نتحقق من الموفّرات المعروفة فقط. لا تظهر القيم في النتيجة ولا تحفظ في السجل أو قاعدة البيانات.')).not.toBeNull();
+    expect(screen.getByText(/ألصق دفعة المفاتيح مرة واحدة/)).not.toBeNull();
+    expect(screen.getByText(/لا تظهر القيم في النتيجة ولا تحفظ/)).not.toBeNull();
   });
 });

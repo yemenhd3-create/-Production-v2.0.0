@@ -1,7 +1,7 @@
 export const MAX_PRIVATE_KEY_BATCH = 40;
 export const MAX_PARALLEL_PRIVATE_KEY_CHECKS = 4;
 
-export type PrivateKeyProviderId = 'gemini' | 'hugging-face' | 'openrouter' | 'groq' | 'replicate';
+export type PrivateKeyProviderId = 'gemini' | 'hugging-face' | 'openrouter' | 'groq' | 'replicate' | 'github' | 'free-ai';
 export type PrivateKeyInspectionState = 'valid' | 'invalid' | 'limited' | 'unavailable' | 'unrecognized';
 
 export type PrivateKeyInspectionResult = {
@@ -62,6 +62,22 @@ const PROVIDERS: ProviderDefinition[] = [
     endpoint: 'https://api.replicate.com/v1/account',
     header: key => ({ Accept: 'application/json', Authorization: `Bearer ${key}` }),
     suggestedUses: ['تجارب نماذج صور عند توافر رصيد', 'تقييم مزود صور قبل دمجه في التطبيق'],
+  },
+  {
+    id: 'github',
+    label: 'GitHub Personal Access Token',
+    pattern: /^(?:ghp_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})$/,
+    endpoint: 'https://api.github.com/user',
+    header: key => ({ Accept: 'application/vnd.github+json', Authorization: `Bearer ${key}`, 'X-GitHub-Api-Version': '2026-03-10' }),
+    suggestedUses: ['التحقق من وصول تطوير المستودع وفق الصلاحيات الممنوحة', 'عمليات GitHub البرمجية فقط؛ ليس مفتاح نموذج ذكاء اصطناعي'],
+  },
+  {
+    id: 'free-ai',
+    label: 'Free.ai API',
+    pattern: /^sk-free-[A-Za-z0-9_-]{10,}$/,
+    endpoint: 'https://api.free.ai/v1/models',
+    header: key => ({ Accept: 'application/json', Authorization: `Bearer ${key}` }),
+    suggestedUses: ['بديل نصي متصل اختياري للقائد عند توافر الحصة', 'خدمات صور اختيارية بموافقة مستقلة؛ لا تُرسل الصور تلقائياً'],
   },
 ];
 
