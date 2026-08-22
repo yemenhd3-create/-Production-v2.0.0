@@ -1,4 +1,4 @@
-import type { TemplateBadgeType, TemplateSettings, TemplateSize, TemplateVisualTheme } from '@shared/types';
+import type { ProductShadowPreset, ProductStudioBackdrop, TemplateBadgeType, TemplateSettings, TemplateSize, TemplateVisualTheme } from '@shared/types';
 import { TEMPLATE_THEME_LIST, getTemplateTheme } from '@shared/templateThemes';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, ChevronLeft, CircleHelp, ImagePlus, LayoutTemplate, MonitorSmartphone, Palette, Settings2, Sparkles, Store, Tag, Wrench } from 'lucide-react';
 import * as React from 'react';
@@ -16,7 +16,7 @@ interface UserTemplateSettingsProps {
 }
 
 type ToggleKey = 'showProductName' | 'showHeadline' | 'showDiscount' | 'showQuantity' | 'showColors' | 'showFeatures' | 'showPrice' | 'showStoreInfo' | 'showQualityMark';
-type SettingsCardKey = 'size' | 'theme' | 'identity' | 'badges' | 'elements' | 'help';
+type SettingsCardKey = 'size' | 'theme' | 'studio' | 'identity' | 'badges' | 'elements' | 'help';
 
 const toggles: Array<{ key: ToggleKey; title: string; description: string }> = [
   { key: 'showProductName', title: 'اسم المنتج', description: 'يظهر في أعلى القالب.' },
@@ -45,6 +45,20 @@ const badgeOptions: Array<{ value: TemplateBadgeType; title: string; defaultText
   { value: 'offer', title: 'عرض', defaultText: 'عرض خاص' },
   { value: 'price', title: 'سعر', defaultText: 'سعر مميز' },
   { value: 'quality', title: 'جودة', defaultText: 'جودة عالية' },
+];
+
+const backdropOptions: Array<{ value: ProductStudioBackdrop; title: string; detail: string }> = [
+  { value: 'auto', title: 'تلقائي', detail: 'خلفية النمط المختار' },
+  { value: 'soft', title: 'ناعم', detail: 'تدرج محايد' },
+  { value: 'warm', title: 'دافئ', detail: 'لون رملي هادئ' },
+  { value: 'cool', title: 'بارد', detail: 'لون أزرق خفيف' },
+  { value: 'spotlight', title: 'إضاءة', detail: 'تركيز على المنتج' },
+];
+
+const shadowOptions: Array<{ value: ProductShadowPreset; title: string }> = [
+  { value: 'none', title: 'بدون ظل' },
+  { value: 'soft', title: 'ظل ناعم' },
+  { value: 'grounded', title: 'ظل ثابت' },
 ];
 
 const artworkRatios: Record<TemplateSize, { footer: number }> = {
@@ -125,6 +139,12 @@ export default function UserTemplateSettings({ settings, onChange, onBack, onAbo
         const selected = selectedTheme.id === theme.id;
         return <button key={theme.id} type="button" onClick={() => updateSettings({ ...settings, visualTheme: theme.id as TemplateVisualTheme })} className="rounded-2xl border p-3 text-right transition active:scale-[.99]" style={{ backgroundColor: theme.palette.background, borderColor: selected ? theme.palette.primary : 'rgba(42,40,101,.12)' }} aria-pressed={selected}><span className="flex items-center gap-2"><span className="h-7 w-7 rounded-full border border-primary/10" style={{ backgroundColor: theme.palette.accent }} /><span className="text-sm font-black" style={{ color: theme.palette.primary }}>{theme.title}</span>{selected && <Check size={15} style={{ color: theme.palette.primary }} />}</span><span className="mt-1 block text-[11px] leading-5" style={{ color: theme.palette.muted }}>{theme.description}</span></button>;
       })}</div>
+    </SettingsCard>
+
+    <SettingsCard id="studio" icon={Sparkles} title="استديو المنتج" summary="خلفية وظل محليان داخل منطقة المنتج" open={openCard === 'studio'} onToggle={() => setCard('studio')}>
+      <p className="mb-3 text-xs leading-5 text-muted-foreground">هذه إضافات رسم محلية داخل القالب؛ لا تولّد صورة جديدة ولا ترسل صورة القطعة إلى الإنترنت.</p>
+      <div className="grid grid-cols-2 gap-2">{backdropOptions.map(option => <button key={option.value} type="button" onClick={() => updateSettings({ ...settings, productBackdrop: option.value })} className={`rounded-xl border p-3 text-right transition active:scale-[.99] ${(settings.productBackdrop || 'auto') === option.value ? 'border-primary bg-white text-primary shadow-sm' : 'border-transparent bg-white/70 text-muted-foreground'}`}><span className="block text-xs font-black">{option.title}</span><span className="mt-1 block text-xs">{option.detail}</span></button>)}</div>
+      <p className="mb-2 mt-4 text-xs font-black text-primary">ظل المنتج</p><div className="grid grid-cols-3 gap-2">{shadowOptions.map(option => <button key={option.value} type="button" onClick={() => updateSettings({ ...settings, productShadow: option.value })} className={`rounded-xl px-3 py-2 text-xs font-black transition active:scale-[.99] ${(settings.productShadow || 'soft') === option.value ? 'bg-primary text-white' : 'bg-white text-primary shadow-sm'}`}>{option.title}</button>)}</div>
     </SettingsCard>
 
     <SettingsCard id="identity" icon={Store} title="هوية المتجر" summary={settings.storeLogoArtwork || settings.footerArtwork ? 'الشعار أو التذييل محفوظان ويمكن تعديلهما' : 'أضف شعاراً وتذييلاً اختياريين'} open={openCard === 'identity'} onToggle={() => setCard('identity')}>

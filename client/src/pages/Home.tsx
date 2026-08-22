@@ -73,6 +73,7 @@ const DesignQualityGateCard = React.lazy(() => import('@/components/DesignQualit
 const TryOnStatusNotice = React.lazy(() => import('@/components/TryOnStatusNotice').then(module => ({ default: module.TryOnStatusNotice })));
 const UserTemplateSettings = React.lazy(() => import('@/components/UserTemplateSettings'));
 const MerchantAssistantWorkspace = React.lazy(() => import('@/components/MerchantAssistantWorkspace'));
+const ImageRefinementStudio = React.lazy(() => import('@/components/ImageRefinementStudio'));
 const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
@@ -118,6 +119,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   const tryOnRequestRef = React.useRef(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isReviewingImage, setIsReviewingImage] = useState(false);
+  const [isRefinementStudioOpen, setIsRefinementStudioOpen] = useState(false);
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [designSuggestion, setDesignSuggestion] = useState<DesignSuggestion | null>(null);
@@ -199,6 +201,12 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       if (generatedAd.startsWith('blob:')) URL.revokeObjectURL(generatedAd);
     };
   }, [generatedAd]);
+
+  useEffect(() => {
+    const openRefinementStudio = () => setIsRefinementStudioOpen(true);
+    window.addEventListener('clothing-ad:open-refinement-studio', openRefinementStudio);
+    return () => window.removeEventListener('clothing-ad:open-refinement-studio', openRefinementStudio);
+  }, []);
 
   useEffect(() => {
     if (!productImage) return;
@@ -1174,6 +1182,8 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
         )}
       </main>
 
+      {isRefinementStudioOpen && productImage && <React.Suspense fallback={<PageLoading label="جارٍ فتح استوديو التنقيح المحلي…" />}><ImageRefinementStudio source={productImage} onClose={() => setIsRefinementStudioOpen(false)} onApply={image => { setIsRefinementStudioOpen(false); handleImageSelect(image); toast.success('استبدلنا صورة القطعة بالنسخة المنقحة محلياً.'); }} /></React.Suspense>}
+
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#ece8f0] bg-[#fdfbf8]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
         <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={20} />الإعدادات</button>
@@ -1217,6 +1227,7 @@ function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnal
       <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
+    <button type="button" onClick={() => window.dispatchEvent(new Event('clothing-ad:open-refinement-studio'))} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 text-sm font-black text-primary transition active:scale-[.98]"><Wand2 size={18} />تنقيح صورة القطعة محلياً</button>
     {isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
     {localPreparation.status === 'ready' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">{localPreparation.cache === 'hit' ? 'تمت استعادة تحليل محلي محفوظ للصورة نفسها' : 'اكتمل تحليل الجودة والألوان والتخطيط محلياً'}{typeof localPreparation.elapsedMs === 'number' && ` خلال ${localPreparation.elapsedMs}ms`}</div>}
     {localPreparation.status === 'failed' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">تعذر التحليل المسبق؛ يمكنك متابعة إنشاء الإعلان محلياً كالمعتاد.</div>}

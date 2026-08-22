@@ -196,6 +196,10 @@ export const PRODUCT_SCALE_STEP = 0.05;
 export const DEFAULT_PRODUCT_SCALE = 1.15;
 /** نمط بصري محلي مستقل عن مقاس التصدير؛ يبقى اختياريًا لتوافق المسودات القديمة. */
 export type TemplateVisualTheme = 'classic' | 'midnight' | 'rose' | 'mint' | 'sand';
+/** خلفية استديو محلية داخل منطقة المنتج؛ لا تتطلب نموذج صور أو اتصالاً خارجياً. */
+export type ProductStudioBackdrop = 'auto' | 'soft' | 'warm' | 'cool' | 'spotlight';
+/** ظل هندسي محلي يوضع أسفل المنتج الشفاف داخل مساحة البطل. */
+export type ProductShadowPreset = 'none' | 'soft' | 'grounded';
 export type ArtworkLayerKey = 'header' | 'footer' | 'logo';
 export type ArtworkFitMode = 'contain' | 'cover' | 'stretch';
 
@@ -243,6 +247,8 @@ export interface TemplateSettings {
   smartGarmentTransform?: GarmentDesignTransform;
   /** تكبير مرئي للقطعة داخل منطقتها الآمنة، من دون تغيير مكان السعر أو التذييل. */
   productScale?: number;
+  productBackdrop?: ProductStudioBackdrop;
+  productShadow?: ProductShadowPreset;
 }
 
 // ========== Store Settings ==========
@@ -484,6 +490,8 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   footerArtwork: '',
   artworkLayouts: {},
   productScale: DEFAULT_PRODUCT_SCALE,
+  productBackdrop: 'auto',
+  productShadow: 'soft',
 };
 
 export const DISCOUNT_BADGE_COLOR = '#C41A1A';

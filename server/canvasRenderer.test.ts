@@ -20,19 +20,22 @@ function createContext() {
   const fillText = vi.fn();
   const drawImage = vi.fn();
   const stroke = vi.fn();
+  const createRadialGradient = vi.fn(() => ({ addColorStop: noop }));
   const fonts: string[] = [];
   const fillStyles: string[] = [];
   const context = {
-    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop, rect: noop,
+    fillRect: noop, stroke, save: noop, restore: noop, beginPath: noop, clip: noop, rect: noop, ellipse: noop,
     arc: noop, fill: noop, fillText, drawImage, arcTo: noop,
     moveTo: noop, lineTo: noop, closePath: noop,
+    createRadialGradient,
     measureText: (text: string) => ({ width: text.length * 12 }),
     __fillText: fillText,
     __drawImage: drawImage,
     __stroke: stroke,
     __fonts: fonts,
     __fillStyles: fillStyles,
-  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn>; __stroke: ReturnType<typeof vi.fn>; __fonts: string[]; __fillStyles: string[] };
+    __createRadialGradient: createRadialGradient,
+  } as unknown as CanvasRenderingContext2D & { __fillText: ReturnType<typeof vi.fn>; __drawImage: ReturnType<typeof vi.fn>; __stroke: ReturnType<typeof vi.fn>; __fonts: string[]; __fillStyles: string[]; __createRadialGradient: ReturnType<typeof vi.fn> };
   Object.defineProperty(context, 'font', { get: () => fonts.at(-1), set: (value: string) => fonts.push(value) });
   Object.defineProperty(context, 'fillStyle', { get: () => fillStyles.at(-1), set: (value: string) => fillStyles.push(value) });
   return context;
@@ -48,6 +51,7 @@ describe('Canvas advertisement renderer', () => {
     context.__stroke.mockClear();
     context.__fonts.splice(0);
     context.__fillStyles.splice(0);
+    context.__createRadialGradient.mockClear();
     vi.stubGlobal('Image', LoadedImage);
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:rendered-advertisement') });
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
@@ -156,5 +160,10 @@ describe('Canvas advertisement renderer', () => {
       expect(context.__fillStyles).toContain(theme.palette.primary);
       expect(context.__fillStyles).toContain(theme.palette.accent);
     }
+  });
+
+  it('يرسم خلفية استديو وظل منتج محليين عند اختيارهما من الإعدادات', async () => {
+    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productBackdrop: 'spotlight', productShadow: 'grounded' }, 'blob:garment-image', { width: 1080, height: 1350 });
+    expect(context.__createRadialGradient).toHaveBeenCalledTimes(2);
   });
 });

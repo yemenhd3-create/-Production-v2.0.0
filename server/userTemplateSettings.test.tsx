@@ -64,4 +64,18 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
     fireEvent.click(screen.getByRole('button', { name: 'حفظ الإعدادات' }));
     expect(screen.getByRole('button', { name: 'تم حفظ الإعدادات على هذا الهاتف' })).toBeTruthy();
   });
+
+  it('يحفظ خلفية الاستديو وظل المنتج كإعدادات محلية اختيارية', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<UserTemplateSettings settings={DEFAULT_TEMPLATE_SETTINGS} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /استديو المنتج/ }));
+    fireEvent.click(screen.getByRole('button', { name: /دافئ/ }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ productBackdrop: 'warm' }));
+
+    const withWarmBackdrop = onChange.mock.calls.at(-1)?.[0];
+    rerender(<UserTemplateSettings settings={withWarmBackdrop} onChange={onChange} onBack={vi.fn()} onAbout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'ظل ثابت' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ productBackdrop: 'warm', productShadow: 'grounded' }));
+  });
 });

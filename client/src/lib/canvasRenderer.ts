@@ -1,4 +1,4 @@
-import { DEFAULT_PRODUCT_SCALE, PRODUCT_SCALE_MAX, PRODUCT_SCALE_MIN, type AdDetails, type TemplateBadgeType, type TemplateSettings, type TemplateSize } from '@shared/types';
+import { DEFAULT_PRODUCT_SCALE, PRODUCT_SCALE_MAX, PRODUCT_SCALE_MIN, type AdDetails, type ProductShadowPreset, type ProductStudioBackdrop, type TemplateBadgeType, type TemplateSettings, type TemplateSize } from '@shared/types';
 import { getArtworkTransform } from '@shared/artworkLayout';
 import { getDesignGeometry } from '@shared/designGeometry';
 import { getTemplateTheme, type TemplateThemePalette } from '@shared/templateThemes';
@@ -37,7 +37,8 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   drawTextHeader(ctx, details, template, geometry.header, layout, palette);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
-  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform, template.productScale);
+  drawHeroBackdrop(ctx, geometry.hero, template.productBackdrop || 'auto', palette);
+  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform, template.productScale, template.productShadow || 'soft');
   drawBadges(ctx, details, template, geometry.badge, layout, palette);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout, palette);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout, palette);
@@ -100,14 +101,51 @@ function drawTextHeader(ctx: CanvasRenderingContext2D, details: AdDetails, templ
   ctx.restore();
 }
 
-async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }, productScale?: number) {
+function drawHeroBackdrop(ctx: CanvasRenderingContext2D, box: Box, backdrop: ProductStudioBackdrop, palette: TemplateThemePalette) {
+  if (backdrop === 'auto') return;
+  ctx.save();
+  const colors: Record<Exclude<ProductStudioBackdrop, 'auto'>, [string, string]> = {
+    soft: ['rgba(255,255,255,.96)', palette.primarySoft],
+    warm: ['#fffaf0', '#f7e6c3'],
+    cool: ['#f4fbff', '#dbeef9'],
+    spotlight: ['rgba(255,255,255,.99)', 'rgba(232,227,245,.82)'],
+  };
+  const [center, edge] = colors[backdrop];
+  const gradient = ctx.createRadialGradient(box.x + box.width / 2, box.y + box.height * .38, Math.max(1, box.width * .04), box.x + box.width / 2, box.y + box.height / 2, Math.max(box.width, box.height) * .72);
+  gradient.addColorStop(0, center);
+  gradient.addColorStop(1, edge);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(box.x, box.y, box.width, box.height);
+  ctx.restore();
+}
+
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }, productScale?: number, shadow: ProductShadowPreset = 'soft') {
   // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
   const padding = Math.min(box.width, box.height) * .015;
   const safeBox = { x: box.x + padding, y: box.y + padding, width: box.width - padding * 2, height: box.height - padding * 2 };
   const selected = transform ? constrainedHeroTransform(safeBox, transform) : safeBox;
   ctx.save();
   ctx.beginPath(); ctx.rect(safeBox.x, safeBox.y, safeBox.width, safeBox.height); ctx.clip();
+  drawProductShadow(ctx, selected, shadow);
   await drawImageContain(ctx, imageSrc, selected.x, selected.y, selected.width, selected.height, visualMode, normalizeProductScale(productScale));
+  ctx.restore();
+}
+
+function drawProductShadow(ctx: CanvasRenderingContext2D, box: Box, shadow: ProductShadowPreset) {
+  if (shadow === 'none') return;
+  ctx.save();
+  const grounded = shadow === 'grounded';
+  const width = box.width * (grounded ? .58 : .46);
+  const height = Math.max(box.height * (grounded ? .08 : .055), 8);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height * (grounded ? .9 : .84);
+  const gradient = ctx.createRadialGradient(x, y, Math.max(1, width * .08), x, y, width / 2);
+  gradient.addColorStop(0, grounded ? 'rgba(43,37,72,.30)' : 'rgba(43,37,72,.18)');
+  gradient.addColorStop(1, 'rgba(43,37,72,0)');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.ellipse(x, y, width / 2, height, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
