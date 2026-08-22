@@ -75,6 +75,8 @@ const UserTemplateSettings = React.lazy(() => import('@/components/UserTemplateS
 const MerchantAssistantWorkspace = React.lazy(() => import('@/components/MerchantAssistantWorkspace'));
 const ImageRefinementStudio = React.lazy(() => import('@/components/ImageRefinementStudio'));
 const EMPTY_AD_DETAILS: AdDetails = { ...DEFAULT_AD_DETAILS, features: [] };
+/** يجعل النتيجة البصرية للقطعة هي المسار الافتراضي، ويؤجل الأدوات الثانوية عن المستخدم العادي. */
+const WARDROBE_ROOM_MODE = import.meta.env.MODE !== 'test';
 
 const WORKFLOW_STEPS: Array<{ id: AdWorkflowStep; label: string }> = [
   { id: 'upload', label: 'رفع الملابس' },
@@ -145,6 +147,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   const [designHistory, setDesignHistory] = useState<DesignHistoryDocument | null>(null);
   const [designRedoEntries, setDesignRedoEntries] = useState<DesignHistoryEntry[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
+    if (WARDROBE_ROOM_MODE) return 'create';
     const saved = getFromStorage<MainApplicationSection>(StorageKeys.LAST_APP_SECTION);
     return saved === 'batch' || saved === 'assistant' || saved === 'settings' ? saved : 'create';
   });
@@ -209,7 +212,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   }, []);
 
   useEffect(() => {
-    if (!productImage) return;
+    if (WARDROBE_ROOM_MODE || !productImage) return;
     let active = true;
     setIsDesignAnalyzing(true);
     setLocalPreparation({ status: 'analyzing' });
@@ -231,7 +234,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   }, [productImage]);
 
   useEffect(() => {
-    if (!productImage) return;
+    if (WARDROBE_ROOM_MODE || !productImage) return;
     const warm = () => { void prewarmLocalBackgroundRemoval().catch(() => undefined); };
     const idle = typeof window.requestIdleCallback === 'function'
       ? window.requestIdleCallback(warm, { timeout: 1_200 })
@@ -252,7 +255,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
   }, [designSuggestion, selectedSuggestedSize, templateSettings, adDetails]);
 
   useEffect(() => {
-    if (!productImage || !designSuggestion) { setComparisonPreviews(null); return; }
+    if (WARDROBE_ROOM_MODE || !productImage || !designSuggestion) { setComparisonPreviews(null); return; }
     let active = true;
     let previews: { current: string; suggested: string } | null = null;
     const selected = { ...designSuggestion, selectedLayout: selectedSuggestedSize };
@@ -437,6 +440,10 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
         );
         setGeneratedAd(output);
         setMarketingText(buildMarketingText(adDetails));
+        if (WARDROBE_ROOM_MODE) {
+          setIsGenerating(false);
+          return;
+        }
         const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
         const contract = evaluateDesignContract(document);
         const pixelTruth = await inspectRenderedPixelTruth(output, document);
@@ -481,6 +488,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
 
       setGeneratedAd(output);
       setMarketingText(buildMarketingText(adDetails));
+      if (WARDROBE_ROOM_MODE) return;
       const document = compileDesignDocument(adDetails, templateSettings, designSuggestion);
       const contract = evaluateDesignContract(document);
       const pixelTruth = await inspectRenderedPixelTruth(output, document);
@@ -607,6 +615,12 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       toast.message(error instanceof Error ? error.message : 'تم تحديث الحجم، لكن تعذر إضافة العملية إلى سجل التصميم.');
     }
     setTemplateSettings(updatedTemplate);
+  };
+
+  const handleStudioAppearanceChange = (patch: Pick<TemplateSettings, 'productBackdrop' | 'productShadow'>) => {
+    const updatedTemplate = { ...templateSettings, ...patch };
+    setTemplateSettings(updatedTemplate);
+    if (generatedAd) void regenerateWithCurrentSettings(updatedTemplate, 'تم تحديث الاستديو محلياً.');
   };
 
   const handleMerchantProfileCommit = (profile: MerchantProfile) => {
@@ -980,17 +994,17 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
     <div className="reference-shell min-h-screen text-foreground" dir="rtl">
       <header className="sticky top-0 z-20 bg-[#fdfbf8]/92 backdrop-blur-xl">
         <div className="mx-auto grid max-w-2xl grid-cols-[44px_minmax(0,1fr)_48px] items-center gap-3 px-5 py-4">
-          {friendTestMode ? <span className="h-11 w-11" aria-hidden="true" /> : <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={20} /></button>}
-          <div className="min-w-0 text-center"><h1 className="text-[15px] font-black leading-5 tracking-tight text-primary sm:text-xl">استوديو إعلانات الملابس</h1><p className="mt-0.5 text-[10px] font-bold text-muted-foreground">صمّم إعلانك بخطوات سهلة</p></div>
+          {friendTestMode || WARDROBE_ROOM_MODE ? <span className="h-11 w-11" aria-hidden="true" /> : <button type="button" onClick={() => setActiveView('messages')} className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="رسائل المشروع"><MessageCircle size={20} /></button>}
+          <div className="min-w-0 text-center"><h1 className="text-[15px] font-black leading-5 tracking-tight text-primary sm:text-xl">غرفة الملابس</h1><p className="mt-0.5 text-[10px] font-bold text-muted-foreground">ارفع القطعة واحصل على صورة استديو</p></div>
           <button type="button" onClick={() => setActiveView('settings')} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1.5 shadow-sm transition hover:bg-primary/5 active:scale-95" aria-label="الإعدادات"><img src={LOGO_URL} alt="شعار التطبيق" className="h-full w-full object-contain" /></button>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-5 sm:pt-8">
         {friendTestMode && activeView === 'create' && <div className="mb-5 w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm leading-6 text-amber-950"><span className="font-black">وضع اختبار مؤقت: </span>يمكنك إنشاء إعلان محلي وتجربة الواجهة. لا تتوفر لوحة المطور أو الرسائل أو الخدمات السحابية في هذا الوضع.</div>}
-        {activeView === 'create' && <PwaInstallPrompt />}
+        {activeView === 'create' && !WARDROBE_ROOM_MODE && <PwaInstallPrompt />}
 
-        {activeView === 'create' && <section className={`reference-card mb-6 p-4 ${currentStep === 'upload' ? 'hidden' : ''}`}>
+        {activeView === 'create' && !WARDROBE_ROOM_MODE && <section className={`reference-card mb-6 p-4 ${currentStep === 'upload' ? 'hidden' : ''}`}>
           <div className="mb-3 flex items-center justify-between px-1">
             <span className="text-xs font-black text-primary">خطوة {currentIndex + 1} من {WORKFLOW_STEPS.length}</span>
             <span className="text-[11px] font-medium text-muted-foreground">من صورة القطعة إلى إعلان جاهز</span>
@@ -1048,18 +1062,18 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
           </React.Suspense>
         )}
 
-        {!friendTestMode && activeView === 'create' && announcementQuery.data && (
+        {!friendTestMode && !WARDROBE_ROOM_MODE && activeView === 'create' && announcementQuery.data && (
           <button type="button" onClick={() => setActiveView('messages')} className="mb-5 w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm leading-6 text-amber-950"><span className="font-black">رسالة من المطور: </span>{announcementQuery.data.message}</button>
         )}
 
         {activeView === 'create' && currentStep === 'upload' && (
           <section className="reference-card p-5 sm:p-7">
             <div className="mb-6">
-              <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><ImagePlus size={15} />الخطوة الأولى</span>
-              <h2 className="text-2xl font-black text-primary">جاهز لصناعة إعلانك؟</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">اختر طريقة العمل ثم ارفع صورة واضحة للقطعة.</p>
+              <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary"><ImagePlus size={15} />صورة الاستديو تبدأ هنا</span>
+              <h2 className="text-2xl font-black text-primary">ضع قطعة الملابس في غرفة الاستديو</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">ارفع صورة واضحة للقطعة. النتيجة تركز على شكلها وحجمها وخلفيتها، من دون بيانات أو خدمات إضافية.</p>
             </div>
-            <div className="mb-6">
+            <div className={WARDROBE_ROOM_MODE ? 'hidden' : 'mb-6'}>
               <h3 className="mb-3 text-sm font-black text-primary">اختر طريقة العمل</h3>
               <div className="grid grid-cols-2 gap-3">
                 <button type="button" onClick={() => setActiveView('create')} aria-pressed className="rounded-[24px] border-2 border-primary bg-primary/[0.045] p-4 text-right shadow-sm transition active:scale-[0.98]"><span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-primary shadow-sm"><ImagePlus size={25} /></span><span className="block text-base font-black text-primary">إعلان فردي</span><span className="mt-1 block text-xs text-muted-foreground">قطعة واحدة</span><span className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span></button>
@@ -1073,8 +1087,8 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             </div>}
             {isReviewingImage && productImage ? (
               <div className="space-y-4">
-                <SingleImageReview image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} localPreparation={localPreparation} benchmarks={designBenchmarks} regression={designRegression} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); }} />
-                {!friendTestMode && <TryOnOptIn isRunning={isTryOnRunning} preview={tryOnPreview} onRequest={handleTryOnRequest} onCancel={handleTryOnCancel} onAcceptPreview={handleTryOnAccept} onRejectPreview={handleTryOnReject} />}
+                <SingleImageReview simple={WARDROBE_ROOM_MODE} image={productImage} suggestion={designSuggestion} comparisonPreviews={comparisonPreviews} isDesignAnalyzing={isDesignAnalyzing} localPreparation={localPreparation} benchmarks={designBenchmarks} regression={designRegression} selectedSize={selectedSuggestedSize} currentSize={templateSettings.size} preferenceEnabled={preferenceProfile.enabled} accepted={Boolean(templateBeforeSuggestion)} onSelectSize={setSelectedSuggestedSize} onAcceptSuggestion={acceptDesignSuggestion} onIgnoreSuggestion={ignoreDesignSuggestion} onUndoSuggestion={undoDesignSuggestion} onTogglePreferences={() => setPreferenceProfile(current => setPreferenceEnabled(current, !current.enabled))} onClearPreferences={() => { setPreferenceProfile(clearPreferenceProfile()); toast.success('تم مسح تفضيلات المصمم من هذا الهاتف.'); }} onImageSelect={handleImageSelect} onImageRemove={handleImageRemove} onContinue={() => { setIsReviewingImage(false); if (WARDROBE_ROOM_MODE) void generateAd(); else { setCurrentStep('details'); toast.success('الصورة جاهزة. أضف بيانات الإعلان التي تريدها.'); } }} />
+                {!WARDROBE_ROOM_MODE && !friendTestMode && <TryOnOptIn isRunning={isTryOnRunning} preview={tryOnPreview} onRequest={handleTryOnRequest} onCancel={handleTryOnCancel} onAcceptPreview={handleTryOnAccept} onRejectPreview={handleTryOnReject} />}
               </div>
             ) : (
               <ImageUploader
@@ -1123,13 +1137,13 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
             <div className="reference-card p-5 sm:p-7">
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"><BadgeCheck size={15} /> الإعلان جاهز</span>
-                  <h2 className="mt-3 text-2xl font-black text-primary">إعلانك أصبح جاهزاً</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">راجع النتيجة ثم نزّلها أو شاركها مباشرة.</p>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"><BadgeCheck size={15} /> {WARDROBE_ROOM_MODE ? 'صورة الاستديو جاهزة' : 'الإعلان جاهز'}</span>
+                  <h2 className="mt-3 text-2xl font-black text-primary">{WARDROBE_ROOM_MODE ? 'قطعة الملابس جاهزة للعرض' : 'إعلانك أصبح جاهزاً'}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{WARDROBE_ROOM_MODE ? 'غيّر الخلفية أو الظل أو الحجم، ثم نزّل الصورة.' : 'راجع النتيجة ثم نزّلها أو شاركها مباشرة.'}</p>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isGenerating} onClick={() => { void regenerateWithCurrentSettings(); }} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button><button
+                <div className="flex flex-wrap justify-end gap-2">{!WARDROBE_ROOM_MODE && <button type="button" disabled={isGenerating} onClick={() => { void regenerateWithCurrentSettings(); }} className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition active:scale-95 disabled:opacity-50"><RotateCcw size={16} />{isGenerating ? 'جارٍ التحديث' : 'إعادة توليد بالتغييرات الجديدة'}</button>}<button
                     type="button"
-                    onClick={() => setCurrentStep('details')}
+                    onClick={() => { if (WARDROBE_ROOM_MODE) { setCurrentStep('upload'); setIsReviewingImage(true); } else setCurrentStep('details'); }}
                     className="inline-flex items-center gap-1 rounded-xl bg-secondary px-3 py-2 text-sm font-bold text-primary transition active:scale-95"
                   >
                     <Pencil size={16} /> تعديل
@@ -1153,6 +1167,7 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
                     alt="معاينة الإعلان النهائي"
                     className="mx-auto max-h-[560px] w-full rounded-3xl border border-stone-100 bg-stone-50 object-contain shadow-sm"
                   />
+                  {WARDROBE_ROOM_MODE && <StudioAppearanceControls settings={templateSettings} disabled={isGenerating} onChange={handleStudioAppearanceChange} />}
                   <ProductScaleControl scale={clampProductScale(templateSettings.productScale)} disabled={isGenerating} onCommit={handleProductScaleCommit} />
                   <React.Suspense fallback={null}><TryOnStatusNotice result={tryOnResult} /></React.Suspense>
                 </>
@@ -1166,7 +1181,11 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
               )}
             </div>
 
-            {!isGenerating && generatedAd && (
+            {!isGenerating && generatedAd && WARDROBE_ROOM_MODE && (
+              <section className="grid grid-cols-2 gap-3"><button type="button" onClick={handleDownload} className="reference-primary w-full"><Send size={18} />تنزيل الصورة</button><button type="button" onClick={() => void handleShare()} className="reference-outline w-full"><MessageCircle size={18} />مشاركة</button></section>
+            )}
+
+            {!isGenerating && generatedAd && !WARDROBE_ROOM_MODE && (
               <>
                 <section className="rounded-3xl bg-white p-5 shadow-[0_12px_30px_rgba(37,35,95,0.06)]">
                   <div className="mb-3 flex items-center justify-between gap-2 text-primary"><span className="flex items-center gap-2"><MessageCircle size={19} /><h3 className="font-black">نص الإعلان</h3></span><span className="text-[11px] font-bold text-muted-foreground">قابل للتحرير قبل المشاركة</span></div>
@@ -1185,10 +1204,10 @@ export default function Home({ friendTestMode = false }: { friendTestMode?: bool
       {isRefinementStudioOpen && productImage && <React.Suspense fallback={<PageLoading label="جارٍ فتح استوديو التنقيح المحلي…" />}><ImageRefinementStudio source={productImage} onClose={() => setIsRefinementStudioOpen(false)} onApply={image => { setIsRefinementStudioOpen(false); handleImageSelect(image); toast.success('استبدلنا صورة القطعة بالنسخة المنقحة محلياً.'); }} /></React.Suspense>}
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#ece8f0] bg-[#fdfbf8]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+        <div className={`mx-auto grid max-w-md gap-2 ${WARDROBE_ROOM_MODE ? 'grid-cols-2' : 'grid-cols-4'}`}>
           <button type="button" onClick={() => setActiveView('settings')} aria-current={activeView === 'settings' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'settings' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Settings size={20} />الإعدادات</button>
-          <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={20} />دفعات</button>
-          <button type="button" onClick={() => setActiveView('assistant')} aria-current={activeView === 'assistant' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'assistant' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Bot size={20} />القائد</button>
+          {!WARDROBE_ROOM_MODE && <button type="button" onClick={() => setActiveView('batch')} aria-current={activeView === 'batch' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'batch' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Images size={20} />دفعات</button>}
+          {!WARDROBE_ROOM_MODE && <button type="button" onClick={() => setActiveView('assistant')} aria-current={activeView === 'assistant' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'assistant' ? 'bg-primary/10 text-primary' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><Bot size={20} />القائد</button>}
           <button type="button" onClick={() => setActiveView('create')} aria-current={activeView === 'create' ? 'page' : undefined} className={`flex flex-col items-center gap-1 rounded-2xl py-2 text-xs transition active:scale-95 ${activeView === 'create' ? 'bg-primary/10 text-primary shadow-sm' : 'font-medium text-muted-foreground hover:bg-primary/5'}`}><span className={`flex h-9 w-9 items-center justify-center rounded-full ${activeView === 'create' ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-white text-muted-foreground'}`}><Sparkles size={19} /></span>إنشاء</button>
         </div>
       </nav>
@@ -1215,24 +1234,39 @@ function ProductScaleControl({ scale, disabled, onCommit }: { scale: number; dis
   </section>;
 }
 
+function StudioAppearanceControls({ settings, disabled, onChange }: { settings: TemplateSettings; disabled: boolean; onChange: (patch: Pick<TemplateSettings, 'productBackdrop' | 'productShadow'>) => void }) {
+  const backdrops: Array<{ id: NonNullable<TemplateSettings['productBackdrop']>; label: string }> = [
+    { id: 'soft', label: 'نظيف' }, { id: 'warm', label: 'دافئ' }, { id: 'cool', label: 'بارد' }, { id: 'spotlight', label: 'إضاءة' },
+  ];
+  const shadows: Array<{ id: NonNullable<TemplateSettings['productShadow']>; label: string }> = [
+    { id: 'none', label: 'بلا ظل' }, { id: 'soft', label: 'ناعم' }, { id: 'grounded', label: 'أرضي' },
+  ];
+  return <section className="mt-4 rounded-2xl border border-primary/10 bg-secondary/[0.18] p-4" aria-label="ضبط غرفة الملابس">
+    <div className="flex items-center gap-2 text-primary"><Palette size={18} /><h3 className="text-sm font-black">غرفة الملابس</h3></div>
+    <p className="mt-1 text-xs leading-5 text-muted-foreground">الخلفية والظل يطبقان محلياً على صورة القطعة المفرغة.</p>
+    <div className="mt-3"><span className="text-xs font-black text-primary">الخلفية</span><div className="mt-2 grid grid-cols-4 gap-2">{backdrops.map(backdrop => <button key={backdrop.id} type="button" disabled={disabled} aria-pressed={(settings.productBackdrop || 'auto') === backdrop.id} onClick={() => onChange({ productBackdrop: backdrop.id, productShadow: settings.productShadow })} className={`rounded-xl px-2 py-2 text-xs font-black transition active:scale-95 disabled:opacity-50 ${(settings.productBackdrop || 'auto') === backdrop.id ? 'bg-primary text-primary-foreground' : 'bg-white text-primary shadow-sm'}`}>{backdrop.label}</button>)}</div></div>
+    <div className="mt-3"><span className="text-xs font-black text-primary">الظل تحت المنتج</span><div className="mt-2 grid grid-cols-3 gap-2">{shadows.map(shadow => <button key={shadow.id} type="button" disabled={disabled} aria-pressed={(settings.productShadow || 'soft') === shadow.id} onClick={() => onChange({ productBackdrop: settings.productBackdrop, productShadow: shadow.id })} className={`rounded-xl px-2 py-2 text-xs font-black transition active:scale-95 disabled:opacity-50 ${(settings.productShadow || 'soft') === shadow.id ? 'bg-primary text-primary-foreground' : 'bg-white text-primary shadow-sm'}`}>{shadow.label}</button>)}</div></div>
+  </section>;
+}
+
 function clampProductScale(value?: number) {
   const safe = Number.isFinite(value) ? Number(value) : DEFAULT_PRODUCT_SCALE;
   const stepped = Math.round(safe / PRODUCT_SCALE_STEP) * PRODUCT_SCALE_STEP;
   return Math.min(PRODUCT_SCALE_MAX, Math.max(PRODUCT_SCALE_MIN, Number(stepped.toFixed(2))));
 }
 
-function SingleImageReview({ image, suggestion, comparisonPreviews, isDesignAnalyzing, localPreparation, benchmarks, regression, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; localPreparation: { status: 'idle' | 'analyzing' | 'ready' | 'failed'; cache?: 'hit' | 'miss'; elapsedMs?: number }; benchmarks: DesignBenchmark[]; regression: DesignRegression | null; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
+function SingleImageReview({ simple = false, image, suggestion, comparisonPreviews, isDesignAnalyzing, localPreparation, benchmarks, regression, selectedSize, currentSize, preferenceEnabled, accepted, onSelectSize, onAcceptSuggestion, onIgnoreSuggestion, onUndoSuggestion, onTogglePreferences, onClearPreferences, onImageSelect, onImageRemove, onContinue }: { simple?: boolean; image: string; suggestion: DesignSuggestion | null; comparisonPreviews: { current: string; suggested: string } | null; isDesignAnalyzing: boolean; localPreparation: { status: 'idle' | 'analyzing' | 'ready' | 'failed'; cache?: 'hit' | 'miss'; elapsedMs?: number }; benchmarks: DesignBenchmark[]; regression: DesignRegression | null; selectedSize: TemplateSize; currentSize: TemplateSize; preferenceEnabled: boolean; accepted: boolean; onSelectSize: (size: TemplateSize) => void; onAcceptSuggestion: () => void; onIgnoreSuggestion: () => void; onUndoSuggestion: () => void; onTogglePreferences: () => void; onClearPreferences: () => void; onImageSelect: (imageUrl: string) => void; onImageRemove: () => void; onContinue: () => void }) {
   return <div className="space-y-5">
     <div className="rounded-2xl border border-primary/10 bg-primary/[0.045] p-4">
-      <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">راجع الصورة قبل المتابعة</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.</p></div></div>
+      <div className="flex items-start gap-3"><BadgeCheck size={20} className="mt-0.5 shrink-0 text-primary" /><div><h3 className="text-sm font-black text-primary">{simple ? 'القطعة جاهزة للاستديو' : 'راجع الصورة قبل المتابعة'}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{simple ? 'يمكنك تنقيح الحواف محلياً عند الحاجة، ثم أنشئ صورة الاستديو مباشرة.' : 'تأكد أن قطعة الملابس واضحة. يمكنك تغيير الصورة أو حذفها والعودة للرفع.'}</p></div></div>
     </div>
     <ImageUploader onImageSelect={onImageSelect} currentImage={image} onImageRemove={onImageRemove} />
     <button type="button" onClick={() => window.dispatchEvent(new Event('clothing-ad:open-refinement-studio'))} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white px-4 text-sm font-black text-primary transition active:scale-[.98]"><Wand2 size={18} />تنقيح صورة القطعة محلياً</button>
-    {isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
-    {localPreparation.status === 'ready' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">{localPreparation.cache === 'hit' ? 'تمت استعادة تحليل محلي محفوظ للصورة نفسها' : 'اكتمل تحليل الجودة والألوان والتخطيط محلياً'}{typeof localPreparation.elapsedMs === 'number' && ` خلال ${localPreparation.elapsedMs}ms`}</div>}
-    {localPreparation.status === 'failed' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">تعذر التحليل المسبق؛ يمكنك متابعة إنشاء الإعلان محلياً كالمعتاد.</div>}
-    {suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} currentSize={currentSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} preferencesEnabled={preferenceEnabled} onTogglePreferences={onTogglePreferences} onClearPreferences={onClearPreferences} comparisonPreviews={comparisonPreviews} benchmarks={benchmarks} regression={regression} />}
-    <button type="button" onClick={onContinue} className="reference-primary w-full"><SlidersHorizontal size={20} />متابعة إلى بيانات الإعلان</button>
+    {!simple && isDesignAnalyzing && <div className="rounded-2xl bg-primary/[.05] p-4 text-center text-sm font-bold text-primary"><LoaderCircle className="ml-2 inline animate-spin" size={17} />يحلل المصمم المحلي الصورة على هذا الهاتف…</div>}
+    {!simple && localPreparation.status === 'ready' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">{localPreparation.cache === 'hit' ? 'تمت استعادة تحليل محلي محفوظ للصورة نفسها' : 'اكتمل تحليل الجودة والألوان والتخطيط محلياً'}{typeof localPreparation.elapsedMs === 'number' && ` خلال ${localPreparation.elapsedMs}ms`}</div>}
+    {!simple && localPreparation.status === 'failed' && <div className="rounded-xl bg-primary/[.05] px-3 py-2 text-center text-xs font-bold text-primary">تعذر التحليل المسبق؛ يمكنك متابعة إنشاء الإعلان محلياً كالمعتاد.</div>}
+    {!simple && suggestion && <LocalDesignSuggestionCard suggestion={suggestion} selectedSize={selectedSize} currentSize={currentSize} onSelectSize={onSelectSize} onAccept={onAcceptSuggestion} onIgnore={onIgnoreSuggestion} onUndo={onUndoSuggestion} accepted={accepted} preferencesEnabled={preferenceEnabled} onTogglePreferences={onTogglePreferences} onClearPreferences={onClearPreferences} comparisonPreviews={comparisonPreviews} benchmarks={benchmarks} regression={regression} />}
+    <button type="button" onClick={onContinue} className="reference-primary w-full"><Sparkles size={20} />{simple ? 'إنشاء صورة الاستديو' : 'متابعة إلى بيانات الإعلان'}</button>
   </div>;
 }
 

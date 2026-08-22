@@ -97,16 +97,16 @@ describe('Canvas advertisement renderer', () => {
     await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:transparent-person', { width: 1080, height: 1350, visualMode: 'transparentPerson' });
     const personY = context.__drawImage.mock.calls.at(-1)?.[2] as number;
 
-    expect(personY).toBeGreaterThan(garmentY);
+    expect(personY).toBeLessThan(garmentY);
   });
 
   it('يكبر المنتج داخل منطقة البطل عند اختيار حجم أكبر من الافتراضي من دون تغيير عناصر القالب الأخرى', async () => {
     context.__drawImage.mockClear();
-    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: 1 }, 'blob:garment-image', { width: 1080, height: 1350 });
+    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: .76 }, 'blob:garment-image', { width: 1080, height: 1350 });
     const normalWidth = context.__drawImage.mock.calls.at(-1)?.[3] as number;
 
     context.__drawImage.mockClear();
-    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: 1.4 }, 'blob:garment-image', { width: 1080, height: 1350 });
+    await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productScale: 1 }, 'blob:garment-image', { width: 1080, height: 1350 });
     const enlargedWidth = context.__drawImage.mock.calls.at(-1)?.[3] as number;
 
     expect(enlargedWidth).toBeGreaterThan(normalWidth);
@@ -165,5 +165,13 @@ describe('Canvas advertisement renderer', () => {
   it('يرسم خلفية استديو وظل منتج محليين عند اختيارهما من الإعدادات', async () => {
     await renderAd(DEFAULT_AD_DETAILS, { ...DEFAULT_TEMPLATE_SETTINGS, productBackdrop: 'spotlight', productShadow: 'grounded' }, 'blob:garment-image', { width: 1080, height: 1350 });
     expect(context.__createRadialGradient).toHaveBeenCalledTimes(2);
+  });
+
+  it('يعطي قالب غرفة الملابس الافتراضي مساحة استديو كبيرة للقطعة من دون نص أو شارات افتراضية', async () => {
+    await renderAd(DEFAULT_AD_DETAILS, DEFAULT_TEMPLATE_SETTINGS, 'blob:garment-image', { width: 1080, height: 1350 });
+    const garmentCall = context.__drawImage.mock.calls.at(-1);
+    expect(garmentCall?.[1]).toBeGreaterThan(160);
+    expect(garmentCall?.[3]).toBeGreaterThan(550);
+    expect(context.__fillText).not.toHaveBeenCalledWith('✓', expect.any(Number), expect.any(Number));
   });
 });

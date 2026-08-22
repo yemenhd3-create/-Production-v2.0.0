@@ -190,10 +190,10 @@ export interface DesignSuggestion {
 }
 export type TemplateBadgeType = 'none' | 'discount' | 'new' | 'offer' | 'price' | 'quality';
 /** حجم القطعة داخل مساحتها الآمنة؛ يحمي القص من التداخل مع عناصر القالب. */
-export const PRODUCT_SCALE_MIN = 0.85;
-export const PRODUCT_SCALE_MAX = 1.5;
-export const PRODUCT_SCALE_STEP = 0.05;
-export const DEFAULT_PRODUCT_SCALE = 1.15;
+export const PRODUCT_SCALE_MIN = 0.72;
+export const PRODUCT_SCALE_MAX = 1;
+export const PRODUCT_SCALE_STEP = 0.04;
+export const DEFAULT_PRODUCT_SCALE = 0.92;
 /** نمط بصري محلي مستقل عن مقاس التصدير؛ يبقى اختياريًا لتوافق المسودات القديمة. */
 export type TemplateVisualTheme = 'classic' | 'midnight' | 'rose' | 'mint' | 'sand';
 /** خلفية استديو محلية داخل منطقة المنتج؛ لا تتطلب نموذج صور أو اتصالاً خارجياً. */
@@ -453,7 +453,7 @@ export const DEFAULT_AD_DETAILS: AdDetails = {
   colors: [],
   price: '',
   currency: DEFAULT_CURRENCY,
-  features: ['خامة عالية الجودة', 'قطن ناعم ومريح'],
+  features: [],
   storeName: '',
   storePhone: '',
   marketingText: '',
@@ -474,13 +474,13 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   showDiscount: true,
   showQuantity: true,
   showColors: true,
-  showFeatures: true,
+  showFeatures: false,
   showPrice: true,
   showStoreInfo: true,
   showFrame: false,
-  showQualityMark: true,
-  badgeType: 'discount',
-  badgeTypes: ['discount'],
+  showQualityMark: false,
+  badgeType: 'none',
+  badgeTypes: [],
   badgeText: '',
   showHeaderArtwork: false,
   headerArtwork: '',
@@ -490,7 +490,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   footerArtwork: '',
   artworkLayouts: {},
   productScale: DEFAULT_PRODUCT_SCALE,
-  productBackdrop: 'auto',
+  productBackdrop: 'soft',
   productShadow: 'soft',
 };
 

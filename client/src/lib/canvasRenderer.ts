@@ -29,6 +29,8 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   const layout: Layout = { width, height, scale: width / 1080, font: (weight, size) => `${weight} ${Math.round(size * (width / 1080))}px ${TEMPLATE_FONT_FAMILY}` };
   const geometry = createGeometry(template.size, width, height);
   const palette = getTemplateTheme(template.visualTheme).palette;
+  const studioOnly = isStudioOnly(details, template);
+  const hero = studioOnly ? createStudioHero(template.size, width, height) : geometry.hero;
   ctx.fillStyle = template.smartBackgroundColor || palette.background;
   ctx.fillRect(0, 0, width, height);
 
@@ -37,8 +39,9 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
   drawTextHeader(ctx, details, template, geometry.header, layout, palette);
   if (template.showStoreLogo && template.storeLogoArtwork) await drawCircularLogo(ctx, template.storeLogoArtwork, toPixelBox(logoTransform, width, height));
 
-  drawHeroBackdrop(ctx, geometry.hero, template.productBackdrop || 'auto', palette);
-  await drawHero(ctx, productImageSrc, geometry.hero, options.visualMode || 'garment', options.garmentTransform || template.smartGarmentTransform, template.productScale, template.productShadow || 'soft');
+  if (studioOnly) drawStudioStage(ctx, hero, template.productBackdrop || 'auto', palette);
+  else drawHeroBackdrop(ctx, hero, template.productBackdrop || 'auto', palette);
+  await drawHero(ctx, productImageSrc, hero, options.visualMode || 'garment', studioOnly ? undefined : (options.garmentTransform || template.smartGarmentTransform), template.productScale, template.productShadow || 'soft', studioOnly);
   drawBadges(ctx, details, template, geometry.badge, layout, palette);
   if (template.showQuantity || template.showColors) drawInformationPanel(ctx, details, template, geometry.info, layout, palette);
   if (template.showPrice && details.price.trim()) drawPricePanel(ctx, details, geometry.price, layout, palette);
@@ -48,6 +51,18 @@ export async function renderAd(details: AdDetails, template: TemplateSettings, p
 
   const blob = await canvasToBlob(canvas, 'image/png', options.quality || 0.92);
   return URL.createObjectURL(blob);
+}
+
+function isStudioOnly(details: AdDetails, template: TemplateSettings) {
+  return !details.productName.trim() && !details.headline.trim() && !details.price.trim()
+    && !details.quantity.trim() && details.colors.length === 0 && details.features.filter(Boolean).length === 0
+    && !details.storeName.trim() && !details.storePhone.trim() && !template.storeLogoArtwork && !template.footerArtwork;
+}
+
+function createStudioHero(size: TemplateSize, width: number, height: number): Box {
+  if (size === 'landscape') return { x: width * .12, y: height * .08, width: width * .76, height: height * .82 };
+  if (size === 'story') return { x: width * .075, y: height * .045, width: width * .85, height: height * .86 };
+  return { x: width * .09, y: height * .065, width: width * .82, height: height * .80 };
 }
 
 function resolveCanvasSize(size: TemplateSize, requestedWidth?: number, requestedHeight?: number) {
@@ -119,15 +134,36 @@ function drawHeroBackdrop(ctx: CanvasRenderingContext2D, box: Box, backdrop: Pro
   ctx.restore();
 }
 
-async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }, productScale?: number, shadow: ProductShadowPreset = 'soft') {
-  // لا توجد بطاقة أو ظل داخلي: مساحة البطل البيضاء هي خلفية القالب نفسها.
-  const padding = Math.min(box.width, box.height) * .015;
+function drawStudioStage(ctx: CanvasRenderingContext2D, box: Box, backdrop: ProductStudioBackdrop, palette: TemplateThemePalette) {
+  ctx.save();
+  const colors: Record<ProductStudioBackdrop, [string, string]> = {
+    auto: ['#ffffff', '#f1edf8'],
+    soft: ['rgba(255,255,255,.99)', palette.primarySoft],
+    warm: ['#fffdf7', '#f4dfbd'],
+    cool: ['#fbfdff', '#dceefa'],
+    spotlight: ['#ffffff', '#e7ddf5'],
+  };
+  const [center, edge] = colors[backdrop];
+  const gradient = ctx.createRadialGradient(box.x + box.width / 2, box.y + box.height * .35, Math.max(1, box.width * .02), box.x + box.width / 2, box.y + box.height * .52, Math.max(box.width, box.height) * .7);
+  gradient.addColorStop(0, center);
+  gradient.addColorStop(1, edge);
+  roundedRect(ctx, box.x, box.y, box.width, box.height, Math.min(box.width, box.height) * .055);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.restore();
+}
+
+async function drawHero(ctx: CanvasRenderingContext2D, imageSrc: string, box: Box, visualMode: 'garment' | 'transparentPerson', transform?: { x: number; y: number; width: number; height: number }, productScale?: number, shadow: ProductShadowPreset = 'soft', studioOnly = false) {
+  const padding = Math.min(box.width, box.height) * (studioOnly ? .06 : .015);
   const safeBox = { x: box.x + padding, y: box.y + padding, width: box.width - padding * 2, height: box.height - padding * 2 };
   const selected = transform ? constrainedHeroTransform(safeBox, transform) : safeBox;
+  const image = await loadImage(imageSrc);
+  const placement = calculateImagePlacement(image, selected, visualMode, studioOnly ? Math.min(.92, normalizeProductScale(productScale)) : normalizeProductScale(productScale));
   ctx.save();
   ctx.beginPath(); ctx.rect(safeBox.x, safeBox.y, safeBox.width, safeBox.height); ctx.clip();
-  drawProductShadow(ctx, selected, shadow);
-  await drawImageContain(ctx, imageSrc, selected.x, selected.y, selected.width, selected.height, visualMode, normalizeProductScale(productScale));
+  drawProductShadow(ctx, placement, shadow);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, placement.x, placement.y, placement.width, placement.height);
   ctx.restore();
 }
 
@@ -138,7 +174,7 @@ function drawProductShadow(ctx: CanvasRenderingContext2D, box: Box, shadow: Prod
   const width = box.width * (grounded ? .58 : .46);
   const height = Math.max(box.height * (grounded ? .08 : .055), 8);
   const x = box.x + box.width / 2;
-  const y = box.y + box.height * (grounded ? .9 : .84);
+  const y = box.y + box.height * (grounded ? .97 : .94);
   const gradient = ctx.createRadialGradient(x, y, Math.max(1, width * .08), x, y, width / 2);
   gradient.addColorStop(0, grounded ? 'rgba(43,37,72,.30)' : 'rgba(43,37,72,.18)');
   gradient.addColorStop(1, 'rgba(43,37,72,0)');
@@ -284,18 +320,19 @@ async function drawCircularLogo(ctx: CanvasRenderingContext2D, source: string, b
   ctx.save(); ctx.beginPath(); ctx.arc(x + diameter / 2, y + diameter / 2, diameter / 2, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.94)'; ctx.lineWidth = Math.max(2, diameter * .055); ctx.stroke(); ctx.restore();
 }
 
-async function drawImageContain(ctx: CanvasRenderingContext2D, imageSrc: string, x: number, y: number, maxWidth: number, maxHeight: number, visualMode: 'garment' | 'transparentPerson', productScale: number) {
-  const image = await loadImage(imageSrc);
+function calculateImagePlacement(image: HTMLImageElement, box: Box, visualMode: 'garment' | 'transparentPerson', productScale: number): Box {
   const usesPersonPlacement = visualMode === 'transparentPerson';
-  const widthLimit = usesPersonPlacement ? maxWidth * .94 : maxWidth;
-  const heightLimit = usesPersonPlacement ? maxHeight * .985 : maxHeight;
+  const widthLimit = usesPersonPlacement ? box.width * .94 : box.width;
+  const heightLimit = usesPersonPlacement ? box.height * .985 : box.height;
   const ratio = Math.min(widthLimit / image.width, heightLimit / image.height);
   const renderedScale = usesPersonPlacement ? 1 : productScale;
   const drawWidth = Math.max(1, image.width * ratio * renderedScale); const drawHeight = Math.max(1, image.height * ratio * renderedScale);
-  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  const drawX = x + (maxWidth - drawWidth) / 2;
-  const drawY = usesPersonPlacement ? y + maxHeight - drawHeight - maxHeight * .012 : y + (maxHeight - drawHeight) / 2;
-  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight); ctx.restore();
+  return {
+    x: box.x + (box.width - drawWidth) / 2,
+    y: usesPersonPlacement ? box.y + box.height - drawHeight - box.height * .012 : box.y + (box.height - drawHeight) / 2,
+    width: drawWidth,
+    height: drawHeight,
+  };
 }
 
 function loadImage(source: string): Promise<HTMLImageElement> {

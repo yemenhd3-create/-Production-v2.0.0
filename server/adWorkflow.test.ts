@@ -16,7 +16,7 @@ describe('three-step advertisement workflow defaults', () => {
   it('allows a local advertisement to start without mandatory product fields', () => {
     expect(DEFAULT_AD_DETAILS.productName).toBe('');
     expect(DEFAULT_AD_DETAILS.price).toBe('');
-    expect(DEFAULT_AD_DETAILS.features).toHaveLength(2);
+    expect(DEFAULT_AD_DETAILS.features).toHaveLength(0);
   });
 
   it('keeps visual toggles enabled by default for the regular user', () => {

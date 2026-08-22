@@ -266,7 +266,7 @@ describe('Home Try-On workflow', () => {
 
     await waitFor(() => expect(renderAd).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ productScale: 1.2 }),
+      expect.objectContaining({ productScale: .96 }),
       'blob:transparent-garment',
       expect.objectContaining({ visualMode: 'garment' })
     ));

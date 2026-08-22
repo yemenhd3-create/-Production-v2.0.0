@@ -8,7 +8,7 @@ describe('Merchant Assistant rules-first commands', () => {
     const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS }, createMerchantProfile(), commands);
 
     expect(result.template.visualTheme).toBe('midnight');
-    expect(result.template.productScale).toBe(1.2);
+    expect(result.template.productScale).toBe(.96);
     expect(result.template.showHeadline).toBe(false);
     expect(result.template.showPrice).toBe(DEFAULT_TEMPLATE_SETTINGS.showPrice);
     expect(result.template.showStoreLogo).toBe(DEFAULT_TEMPLATE_SETTINGS.showStoreLogo);
@@ -29,7 +29,7 @@ describe('Merchant Assistant rules-first commands', () => {
     const commands = parseMerchantCommands('تكبير الملابس وإضافة العنوان وإخفاء الشعار النصي والشعار الصوري');
     const result = applyMerchantCommands({ ...DEFAULT_TEMPLATE_SETTINGS, showHeadline: false, showStoreInfo: true, showStoreLogo: true }, createMerchantProfile(), commands);
 
-    expect(result.template.productScale).toBe(1.2);
+    expect(result.template.productScale).toBe(.96);
     expect(result.template.showHeadline).toBe(true);
     expect(result.template.showStoreInfo).toBe(false);
     expect(result.template.showStoreLogo).toBe(false);

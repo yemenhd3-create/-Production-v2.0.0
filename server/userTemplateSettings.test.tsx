@@ -59,7 +59,7 @@ describe('طبقات هوية المتجر في الإعدادات', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /شارات العرض/ }));
     fireEvent.click(screen.getByRole('button', { name: 'جديد' }));
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ badgeTypes: ['discount', 'new'] }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ badgeTypes: ['new'] }));
 
     fireEvent.click(screen.getByRole('button', { name: 'حفظ الإعدادات' }));
     expect(screen.getByRole('button', { name: 'تم حفظ الإعدادات على هذا الهاتف' })).toBeTruthy();
